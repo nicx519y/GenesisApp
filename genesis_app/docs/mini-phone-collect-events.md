@@ -95,7 +95,7 @@
 
 页面枚举：`home / messages / chat / posts / comments / create / photos / music / settings / models`。
 
-外部入口：`world_dock / location_chat_dock / location_chat_avatar / location_chat_roster / world_history_avatar`。`world_history_avatar` 用于 World History Sheet 角色头像直达私聊。正式调用方必须传入；公开入口为兼容现有调用保留 `unknown` 默认值。
+外部入口包括 `world_dock / location_chat_dock / location_chat_avatar / location_chat_roster / world_history_avatar / world_detail_avatar`。`world_history_avatar` 和 `world_detail_avatar` 分别用于 World History Sheet 和 World 详细资料 Sheet 的角色头像直达私聊。正式调用方必须传入；公开入口为兼容现有调用保留 `unknown` 默认值。
 
 导航来源：`home_icon / home_notification / home_music_card / messages_list / posts_feed / header / back / restore`。初次页面使用外部入口来源，恢复上次页面通过 `is_restored` 区分；用户返回为 back，账号上下文重建可使用 restore。
 

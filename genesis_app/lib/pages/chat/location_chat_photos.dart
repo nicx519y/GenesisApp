@@ -27,10 +27,8 @@ extension _LocationChatPhotos on _LocationChatPanelState {
   );
 
   void _resetPhotoVisit() {
-    _photoVisitService?.releaseMessageWindow(_photoNavigationOwner);
-    _photoReveal = null;
-    _photoCardPreview = null;
     _photoArrivalRequests.clear();
+    _photoReplacementRequests.clear();
     _photoArrivalIndexKey = null;
     _photoArrivalTaskIds = const {};
     _photoVisit++;
@@ -59,9 +57,6 @@ extension _LocationChatPhotos on _LocationChatPanelState {
     );
     final visit = _photoVisit;
     final location = widget.locationId;
-    final target = service.photoNavigationTarget;
-    final navigate = target != null && target.locationId == location;
-    if (navigate) service.photoNavigationTarget = null;
     unawaited(
       Future<void>(() async {
         if (!mounted ||
@@ -70,9 +65,6 @@ extension _LocationChatPhotos on _LocationChatPanelState {
             revision != services.sessionRevision.value) {
           return;
         }
-        final navigation = navigate
-            ? _scrollCoordinator.beginHistoryNavigation()
-            : null;
         await service.recoverPhotos(location);
         if (!mounted ||
             !widget.active ||
@@ -83,95 +75,8 @@ extension _LocationChatPhotos on _LocationChatPanelState {
         }
         _photoVisibility.calibrated = true;
         _handleChatroomState(service.state, forceMessageReconcile: true);
-        if (navigate && navigation == _scrollCoordinator.commandGeneration) {
-          await _navigateToPhoto(target, service, visit, navigation!);
-        }
       }),
     );
-  }
-
-  Future<void> _navigateToPhoto(
-    ChatPhotoTarget target,
-    WorldChatroomService service,
-    int visit,
-    int navigation,
-  ) async {
-    final services = AppServicesScope.read(context);
-    final revision = _photoVisitSessionRevision;
-    bool current() =>
-        mounted &&
-        revision == services.sessionRevision.value &&
-        widget.active &&
-        visit == _photoVisit &&
-        identical(service, _service) &&
-        navigation == _scrollCoordinator.commandGeneration;
-    try {
-      final window = await service.loadPhotoNavigationWindow(
-        target,
-        owner: _photoNavigationOwner,
-        isCurrent: current,
-      );
-      if (!mounted || !current()) return;
-      final cardMessage = target.cardId == null || window == null
-          ? null
-          : await _replyController?.revealPhotoCard(
-              target.locationId,
-              target.roundId,
-              target.cardId!,
-              target.globalMessageId,
-              isCurrent: current,
-            );
-      if (!mounted || !current()) return;
-      if (window == null || (target.cardId != null && cardMessage == null)) {
-        showGenesisToast(
-          context,
-          context.l10n.chatPhotoUnavailable,
-          brightness: Brightness.dark,
-        );
-        _scrollCoordinator.requestBottom(
-          reason: LocationChatBottomReason.unseenMessageNotice,
-          behavior: LocationChatBottomBehavior.jump,
-        );
-        return;
-      }
-      final message =
-          cardMessage ??
-          window.messages.firstWhere(
-            (m) => m.globalMessageId == target.globalMessageId,
-          );
-      if (target.cardId != null) {
-        _photoCardPreview = (roundId: target.roundId, cardId: target.cardId!);
-      }
-      _olderMessagesCursor = window.messages.first.locationMessageId;
-      _hasMoreOlderMessages = window.hasMore;
-      _olderMessagesExhaustedByRemote = !window.hasMore;
-      _handleChatroomState(service.state, forceMessageReconcile: true);
-      if (!mounted || !current()) return;
-      _setLocationChatState(
-        () => _photoReveal = (
-          generation: navigation,
-          localId: target.cardId == null
-              ? locationChatMessageLocalId(message)
-              : 'reply:${widget.worldId}:${widget.locationId}:${target.roundId}:${target.cardId}:${target.globalMessageId}',
-        ),
-      );
-    } catch (error) {
-      if (mounted && current()) {
-        showGenesisToast(
-          context,
-          apiErrorMessage(error),
-          brightness: Brightness.dark,
-        );
-        _scrollCoordinator.requestBottom(
-          reason: LocationChatBottomReason.unseenMessageNotice,
-          behavior: LocationChatBottomBehavior.jump,
-        );
-      }
-    } finally {
-      if (!current() || _photoReveal == null) {
-        service.releaseMessageWindow(_photoNavigationOwner);
-      }
-    }
   }
 
   bool _photoVisible(WorldChatroomMessage message) {
@@ -301,9 +206,23 @@ extension _LocationChatPhotos on _LocationChatPanelState {
           rethrow;
         }
       }
+      final roundId = request.roundId;
+      final cardId = request.cardId;
+      final round = roundId == null
+          ? null
+          : controller.stateForRound(location, roundId);
+      final targetMessages = cardId == null
+          ? round?.formalReplyMessages
+          : round?.messagesForCard(cardId);
+      final replacesPhoto =
+          targetMessages?.any((m) => m.photo?.imageUrl.isNotEmpty == true) ??
+          false;
       _setReplyControlsState(() {
         _takingScenePhoto = true;
+        // A retry still needs to be the latest dispatch for the viewport.
+        _photoArrivalRequests.remove(request.requestId);
         _photoArrivalRequests.add(request.requestId);
+        if (replacesPhoto) _photoReplacementRequests.add(request.requestId);
       });
       final monitor = service.photoGenerationMonitor;
       monitor?.start('chat', request.requestId, locationId: location);

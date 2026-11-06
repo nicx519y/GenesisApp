@@ -81,8 +81,10 @@ extension ChatroomReplyPhotos on ChatroomReplyActionsController {
     }
     var changed = false;
     for (final id in currentIds) {
-      final card = returned[id]!;
       final index = state._cards.indexWhere((c) => c.cardId == id);
+      final card = index < 0
+          ? returned[id]!
+          : _mergeCardPhotos(state._cards[index], returned[id]!);
       if (index >= 0 && _samePhotoCard(state._cards[index], card)) continue;
       if (index < 0) {
         state._cards.add(card);
@@ -99,6 +101,31 @@ extension ChatroomReplyPhotos on ChatroomReplyActionsController {
     }
     return currentIds;
   }
+
+  // GET cards also carries text generation metadata. A photo read must not
+  // replace an already known text attempt (or its local stream decoding
+  // provenance), even when the response describes the same visible text with
+  // different request/attempt fields. Text events and normal card recovery
+  // remain authoritative for text changes; this path owns only live_photo.
+  ChatroomLlmCard _mergeCardPhotos(
+    ChatroomLlmCard current,
+    ChatroomLlmCard incoming,
+  ) => ChatroomLlmCard(
+    cardId: current.cardId,
+    cardIndex: current.cardIndex,
+    isOriginal: current.isOriginal,
+    generationState: current.generationState,
+    canEdit: current.canEdit,
+    canDelete: current.canDelete,
+    messages: [
+      ...current.messages.where((m) => m.message.type != 'live_photo'),
+      ...incoming.messages.where((m) => m.message.type == 'live_photo'),
+    ]..sort((a, b) => a.cardMessageIndex.compareTo(b.cardMessageIndex)),
+    billing: current.billing,
+    createdAt: current.createdAt,
+    rawJson: current.rawJson,
+    error: current.error,
+  );
 
   bool _samePhotoCard(ChatroomLlmCard a, ChatroomLlmCard b) =>
       a.cardId == b.cardId &&
@@ -170,29 +197,5 @@ extension ChatroomReplyPhotos on ChatroomReplyActionsController {
     _invalidateCardsCache(state);
     _notify(state.locationId);
     await _persist(state);
-  }
-
-  Future<WorldChatroomMessage?> revealPhotoCard(
-    String location,
-    int round,
-    int cardId,
-    int messageId, {
-    bool Function()? isCurrent,
-  }) async {
-    await refreshPhotoCard(location, round, cardId);
-    if (isCurrent != null && !isCurrent()) return null;
-    final state = _state(location, round);
-    final card = state._card(cardId);
-    final message = card?.messages
-        .where(
-          (m) =>
-              m.globalMessageId == messageId && m.message.type == 'live_photo',
-        )
-        .firstOrNull;
-    if (message == null) return null;
-    state._viewedCardId = cardId;
-    state._presentationRevision++;
-    _notify(location);
-    return _candidateToWorld(message);
   }
 }

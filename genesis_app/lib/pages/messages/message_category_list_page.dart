@@ -384,10 +384,8 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage>
         RouteNames.world,
         arguments: {
           'wid': item.bizId,
-          if (item.photoTarget != null) ...{
+          if (item.photoTarget != null)
             'initial_location_id': item.photoTarget!.locationId,
-            'initial_photo_target': item.photoTarget,
-          },
           if (item.cameraTarget != null)
             'initial_camera_target': item.cameraTarget,
         },

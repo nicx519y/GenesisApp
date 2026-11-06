@@ -36,6 +36,7 @@ class CreateUploadBox extends StatefulWidget {
     this.emptyLabelColor = createFormMuted,
     this.previewMaxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
     this.previewUrlBuilder,
+    this.previewBuilder,
   });
 
   final TextEditingController controller;
@@ -73,6 +74,9 @@ class CreateUploadBox extends StatefulWidget {
 
   /// Changes only the displayed URL; the controller keeps the upload source.
   final String Function(String url)? previewUrlBuilder;
+
+  /// Overrides the preview or empty surface when it returns a widget.
+  final Widget? Function(String url, Uint8List? localBytes)? previewBuilder;
 
   @override
   State<CreateUploadBox> createState() => _CreateUploadBoxState();
@@ -168,6 +172,27 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                 _imageAspectRatio! > 0
             ? widget.width / _imageAspectRatio!
             : widget.height);
+    final preview =
+        widget.previewBuilder?.call(imageUrl, _previewBytes) ??
+        (!hasImage
+            ? _EmptyUpload(
+                widget.label,
+                widget.iconSize,
+                widget.emptyLabelFontWeight,
+                widget.emptyLabelFontSize,
+                widget.emptyIconLabelGap,
+                widget.emptyIconColor,
+                widget.emptyLabelColor,
+              )
+            : _Preview(
+                imageUrl: widget.previewUrlBuilder?.call(imageUrl) ?? imageUrl,
+                imageBytes: _previewBytes,
+                alignment: widget.previewAlignment,
+                useMessageImageSizing: widget.useMessageImageSizing,
+                displaySize: messageDisplaySize,
+                downsampleMemoryImage: widget.uploadOriginalImage,
+                maxDevicePixelRatio: widget.previewMaxDevicePixelRatio,
+              ));
     final uploadBox = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _isUploading
@@ -198,30 +223,19 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                 borderRadius: BorderRadius.circular(widget.borderRadius),
               ),
               clipBehavior: Clip.antiAlias,
-              child: !hasImage
-                  ? _EmptyUpload(
-                      widget.label,
-                      widget.iconSize,
-                      widget.emptyLabelFontWeight,
-                      widget.emptyLabelFontSize,
-                      widget.emptyIconLabelGap,
-                      widget.emptyIconColor,
-                      widget.emptyLabelColor,
+              child: hasImage
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        preview,
+                        if (_isUploading && !widget.optimisticCropPreview)
+                          GenesisUploadProgressOverlay(
+                            progress: _uploadProgress,
+                            processing: _isUploadProcessing,
+                          ),
+                      ],
                     )
-                  : _Preview(
-                      imageUrl:
-                          widget.previewUrlBuilder?.call(imageUrl) ?? imageUrl,
-                      imageBytes: _previewBytes,
-                      isUploading:
-                          _isUploading && !widget.optimisticCropPreview,
-                      isProcessing: _isUploadProcessing,
-                      progress: _uploadProgress,
-                      alignment: widget.previewAlignment,
-                      useMessageImageSizing: widget.useMessageImageSizing,
-                      displaySize: messageDisplaySize,
-                      downsampleMemoryImage: widget.uploadOriginalImage,
-                      maxDevicePixelRatio: widget.previewMaxDevicePixelRatio,
-                    ),
+                  : preview,
             ),
           ),
         ),

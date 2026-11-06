@@ -30,14 +30,6 @@ class _LocationChatReplyProjectionCache {
     List<ChatMessageVm> currentReplyMessages,
   ) {
     if (state == null) return const [];
-    if (_owner._photoCardPreview case final preview?) {
-      return [
-        LocationChatReplyCard(
-          id: preview.cardId,
-          messages: currentReplyMessages,
-        ),
-      ];
-    }
     if (!state.showCardPresentation) {
       return currentReplyMessages.isEmpty
           ? const []
@@ -154,13 +146,7 @@ class _LocationChatReplyProjectionCache {
     ChatroomReplyRoundState state,
   ) {
     final replyMessageIds = _replyMessageIds(state);
-    final preview = _owner._photoCardPreview;
-    final candidateMessages = preview != null
-        ? messages(
-            state.messagesForCard(preview.cardId),
-            cardId: preview.cardId,
-          )
-        : state.showCardPresentation
+    final candidateMessages = state.showCardPresentation
         ? messages(state.displayedMessages, cardId: state.viewedCardId)
         : null;
     final presentation = buildLocationChatReplyPresentation(

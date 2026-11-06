@@ -521,15 +521,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   ChatroomLocationEntry? get _preparedEntry => _usesPreparedEntry
       ? _service?.entryForLocation(widget.locationId).value
       : null;
-  ({int roundId, int cardId})? _photoCardPreview;
   ChatroomReplyRoundState? get _displayReplyState {
-    final preview = _photoCardPreview;
-    if (preview != null) {
-      return _replyController?.stateForRound(
-        widget.locationId,
-        preview.roundId,
-      );
-    }
     final retainedRoundId = _deferredTickPresentationRoundId;
     if (retainedRoundId != null) {
       final retained = _replyController?.stateForRound(
@@ -816,6 +808,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _openingCharacterChat = false;
   bool _takingScenePhoto = false;
   final _photoArrivalRequests = <String>{};
+  final _photoReplacementRequests = <String>{};
   Object? _photoArrivalIndexKey;
   Set<String> _photoArrivalTaskIds = const {};
   WorldChatroomService? _photoVisitService;
@@ -824,8 +817,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   LocationChatPhotoVisibility _photoVisibility = LocationChatPhotoVisibility(
     liveBaseline: 0,
   );
-  ({int generation, String localId})? _photoReveal;
-  final _photoNavigationOwner = Object();
 
   Future<void> _openCharacterChat(ChatMessageVm message) async {
     if (_openingCharacterChat || !widget.active || message.isMe) return;
@@ -1037,13 +1028,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _handleViewportCoordinatorChanged() {
     if (!mounted) return;
-    if (_photoReveal != null &&
-        _photoReveal!.generation != _scrollCoordinator.commandGeneration) {
-      // Preserve the complete target-to-latest window while positioning. Once
-      // the user takes control, normal bounded history retention resumes.
-      _photoReveal = null;
-      _service?.releaseMessageWindow(_photoNavigationOwner);
-    }
     final visibleMessageLocalIds =
         _scrollCoordinator.messageLocalIdsIntersectingViewport;
     _unseenIncomingMessageLocalIds.removeAll(visibleMessageLocalIds);

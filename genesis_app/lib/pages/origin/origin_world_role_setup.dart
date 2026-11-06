@@ -15,7 +15,6 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.launchBusy,
     required this.profileRole,
     required this.profileRoleRevision,
-    this.mergedCharacter,
     required this.selectedRoleId,
     required this.onSelectedRoleChanged,
     required this.editorInteraction,
@@ -33,9 +32,8 @@ class _OriginSetupRoleSection extends StatefulWidget {
   final List<OriginCharacter> characters;
   final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool launchBusy;
-  final OriginCustomRoleDraft? profileRole;
+  final OriginCustomRoleDraft profileRole;
   final int profileRoleRevision;
-  final OriginCharacter? mergedCharacter;
   final String selectedRoleId;
   final ValueChanged<String> onSelectedRoleChanged;
   final _OriginRoleEditorInteractionController editorInteraction;
@@ -100,22 +98,14 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   }
 
   List<String> get _roleIds => <String>[
-    if (widget.profileRole != null)
-      widget.mergedCharacter?.characterId.trim() ??
-          _OriginWorldPageState._profileLocationChatRoleId,
+    _OriginWorldPageState._profileLocationChatRoleId,
     for (final character in _remainingCharacters)
       if (_characterStableId(character).isNotEmpty)
         _characterStableId(character),
   ];
 
   Iterable<OriginCharacter> get _remainingCharacters =>
-      widget.mergedCharacter == null
-      ? originCharactersRecommendedFirst(widget.characters)
-      : widget.characters.where(
-          (character) =>
-              _characterStableId(character) !=
-              widget.mergedCharacter!.characterId.trim(),
-        );
+      originCharactersRecommendedFirst(widget.characters);
 
   int get _cardCount => _roleIds.length;
 
@@ -172,10 +162,9 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   void _precacheUpcomingRoleAvatars(int currentIndex) {
     if (!mounted) return;
     final avatarSourceKeys = <String>[
-      if (widget.profileRole case final profileRole?)
-        profileRole.avatarPreviewBytes == null
-            ? _resolveAssetUrl(profileRole.avatarUrl).trim()
-            : '',
+      widget.profileRole.avatarPreviewBytes == null
+          ? _resolveAssetUrl(widget.profileRole.avatarUrl).trim()
+          : '',
       ..._remainingCharacters
           .where((character) => _characterStableId(character).isNotEmpty)
           .map((character) => _resolveAssetUrl(character.avatar).trim()),
@@ -236,9 +225,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
         .toList(growable: false);
     final profileRole = widget.profileRole;
     final profileRoleRevision = widget.profileRoleRevision;
-    final profileCardCount = profileRole == null ? 0 : 1;
     final cardCount = _cardCount;
-    if (cardCount == 0) return const SizedBox.shrink();
     final currentCardIndex = _currentCardIndex.clamp(0, cardCount - 1);
     final cardsController = _cardsController;
     if (cardsController == null) return const SizedBox.shrink();
@@ -285,13 +272,13 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
               itemCount: cardCount,
               itemBuilder: (context, index) {
                 final selected = index == currentCardIndex;
-                if (profileRole != null && index == 0) {
+                if (index == 0) {
                   return Center(
                     child: SizedBox(
                       width: cardWidth,
                       child: GestureDetector(
-                        key: ValueKey<String>(
-                          'origin-setup-role-page-${widget.mergedCharacter?.characterId.trim() ?? 'current-user'}',
+                        key: const ValueKey<String>(
+                          'origin-setup-role-page-${_OriginWorldPageState._profileLocationChatRoleId}',
                         ),
                         behavior: HitTestBehavior.opaque,
                         onTap: selected ? null : () => _centerCard(index),
@@ -299,11 +286,10 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                           ignoring: !selected,
                           child: _OriginSetupRoleCard(
                             key: ValueKey<String>(
-                              '${widget.mergedCharacter?.characterId.trim() ?? 'current-user'}-$profileRoleRevision',
+                              '${_OriginWorldPageState._profileLocationChatRoleId}-$profileRoleRevision',
                             ),
                             content: _OriginSetupRoleCardContent.fromProfile(
                               profileRole,
-                              character: widget.mergedCharacter,
                             ),
                             roleAvatarSnapshots: widget.roleAvatarSnapshots,
                             selected: selected,
@@ -317,8 +303,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                     ),
                   );
                 }
-                final characterIndex = index - profileCardCount;
-                final character = characters[characterIndex];
+                final character = characters[index - 1];
                 final stableId = _characterStableId(character);
                 return Center(
                   child: SizedBox(
@@ -431,20 +416,19 @@ class _OriginSetupRoleCardContent {
   }
 
   factory _OriginSetupRoleCardContent.fromProfile(
-    OriginCustomRoleDraft profileRole, {
-    OriginCharacter? character,
-  }) {
+    OriginCustomRoleDraft profileRole,
+  ) {
     return _OriginSetupRoleCardContent(
-      stableId: character?.characterId.trim() ?? 'current-user',
+      stableId: _OriginWorldPageState._profileLocationChatRoleId,
       name: profileRole.name,
       avatar: profileRole.avatarUrl,
       avatarPreviewBytes: profileRole.avatarPreviewBytes,
       identity: profileRole.identity,
       personality: profileRole.personality,
       bio: profileRole.bio,
-      goal: character?.goal ?? profileRole.goal,
-      isRecommended: character != null,
-      isProfile: character == null,
+      goal: profileRole.goal,
+      isRecommended: false,
+      isProfile: true,
     );
   }
 
@@ -996,6 +980,7 @@ class _OriginSetupRoleImage extends StatelessWidget {
     }
 
     return Image(
+      key: ValueKey(snapshotSourceKey),
       image: OriginRolePortraitImageProvider.fromUrl(
         imageUrl: url,
         outputSize: outputSize,

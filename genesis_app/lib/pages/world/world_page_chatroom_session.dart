@@ -21,10 +21,6 @@ extension _WorldPageChatroomSession on _WorldPageState {
       sendGate: services.chatSendGate,
       refreshInitialSnapshotOnConnect: false,
     );
-    if (!_initialPhotoTargetAssigned) {
-      service.photoNavigationTarget = widget.initialPhotoTarget;
-      _initialPhotoTargetAssigned = true;
-    }
     final world = _world;
     if (world != null) {
       service.applyWorldSnapshot(world);
@@ -550,17 +546,6 @@ extension _WorldPageChatroomSession on _WorldPageState {
             )
             .firstOrNull;
     if (descriptor == null) {
-      if (_worldChatroom?.photoNavigationTarget != null) {
-        _worldChatroom?.photoNavigationTarget = null;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          showGenesisToast(
-            context,
-            context.l10n.chatPhotoUnavailable,
-            brightness: Brightness.dark,
-          );
-        });
-      }
       _pendingInitialLocationId = '';
       _initialLocationChatEntry = false;
       _locationChatTransitionsEnabled = true;

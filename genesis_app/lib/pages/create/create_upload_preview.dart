@@ -49,9 +49,6 @@ class _Preview extends StatelessWidget {
   const _Preview({
     required this.imageUrl,
     required this.imageBytes,
-    required this.isUploading,
-    required this.isProcessing,
-    required this.progress,
     required this.alignment,
     required this.useMessageImageSizing,
     required this.displaySize,
@@ -61,9 +58,6 @@ class _Preview extends StatelessWidget {
 
   final String imageUrl;
   final Uint8List? imageBytes;
-  final bool isUploading;
-  final bool isProcessing;
-  final double progress;
   final Alignment alignment;
   final bool useMessageImageSizing;
   final Size? displaySize;
@@ -114,7 +108,7 @@ class _Preview extends StatelessWidget {
                 policy: ResizeImagePolicy.fit,
               )
             : memoryImage;
-        final Widget image = memoryImageProvider != null
+        return memoryImageProvider != null
             ? Image(
                 image: memoryImageProvider,
                 width: double.infinity,
@@ -161,17 +155,6 @@ class _Preview extends StatelessWidget {
                   return const _PreviewErrorIcon();
                 },
               );
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            image,
-            if (isUploading)
-              GenesisUploadProgressOverlay(
-                progress: progress,
-                processing: isProcessing,
-              ),
-          ],
-        );
       },
     );
   }

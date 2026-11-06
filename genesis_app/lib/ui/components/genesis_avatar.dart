@@ -23,6 +23,7 @@ class GenesisAvatar extends StatelessWidget {
     this.textStyle,
     this.showFallbackWhileLoading = false,
     this.showFallbackWhenUnavailable = true,
+    this.placeholderColor,
     this.onVisibilityChanged,
     this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
     this.useFixedCdnWidth = false,
@@ -42,6 +43,7 @@ class GenesisAvatar extends StatelessWidget {
   final TextStyle? textStyle;
   final bool showFallbackWhileLoading;
   final bool showFallbackWhenUnavailable;
+  final Color? placeholderColor;
   final ValueChanged<bool>? onVisibilityChanged;
   final double maxDevicePixelRatio;
   final bool useFixedCdnWidth;
@@ -70,10 +72,11 @@ class GenesisAvatar extends StatelessWidget {
       borderRadius: borderRadius,
       textStyle: textStyle,
     );
-    final hiddenPlaceholder = SizedBox(
-      width: resolvedWidth,
-      height: resolvedHeight,
-    );
+    final emptySpace = SizedBox(width: resolvedWidth, height: resolvedHeight);
+    final color = placeholderColor;
+    final hiddenPlaceholder = color == null
+        ? emptySpace
+        : ColoredBox(color: color, child: emptySpace);
 
     Widget networkPlaceholder(bool showInitials) {
       final placeholder = showInitials ? fallback : hiddenPlaceholder;
@@ -102,7 +105,13 @@ class GenesisAvatar extends StatelessWidget {
 
     if (localImage == null && resolvedUrl.isEmpty) {
       _notifyAvatarVisibility(onVisibilityChanged, showFallbackWhenUnavailable);
-      return showFallbackWhenUnavailable ? fallback : hiddenPlaceholder;
+      if (showFallbackWhenUnavailable) return fallback;
+      return color == null
+          ? hiddenPlaceholder
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(borderRadius),
+              child: hiddenPlaceholder,
+            );
     }
 
     final image = localImage != null || resolvedUrl.startsWith('assets/')
@@ -116,8 +125,9 @@ class GenesisAvatar extends StatelessWidget {
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
               if (wasSynchronouslyLoaded || frame != null) {
                 _notifyAvatarVisibility(onVisibilityChanged, true);
+                return child;
               }
-              return child;
+              return color == null ? child : hiddenPlaceholder;
             },
             errorBuilder: (context, error, stackTrace) {
               _notifyAvatarVisibility(

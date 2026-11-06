@@ -264,15 +264,15 @@ class _Avatar extends StatelessWidget {
 
     Widget avatar(Uint8List? previewBytes) {
       Widget image(Uint8List? cachedBytes) => GenesisAvatar(
-        key: profileAvatarCache != null && previewBytes == null
-            ? ValueKey(avatarUrl)
-            : null,
+        key: ValueKey(avatarUrl),
         url: avatarUrl,
         localImage: memoryImage(previewBytes),
         cachedImage: memoryImage(cachedBytes),
         name: displayName,
         size: _size,
         useFixedCdnWidth: true,
+        showFallbackWhenUnavailable: false,
+        placeholderColor: Colors.black,
         borderRadius: _radius,
         imageKey: const ValueKey('user-profile-avatar-image'),
       );

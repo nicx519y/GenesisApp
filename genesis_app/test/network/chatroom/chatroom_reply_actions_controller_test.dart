@@ -472,6 +472,43 @@ void main() {
     },
   );
 
+  test(
+    'photo refresh leaves text reconciliation to normal card recovery',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(102, index: 2, attemptNo: 1)]);
+      await h.controller.restoreLocationCards('l');
+      final text = h.state.messagesForCard(102).first;
+      final updated = _card(
+        102,
+        index: 2,
+        content: 'Changed text',
+        attemptNo: 2,
+      );
+      h.api.cards = _cards([
+        ChatroomLlmCard.fromJson({
+          ...updated.rawJson,
+          'messages': [
+            ...updated.rawJson['messages'] as List,
+            withPhoto(102, 'generating').messages.last.rawJson,
+          ],
+        }, conversationRoundId: _round),
+      ]);
+      await h.controller.refreshPhotoCard('l', _round, 102);
+      expect(h.state.messagesForCard(102).first, same(text));
+      expect(
+        h.state.messagesForCard(102).last.photo!.status.name,
+        'generating',
+      );
+
+      await h.controller.clearCardsCache('l');
+      await h.controller.restoreLocationCards('l');
+      expect(h.state.messagesForCard(102).first.content, 'Changed text');
+      expect(h.state.messagesForCard(102).first.llmAttempt!.number, 2);
+    },
+  );
+
   test('photo batch ignores stale target but applies the other card', () async {
     final h = _Harness();
     addTearDown(h.controller.dispose);
@@ -783,6 +820,150 @@ void main() {
       expect(gate.debugResources.history, 0);
     },
   );
+
+  for (final savedAttempt in <int?>[null, 1, 2]) {
+    testWidgets(
+      'photo refresh preserves completed candidate reveal ($savedAttempt)',
+      (tester) async {
+        final h = _Harness();
+        addTearDown(h.controller.dispose);
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        final content = r'\u0041 completed candidate reply. ' * 5;
+        h.controller.receiveEvent(
+          _stream('end', content: content, attemptNo: 1),
+        );
+        final liveAttempt = h.state.messagesForCard(102).first.llmAttempt!;
+        late BuildContext effects;
+        Widget view() {
+          final source = h.state.messagesForCard(102).first;
+          final message = ChatMessageVm(
+            localId: 'candidate',
+            globalMessageId: source.globalMessageId,
+            roundId: source.conversationRoundId,
+            llmAttempt: source.llmAttempt,
+            senderId: source.senderId,
+            senderName: 'Character',
+            senderType: 'character',
+            text: locationChatMessageDisplayText(source),
+            isMe: false,
+            status: 'sent',
+          );
+          final rows = [
+            message,
+            for (final m
+                in h.state.messagesForCard(102).where((m) => m.photo != null))
+              ChatMessageVm(
+                localId: 'photo',
+                globalMessageId: m.globalMessageId,
+                roundId: m.conversationRoundId,
+                senderId: m.senderId,
+                senderName: '',
+                senderType: 'live_photo',
+                text: '',
+                messageType: 'image',
+                photo: m.photo,
+                isMe: false,
+                status: 'sent',
+              ),
+          ];
+          return MaterialApp(
+            home: Scaffold(
+              body: ChatStreamingEffects(
+                deferIncomingMessages: true,
+                settings: LocationChatBubbleLayoutSettings.defaults,
+                child: Builder(
+                  builder: (context) {
+                    effects = context;
+                    return LocationChatAnchoredMessageList(
+                      coordinator: coordinator,
+                      topTitle: '',
+                      messages: rows,
+                      showDateDividers: false,
+                      replyCurrentCardId: 102,
+                      replyCardBindingIdentity: 'round',
+                      replyActionsIdentity: 'round',
+                      replyCards: [
+                        LocationChatReplyCard(id: 102, messages: rows),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        }
+
+        await tester.pumpWidget(view());
+        await tester.pumpAndSettle(const Duration(milliseconds: 20));
+        final before =
+            ChatStreamingEffects.debugTasksOf(effects).first
+                as (Object, bool, bool?, bool?, bool?, double?, bool);
+        expect(before.$3, isFalse);
+        h.api.cards = _cards([
+          _card(101, messages: 1),
+          _card(
+            102,
+            index: 2,
+            messages: 1,
+            content: content,
+            attemptNo: savedAttempt,
+          ),
+        ]);
+        await tester.runAsync(() async {
+          h.controller.receiveEvent(_terminal('succeeded'));
+          await _settle();
+        });
+        expect(
+          h.state.messagesForCard(102).first.llmAttempt,
+          same(liveAttempt),
+        );
+        await tester.pumpWidget(view());
+        await tester.pump();
+        expect(
+          (ChatStreamingEffects.debugTasksOf(effects).first
+                  as (Object, bool, bool?, bool?, bool?, double?, bool))
+              .$6,
+          before.$6,
+        );
+        final previousText = h.state.messagesForCard(102).first;
+        final savedCard = h.api.cards.list.last;
+        h.api.cards = _cards([
+          ChatroomLlmCard.fromJson({
+            ...savedCard.rawJson,
+            'messages': [
+              ...savedCard.rawJson['messages'] as List,
+              withPhoto(102, 'generating').messages.last.rawJson,
+            ],
+          }, conversationRoundId: _round),
+        ]);
+        await tester.runAsync(() async {
+          await h.controller.refreshPhotoCard('l', _round, 102);
+        });
+        final saved = h.state.messagesForCard(102).first;
+        expect(saved, same(previousText));
+        expect(saved.llmAttempt, same(liveAttempt));
+        expect(saved.isLlmStreamMessage, isTrue);
+        expect(
+          h.state.messagesForCard(102).last.photo!.status.name,
+          'generating',
+        );
+        await tester.pumpWidget(view());
+        await tester.pump();
+        final after =
+            ChatStreamingEffects.debugTasksOf(effects).first
+                as (Object, bool, bool?, bool?, bool?, double?, bool);
+        expect(after.$1, before.$1);
+        expect(after.$6, before.$6);
+        expect(after.$3, isFalse);
+        final photoTask =
+            ChatStreamingEffects.debugTasksOf(effects).last
+                as (Object, bool, bool?, bool?, bool?, double?, bool);
+        expect(ChatStreamingEffects.isQueuedOf(effects, photoTask.$1), isFalse);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   for (final savedAttempt in <int?>[null, 1, 2]) {
     testWidgets(

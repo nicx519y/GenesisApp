@@ -110,6 +110,8 @@ MiniPhone 的 Toast 通过 `shared/mini_phone_toast.dart` 复用公共组件，�
 
 调用方只管理名字、图片 URL、尺寸、圆角、玩家角色边框和外部布局，不自行绘制默认头像或覆盖默认文字的字号、字重、颜色、行高。调整相邻正文的字体不影响默认头像排版。特殊比例肖像可以直接复用 `GenesisAvatarFallback`；图片加载中的占位行为保持各场景已有约定。
 
+Me、User Profile 顶部头像及 Origin 角色编辑中已选定的头像没有可显示的图片时使用纯黑底。Origin 的 Fill from my profile 先显示当前账号的本地头像预览，有可用的正式图片帧后再替换。
+
 **NPC 例外：** Location Chat 的 `char_npc` 保留 `ChatNpcAvatar` 固定“NPC”圆标及原有尺寸、底色、描边和文字样式，不改为名字缩写头像，也不因本规范替换为普通角色头像。
 
 ## Create Flow Typography

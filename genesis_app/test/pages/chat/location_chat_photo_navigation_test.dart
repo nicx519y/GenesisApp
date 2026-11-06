@@ -5,10 +5,113 @@ import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
 void main() {
+  testWidgets('photo replacement keeps its position and overlays loading', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    const oldImage = 'assets/images/map_default/location_default.webp';
+    final photo = _photo()
+      ..photo = const ChatPhoto(
+        taskId: 'old-task',
+        requestId: 'old-request',
+        status: ChatPhotoStatus.succeeded,
+        imageUrl: oldImage,
+      );
+    var rows = [_text('before'), photo];
+    var submitting = false;
+    var replacementRequests = <String>{};
+    var liveTasks = <String>{};
+    Widget tree() => MaterialApp(
+      home: Scaffold(
+        body: LocationChatAnchoredMessageList(
+          coordinator: coordinator,
+          messages: rows,
+          topTitle: '',
+          takingPhoto: submitting,
+          photoArrivalRequestIds: replacementRequests,
+          photoReplacementRequestIds: replacementRequests,
+          photoArrivalTaskIds: liveTasks,
+          replyWaitingPositioningEnabled: true,
+        ),
+      ),
+    );
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    final position = coordinator.controller.position.pixels;
+    final commandGeneration = coordinator.commandGeneration;
+    final image = find.byType(AspectRatio);
+    final oldBounds = tester.getRect(image);
+
+    submitting = true;
+    replacementRequests = {'request'};
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    expect(coordinator.commandGeneration, commandGeneration);
+    expect(coordinator.controller.position.pixels, position);
+    expect(tester.getRect(image), oldBounds);
+
+    final generating = _photo()
+      ..photo = const ChatPhoto(
+        taskId: 'task',
+        requestId: 'request',
+        status: ChatPhotoStatus.generating,
+        imageUrl: oldImage,
+      );
+    rows = [rows.first, generating];
+    liveTasks = {'task'};
+    await tester.pumpWidget(tree());
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(coordinator.controller.position.pixels, position);
+    expect(tester.getRect(image), oldBounds);
+    final loading = find.descendant(
+      of: image,
+      matching: find.byType(CircularProgressIndicator),
+    );
+    expect(loading, findsOneWidget);
+    expect(
+      tester.getBottomRight(loading),
+      oldBounds.bottomRight - const Offset(14, 14),
+    );
+    expect(find.text('Generating photo…'), findsNothing);
+    final dynamic listState = tester.state(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(listState.debugPhotoResources.animations, 0);
+
+    final failed = _photo()
+      ..photo = const ChatPhoto(
+        taskId: 'task',
+        requestId: 'request',
+        status: ChatPhotoStatus.failed,
+        imageUrl: oldImage,
+        failureMessage: 'Could not generate photo',
+      );
+    rows = [rows.first, failed];
+    submitting = false;
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    expect(loading, findsNothing);
+    expect(find.text('Could not generate photo'), findsOneWidget);
+    expect(
+      tester
+          .widget<GenesisImageViewerSourceAnchor>(
+            find.byType(GenesisImageViewerSourceAnchor),
+          )
+          .previewImageProvider,
+      const AssetImage(oldImage),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('photo resources are released and evicted tasks do not replay', (
     tester,
   ) async {
@@ -791,102 +894,6 @@ void main() {
       expect(tester.getSize(arrival).height, complete);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
-    });
-  }
-
-  for (final scenario in [
-    (before: 50, after: 20),
-    (before: 50, after: 0),
-    (before: 0, after: 0),
-  ]) {
-    testWidgets('photo reveal top/bottom clamp $scenario and user takeover', (
-      tester,
-    ) async {
-      final coordinator = LocationChatScrollCoordinator();
-      addTearDown(coordinator.dispose);
-      final rows = <ChatMessageVm>[
-        for (var i = 0; i < scenario.before; i++) _text('before-$i'),
-        ChatMessageVm(
-          localId: 'photo',
-          senderId: '',
-          senderName: '',
-          senderType: 'image',
-          text: '',
-          isMe: false,
-          status: 'sent',
-          photo: const ChatPhoto(
-            taskId: 't',
-            requestId: '',
-            status: ChatPhotoStatus.generating,
-          ),
-        ),
-        for (var i = 0; i < scenario.after; i++) _text('after-$i'),
-      ];
-      ({int generation, String localId})? reveal;
-      var settled = 0;
-      Widget tree() => MaterialApp(
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              // Keep the photo shorter than the viewport to exercise bottom
-              // clamping when there are no messages after it.
-              width: 320,
-              height: 600,
-              child: AnimatedBuilder(
-                animation: coordinator,
-                builder: (_, _) => NotificationListener<ScrollNotification>(
-                  onNotification: coordinator.handleScrollNotification,
-                  child: LocationChatAnchoredMessageList(
-                    coordinator: coordinator,
-                    messages: rows,
-                    historyReveal: reveal,
-                    historyRevealAlignTop: true,
-                    onHistoryRevealSettled: () => settled++,
-                    topTitle: '',
-                    showDateDividers: false,
-                    style: kLocationChatStyle,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpWidget(tree());
-      await tester.pumpAndSettle();
-      reveal = (
-        generation: coordinator.beginHistoryNavigation(),
-        localId: 'photo',
-      );
-      await tester.pumpWidget(tree());
-      await tester.pumpAndSettle();
-      final image = find.byType(AspectRatio);
-      expect(image, findsOneWidget);
-      expect(tester.getSize(image).aspectRatio, closeTo(2 / 3, .001));
-      if (scenario.after > 0) {
-        expect(
-          tester.getTopLeft(image).dy,
-          closeTo(tester.getTopLeft(find.byType(CustomScrollView)).dy, 1),
-        );
-      } else {
-        expect(
-          coordinator.controller.position.pixels,
-          closeTo(coordinator.controller.position.maxScrollExtent, 1),
-        );
-      }
-      expect(settled, 1);
-      rows.add(_text('new-live-message'));
-      await tester.pumpWidget(tree());
-      await tester.pumpAndSettle();
-      expect(settled, 1);
-      if (scenario.before > 0) {
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, 160));
-        await tester.pumpAndSettle();
-        expect(coordinator.commandGeneration, isNot(reveal.generation));
-      }
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
     });
   }
 }

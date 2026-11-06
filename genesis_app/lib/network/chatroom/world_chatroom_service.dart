@@ -513,7 +513,6 @@ class WorldChatroomService {
   Future<void> _photoJournalWrites = Future.value();
   final _photoRecoveries = <String, Future<void>>{};
   final photoSubmittingLocations = <String>{};
-  ChatPhotoTarget? photoNavigationTarget;
   final _phoneEvents = StreamController<ChatroomPhoneEvent>.broadcast();
   Stream<ChatroomPhoneEvent> get phoneEvents => _phoneEvents.stream;
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();

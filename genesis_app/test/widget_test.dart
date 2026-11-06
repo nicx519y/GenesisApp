@@ -14158,11 +14158,14 @@ void main() {
     'empty',
     'profile',
     'anonymous',
+    'anonymous-no-template',
   ]) {
     testWidgets('Origin precharacter first role uses $scenario priority', (
       tester,
     ) async {
       final personalized = scenario.startsWith('personalized');
+      final anonymous = scenario.startsWith('anonymous');
+      final noTemplate = scenario == 'anonymous-no-template';
       const profileAvatar = 'https://cdn.example.com/profile.webp';
       const precharacterAvatar = 'https://cdn.example.com/precharacter.webp';
       debugGenesisStaticNetworkImageCompleter = (_) =>
@@ -14174,7 +14177,7 @@ void main() {
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.reset);
       final transport = _RecordingV1ListTransport(
-        originPrecharacter: scenario == 'profile'
+        originPrecharacter: scenario == 'profile' || noTemplate
             ? null
             : scenario == 'empty'
             ? const {}
@@ -14209,9 +14212,9 @@ void main() {
       final services = await _testServices(
         transport: transport,
         useMock: false,
-        initialUid: scenario == 'anonymous' ? null : 'u_mock',
-        initialAuthToken: scenario == 'anonymous' ? null : 'token',
-        initialUserInfo: scenario == 'anonymous'
+        initialUid: anonymous ? null : 'u_mock',
+        initialAuthToken: anonymous ? null : 'token',
+        initialUserInfo: anonymous
             ? null
             : const {
                 'uid': 'u_mock',
@@ -14261,14 +14264,13 @@ void main() {
         ),
       );
       final role = sheet.profileRole as OriginCustomRoleDraft;
-      final emptyPreset = scenario == 'empty';
+      final emptyPreset = scenario == 'empty' || noTemplate;
       final isProfile = scenario == 'profile';
-      final isRecommended = scenario == 'recommended';
       expect(
         role.name,
         emptyPreset
             ? ''
-            : isProfile || isRecommended
+            : isProfile
             ? 'Profile player'
             : personalized
             ? 'Adventurer Profile player'
@@ -14278,8 +14280,6 @@ void main() {
         role.identity,
         emptyPreset
             ? ''
-            : isRecommended
-            ? 'Template identity'
             : isProfile
             ? 'Profile identity'
             : personalized
@@ -14290,8 +14290,6 @@ void main() {
         role.personality,
         emptyPreset
             ? ''
-            : isRecommended
-            ? 'Template personality'
             : isProfile
             ? 'Profile personality'
             : personalized
@@ -14300,7 +14298,7 @@ void main() {
       );
       expect(
         role.bio,
-        emptyPreset || isProfile || isRecommended
+        emptyPreset || isProfile
             ? ''
             : personalized
             ? 'Profile player meets Profile player.\nSetting'
@@ -14310,11 +14308,11 @@ void main() {
         role.avatarUrl,
         scenario == 'precharacter'
             ? precharacterAvatar
-            : scenario == 'anonymous'
+            : anonymous
             ? ''
             : profileAvatar,
       );
-      final id = isRecommended ? 'c_template' : 'current-user';
+      const id = 'current-user';
       expect(
         find.byKey(ValueKey<String>('origin-setup-role-card-frame-$id')),
         findsOneWidget,
@@ -14322,7 +14320,7 @@ void main() {
       final cards = tester.widget<PageView>(
         find.byKey(const ValueKey<String>('origin-setup-role-cards')),
       );
-      expect(cards.childrenDelegate.estimatedChildCount, isRecommended ? 1 : 2);
+      expect(cards.childrenDelegate.estimatedChildCount, 2);
       tester
           .widget<InkWell>(
             find.byKey(ValueKey<String>('origin-setup-role-edit-$id')),
@@ -14366,7 +14364,7 @@ void main() {
           '${role.avatarUrl}?x-oss-process=image/resize,w_208/format,webp',
         );
       }
-      if (emptyPreset) {
+      if (emptyPreset && !anonymous) {
         await (sheet.onSendLocationChatMessage as dynamic)(
           'l_o_test_1',
           'Cannot launch without a name',
@@ -14389,7 +14387,13 @@ void main() {
       addTearDown(tester.view.reset);
       final session = _DeferredOriginProfileSessionStore();
       final transport = _RecordingV1ListTransport(
-        originCharacters: const [],
+        originCharacters: const [
+          {
+            'char_id': 'c_recommended',
+            'name': 'Suggested preset',
+            'is_recommend': 1,
+          },
+        ],
         originPrecharacter: const {
           'name': 'Preset player',
           'identity': 'Preset identity',
@@ -14464,6 +14468,7 @@ void main() {
         transport.requestsFor('/api/v1/origin/launch').single,
       );
       expect(payload['preset_character_id'], isNull);
+      expect(payload['preset_character_override'], isNull);
       expect(payload['custom_role'], {
         'name': 'Edited player',
         'identity': 'Preset identity',
@@ -14524,16 +14529,16 @@ void main() {
       );
       await tester.pumpAndSettle();
       final edit = find.byKey(
-        const ValueKey('origin-setup-role-edit-c_recommended'),
+        const ValueKey('origin-setup-role-edit-current-user'),
       );
       final avatar = find.byKey(
-        const ValueKey('origin-setup-role-inline-avatar-c_recommended'),
+        const ValueKey('origin-setup-role-inline-avatar-current-user'),
       );
       final done = find.byKey(
-        const ValueKey('origin-role-editor-done-c_recommended'),
+        const ValueKey('origin-role-editor-done-current-user'),
       );
       final portrait = find.byKey(
-        const ValueKey('origin-setup-role-portrait-c_recommended'),
+        const ValueKey('origin-setup-role-portrait-current-user'),
       );
       ImageProvider<Object> imageIn(Finder parent) => tester
           .widget<Image>(
@@ -14630,26 +14635,19 @@ void main() {
 
   for (final saveBeforeSwitch in [true, false]) {
     testWidgets(
-      'Origin account revision clears ${saveBeforeSwitch ? 'saved' : 'active'} recommended edits before profile reload',
+      'Origin account revision clears ${saveBeforeSwitch ? 'saved' : 'active'} custom role edits before profile reload',
       (WidgetTester tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(390, 844);
         addTearDown(tester.view.reset);
         final session = _DeferredOriginProfileSessionStore();
         final transport = _RecordingV1ListTransport(
-          originCharacters: const [
-            {
-              'char_id': 'c_recommended',
-              'name': '{{user}}',
-              'avatar': '',
-              'is_recommend': 1,
-              'identity': 'Scout',
-              'brief': 'Curious',
-              'description': 'Template setting',
-              'goal': 'Template goal',
-              'initial_location_id': 'l_o_test_1',
-            },
-          ],
+          originPrecharacter: const {
+            'name': '{{user}}',
+            'identity': 'Scout',
+            'personality': 'Curious',
+            'bio': 'Template setting',
+          },
         );
         await tester.pumpWidget(
           AppServicesScope(
@@ -14684,24 +14682,29 @@ void main() {
         OriginCustomRoleDraft role() =>
             sheet().profileRole as OriginCustomRoleDraft;
         final edit = find.byKey(
-          const ValueKey<String>('origin-setup-role-edit-c_recommended'),
+          const ValueKey<String>('origin-setup-role-edit-current-user'),
         );
         final name = find.byKey(
-          const ValueKey<String>('origin-setup-role-inline-name-c_recommended'),
+          const ValueKey<String>('origin-setup-role-inline-name-current-user'),
         );
         final bio = find.byKey(
           const ValueKey<String>(
-            'origin-setup-role-inline-setting-c_recommended',
+            'origin-setup-role-inline-setting-current-user',
           ),
         );
         await tester.tap(edit);
         await tester.pumpAndSettle();
-        final cardFinder = find.byWidgetPredicate(
-          (widget) => widget.runtimeType.toString() == '_OriginSetupRoleCard',
+        final cardFinder = find.ancestor(
+          of: find.byKey(
+            const ValueKey('origin-setup-role-card-frame-current-user'),
+          ),
+          matching: find.byWidgetPredicate(
+            (widget) => widget.runtimeType.toString() == '_OriginSetupRoleCard',
+          ),
         );
         final oldCardState = tester.state(cardFinder);
         final done = find.byKey(
-          const ValueKey<String>('origin-role-editor-done-c_recommended'),
+          const ValueKey<String>('origin-role-editor-done-current-user'),
         );
         await tester.enterText(name, 'First private edit');
         await tester.enterText(bio, 'First private setting');
@@ -14722,7 +14725,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           role().name,
-          '',
+          '{{user}}',
           reason:
               'Old cached profile cannot fill the new account while its read is pending.',
         );
@@ -14731,12 +14734,12 @@ void main() {
           oldCardState.mounted,
           isFalse,
           reason:
-              'The same preset ID must receive a fresh edit form on account revision.',
+              'The custom role must receive a fresh edit form on account revision.',
         );
         expect(
           find.byKey(
             const ValueKey<String>(
-              'origin-setup-role-inline-editor-c_recommended',
+              'origin-setup-role-inline-editor-current-user',
             ),
           ),
           findsNothing,
@@ -14772,15 +14775,10 @@ void main() {
         final payload = transport.decodedBody(
           transport.requestsFor('/api/v1/origin/launch').single,
         );
-        expect(payload['preset_character_id'], 'c_recommended');
-        expect(
-          payload['preset_character_override'],
-          containsPair('name', 'Second account'),
-        );
-        expect(
-          payload['preset_character_override'],
-          containsPair('bio', 'Template setting'),
-        );
+        expect(payload['preset_character_id'], isNull);
+        expect(payload['preset_character_override'], isNull);
+        expect(payload['custom_role'], containsPair('name', 'Second account'));
+        expect(payload['custom_role'], containsPair('bio', 'Template setting'));
         expect(jsonEncode(payload), isNot(contains('First private')));
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
@@ -14796,18 +14794,12 @@ void main() {
       addTearDown(tester.view.reset);
       final setting = List.filled(30, 'Original setting line.\n').join();
       final transport = _RecordingV1ListTransport(
-        originCharacters: [
-          {
-            'char_id': 'c_recommended',
-            'name': 'Recommended player',
-            'avatar': '',
-            'is_recommend': 1,
-            'identity': 'Scout',
-            'brief': 'Curious',
-            'description': setting,
-            'initial_location_id': 'l_o_test_1',
-          },
-        ],
+        originPrecharacter: {
+          'name': 'Custom player',
+          'identity': 'Scout',
+          'personality': 'Curious',
+          'bio': setting,
+        },
       );
       await tester.pumpWidget(
         AppServicesScope(
@@ -14833,7 +14825,7 @@ void main() {
             find.descendant(
               of: roleSection,
               matching: find.byKey(
-                const ValueKey<String>('origin-setup-role-edit-c_recommended'),
+                const ValueKey<String>('origin-setup-role-edit-current-user'),
               ),
             ),
           )
@@ -14842,7 +14834,7 @@ void main() {
       final identityField = tester.widget<TextField>(
         find.byKey(
           const ValueKey<String>(
-            'origin-setup-role-inline-identity-c_recommended',
+            'origin-setup-role-inline-identity-current-user',
           ),
         ),
       );
@@ -14852,7 +14844,7 @@ void main() {
       await tester.pumpAndSettle();
       final scroll = find.byKey(
         const ValueKey<String>(
-          'origin-setup-role-inline-editor-scroll-c_recommended',
+          'origin-setup-role-inline-editor-scroll-current-user',
         ),
       );
       final controller = tester
@@ -14860,7 +14852,7 @@ void main() {
           .controller!;
       expect(controller.position.maxScrollExtent, greaterThan(100));
       final avatar = find.byKey(
-        const ValueKey<String>('origin-setup-role-inline-avatar-c_recommended'),
+        const ValueKey<String>('origin-setup-role-inline-avatar-current-user'),
       );
       final upload = tester.widget<CreateUploadBox>(avatar);
       // Match CreateUploadBox's picker lifecycle, including its cancellation
@@ -14894,7 +14886,7 @@ void main() {
   );
 
   testWidgets(
-    'Origin merged role truncates Setting on prefill and paste and keeps editing scrollable',
+    'Origin custom role truncates Setting on prefill and paste and keeps editing scrollable',
     (WidgetTester tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -14911,25 +14903,13 @@ void main() {
       );
       addTearDown(_clearPlatformChannelHandler);
       final transport = _RecordingV1ListTransport(
-        originCharacters: [
-          {
-            'char_id': 'c_regular',
-            'name': 'Other role',
-            'avatar': '',
-            'initial_location_id': 'l_o_test_1',
-          },
-          {
-            'char_id': 'c_recommended',
-            'name': '{{user}}',
-            'avatar': '',
-            'is_recommend': 1,
-            'identity': 'Scout',
-            'brief': 'Curious',
-            'description': setting,
-            'goal': 'Original goal',
-            'initial_location_id': 'l_o_test_1',
-          },
-        ],
+        originCharacters: const [],
+        originPrecharacter: {
+          'name': '{{user}}',
+          'identity': 'Scout',
+          'personality': 'Curious',
+          'bio': setting,
+        },
       );
       await tester.pumpWidget(
         AppServicesScope(
@@ -14953,25 +14933,23 @@ void main() {
         find.byKey(
           const ValueKey<String>('origin-setup-role-card-frame-current-user'),
         ),
-        findsNothing,
+        findsOneWidget,
       );
       final cards = tester.widget<PageView>(
         find.byKey(const ValueKey<String>('origin-setup-role-cards')),
       );
-      expect(cards.childrenDelegate.estimatedChildCount, 2);
+      expect(cards.childrenDelegate.estimatedChildCount, 1);
       final edit = find.byKey(
-        const ValueKey<String>('origin-setup-role-edit-c_recommended'),
+        const ValueKey<String>('origin-setup-role-edit-current-user'),
       );
       expect(edit, findsOneWidget);
       await tester.tap(edit);
       await tester.pumpAndSettle();
       final name = find.byKey(
-        const ValueKey<String>('origin-setup-role-inline-name-c_recommended'),
+        const ValueKey<String>('origin-setup-role-inline-name-current-user'),
       );
       final bio = find.byKey(
-        const ValueKey<String>(
-          'origin-setup-role-inline-setting-c_recommended',
-        ),
+        const ValueKey<String>('origin-setup-role-inline-setting-current-user'),
       );
       expect(tester.widget<TextField>(name).controller!.text, 'Profile player');
       expect(
@@ -14980,7 +14958,7 @@ void main() {
       );
       final scroll = find.byKey(
         const ValueKey<String>(
-          'origin-setup-role-inline-editor-scroll-c_recommended',
+          'origin-setup-role-inline-editor-scroll-current-user',
         ),
       );
       final controller = tester
@@ -14997,7 +14975,7 @@ void main() {
       expect(
         find.byKey(
           const ValueKey<String>(
-            'origin-setup-role-inline-editor-c_recommended',
+            'origin-setup-role-inline-editor-current-user',
           ),
         ),
         findsOneWidget,
@@ -15014,7 +14992,7 @@ void main() {
       expect(tester.widget<TextField>(bio).controller!.text, expectedPaste);
       await tester.tap(
         find.byKey(
-          const ValueKey<String>('origin-role-editor-done-c_recommended'),
+          const ValueKey<String>('origin-role-editor-done-current-user'),
         ),
       );
       await tester.pumpAndSettle();
@@ -15025,258 +15003,101 @@ void main() {
     },
   );
 
-  testWidgets('Origin opening puts the recommended role first and marks it', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport(
-      worldRelationStatus: 'approved',
-      originCharacters: const [
-        {
-          'char_id': 'c_regular',
-          'type': 'ai',
-          'name': 'Regular role',
-          'identity': 'Guide',
-          'avatar': '',
-          'initial_location_id': 'l_o_test_1',
-          'location_id': 'l_o_test_1',
-        },
-        {
-          'char_id': 'c_recommended',
-          'type': 'ai',
-          'name': 'Recommended role',
-          'identity': 'Scout',
-          'avatar': '',
-          'is_recommend': 1,
-          'initial_location_id': 'l_o_test_1',
-          'location_id': 'l_o_test_1',
-        },
-      ],
-    );
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: const MaterialApp(
-          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
-    );
-    await tester.pumpAndSettle();
-
-    final selectRoleTitle = tester.widget<Text>(find.text('Select Your Role'));
-    expect(selectRoleTitle.style?.fontSize, 14);
-    expect(selectRoleTitle.textAlign, TextAlign.center);
-
-    final recommendedRole = find.byKey(
-      const ValueKey<String>('origin-setup-role-card-frame-c_recommended'),
-    );
-    final regularRole = find.byKey(
-      const ValueKey<String>('origin-setup-role-card-frame-c_regular'),
-    );
-    final roleCardsFinder = find.byKey(
-      const ValueKey<String>('origin-setup-role-cards'),
-    );
-    final openingComposer = find.byKey(
-      const ValueKey<String>('origin-expanded-opening-composer'),
-    );
-    final rolePill = find.descendant(
-      of: openingComposer,
-      matching: find.byKey(
-        const ValueKey<String>('origin-location-chat-role-pill'),
-      ),
-    );
-    final rolePillLabel = find.descendant(
-      of: rolePill,
-      matching: find.byKey(
-        const ValueKey<String>('origin-location-chat-role-label'),
-      ),
-    );
-    final rolePillAvatar = find.descendant(
-      of: rolePill,
-      matching: find.byKey(
-        const ValueKey<String>(
-          'origin-location-chat-role-avatar-c_recommended',
-        ),
-      ),
-    );
-    final roleCards = tester.widget<PageView>(roleCardsFinder);
-    expect(roleCards.padEnds, isTrue);
-    expect(roleCards.physics, isA<PageScrollPhysics>());
-    expect(
-      roleCards.controller!.viewportFraction,
-      closeTo(252 / tester.getSize(roleCardsFinder).width, 0.001),
-    );
-    expect(recommendedRole, findsOneWidget);
-    expect(regularRole, findsOneWidget);
-    expect(find.text('Your Profile'), findsNothing);
-    expect(tester.widget<Text>(rolePillLabel).data, 'Recommended role');
-    expect(rolePillAvatar, findsOneWidget);
-    expect(
-      find.descendant(
-        of: rolePill,
-        matching: find.byType(GenesisCharacterAvatar),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-edit-c_recommended'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('origin-setup-role-edit-c_regular')),
-      findsNothing,
-    );
-    final recommendedFrame = tester.widget<Container>(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-card-frame-c_recommended'),
-      ),
-    );
-    final recommendedOutline =
-        recommendedFrame.foregroundDecoration! as BoxDecoration;
-    expect(
-      (recommendedOutline.border! as Border).top.color,
-      const Color(0x73FF2442),
-    );
-    expect((recommendedOutline.border! as Border).top.width, 1);
-    expect(
-      tester
-          .getCenter(
-            find.byKey(
-              const ValueKey<String>(
-                'origin-setup-role-card-frame-c_recommended',
-              ),
-            ),
-          )
-          .dx,
-      closeTo(tester.getCenter(roleCardsFinder).dx, 0.01),
-    );
-    expect(
-      tester.getTopLeft(recommendedRole).dx,
-      lessThan(tester.getTopLeft(regularRole).dx),
-    );
-    expect(
-      find.byKey(const ValueKey<String>('origin-setup-role-title-launch-icon')),
-      findsNothing,
-    );
-    final suggestedLabel = find.byKey(
-      const ValueKey<String>('origin-setup-role-suggested-label-c_recommended'),
-    );
-    expect(suggestedLabel, findsOneWidget);
-    expect(
-      find.descendant(of: suggestedLabel, matching: find.text('Suggested')),
-      findsOneWidget,
-    );
-    expect(tester.widget<Text>(find.text('Suggested')).style?.fontSize, 12);
-    final recommendedPortrait = find.byKey(
-      const ValueKey<String>('origin-setup-role-portrait-c_recommended'),
-    );
-    final suggestedLabelRect = tester.getRect(suggestedLabel);
-    final recommendedPortraitRect = tester.getRect(recommendedPortrait);
-    expect(
-      suggestedLabelRect.top,
-      closeTo(recommendedPortraitRect.top + 12, 0.01),
-    );
-    expect(
-      suggestedLabelRect.left,
-      closeTo(recommendedPortraitRect.left + 12, 0.01),
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-suggested-label-c_regular'),
-      ),
-      findsNothing,
-    );
-    final recommendedMark = find.byKey(
-      const ValueKey<String>('origin-setup-role-recommended-c_recommended'),
-    );
-    expect(recommendedMark, findsOneWidget);
-    expect(tester.getSize(recommendedMark), const Size.square(14));
-    expect(
-      find.descendant(
-        of: recommendedMark,
-        matching: find.byIcon(Icons.star_rounded),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'origin-setup-role-select-surface-c_recommended',
-        ),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-recommended-c_regular'),
-      ),
-      findsNothing,
-    );
-    tester
-        .widget<GestureDetector>(
-          find.byKey(
-            const ValueKey<String>(
-              'origin-setup-role-card-body-toggle-c_recommended',
+  testWidgets(
+    'Origin opening puts the custom role before the recommended preset',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+        originCharacters: const [
+          {
+            'char_id': 'c_regular',
+            'type': 'ai',
+            'name': 'Regular role',
+            'identity': 'Guide',
+            'avatar': '',
+            'initial_location_id': 'l_o_test_1',
+            'location_id': 'l_o_test_1',
+          },
+          {
+            'char_id': 'c_recommended',
+            'type': 'ai',
+            'name': 'Recommended role',
+            'identity': 'Scout',
+            'avatar': '',
+            'is_recommend': 1,
+            'initial_location_id': 'l_o_test_1',
+            'location_id': 'l_o_test_1',
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
             ),
           ),
-        )
-        .onTap!();
-    await tester.pumpAndSettle();
-    expect(suggestedLabel, findsNothing);
-
-    unawaited(
-      roleCards.controller!.animateToPage(
-        1,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-      ),
-    );
-    await tester.pumpAndSettle();
-    final regularFrame = tester.widget<Container>(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-card-frame-c_regular'),
-      ),
-    );
-    final regularOutline = regularFrame.foregroundDecoration! as BoxDecoration;
-    expect(
-      tester
-          .getCenter(
-            find.byKey(
-              const ValueKey<String>('origin-setup-role-card-frame-c_regular'),
-            ),
-          )
-          .dx,
-      closeTo(tester.getCenter(roleCardsFinder).dx, 0.01),
-    );
-    expect(
-      (regularOutline.border! as Border).top.color,
-      const Color(0x73FF2442),
-    );
-    expect((regularOutline.border! as Border).top.width, 1);
-    expect(tester.widget<Text>(rolePillLabel).data, 'Regular role');
-    expect(
-      find.descendant(
-        of: rolePill,
-        matching: find.byKey(
-          const ValueKey<String>('origin-location-chat-role-avatar-c_regular'),
         ),
-      ),
-      findsOneWidget,
-    );
-    final selectedDot = tester.widget<AnimatedContainer>(
-      find.byKey(const ValueKey<String>('origin-setup-role-page-dot-1')),
-    );
-    expect(
-      (selectedDot.decoration! as BoxDecoration).color,
-      const Color(0x73FF2442),
-    );
-  });
+      );
+      await tester.pumpAndSettle();
+
+      final cardsFinder = find.byKey(const ValueKey('origin-setup-role-cards'));
+      final cards = tester.widget<PageView>(cardsFinder);
+      expect(cards.childrenDelegate.estimatedChildCount, 3);
+      expect(cards.controller!.page, 0);
+      final customRole = find.byKey(
+        const ValueKey('origin-setup-role-card-frame-current-user'),
+      );
+      expect(
+        tester.getCenter(customRole).dx,
+        closeTo(tester.getCenter(cardsFinder).dx, 0.01),
+      );
+      expect(find.text('Your Persona'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('origin-setup-role-edit-current-user')),
+        findsOneWidget,
+      );
+
+      cards.controller!.jumpToPage(1);
+      await tester.pumpAndSettle();
+      final recommendedRole = find.byKey(
+        const ValueKey('origin-setup-role-card-frame-c_recommended'),
+      );
+      expect(
+        tester.getCenter(recommendedRole).dx,
+        closeTo(tester.getCenter(cardsFinder).dx, 0.01),
+      );
+      expect(
+        find.byKey(
+          const ValueKey('origin-setup-role-recommended-c_recommended'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('origin-setup-role-edit-c_recommended')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('origin-location-chat-role-avatar-c_recommended'),
+        ),
+        findsOneWidget,
+      );
+
+      cards.controller!.jumpToPage(2);
+      await tester.pumpAndSettle();
+      final regularRole = find.byKey(
+        const ValueKey('origin-setup-role-card-frame-c_regular'),
+      );
+      expect(
+        tester.getCenter(regularRole).dx,
+        closeTo(tester.getCenter(cardsFinder).dx, 0.01),
+      );
+    },
+  );
 
   testWidgets(
     'Origin role editor dismisses the keyboard on form drags outside inputs',
@@ -16781,19 +16602,24 @@ void main() {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(390, 844);
         addTearDown(tester.view.reset);
-        const profileUrl = 'https://cdn.example.com/cached-role-profile.webp';
-        final session = MemoryUserSessionStore();
+        final profileUrl =
+            'https://cdn.example.com/cached-role-profile-$inLocation.webp';
+        final session = _DeferredOriginProfileSessionStore();
         final revision = ValueNotifier(0);
         addTearDown(revision.dispose);
-        final pendingPortrait = Completer<ImageInfo>();
-        debugGenesisStaticNetworkImageCompleter = (provider) =>
-            OneFrameImageStreamCompleter(
-              provider.imageUrl.startsWith(profileUrl)
-                  ? pendingPortrait.future
-                  : SynchronousFuture(
-                      ImageInfo(image: originItemTestImage.clone()),
-                    ),
-            );
+        final pendingPortrait = Completer<void>();
+        final pendingEditor = Completer<void>();
+        debugGenesisStaticNetworkImageCompleter = (provider) {
+          ImageInfo frame() => ImageInfo(image: originItemTestImage.clone());
+          final pending = provider.imageUrl.contains('w_208/')
+              ? pendingEditor
+              : pendingPortrait;
+          return OneFrameImageStreamCompleter(
+            provider.imageUrl.startsWith(profileUrl)
+                ? pending.future.then((_) => frame())
+                : SynchronousFuture(frame()),
+          );
+        };
         addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
         final cache = ProfileAvatarCache(
           sessionStore: session,
@@ -16804,10 +16630,22 @@ void main() {
           download: (_) async => null,
         );
         final services = await _testServices(
-          transport: _RecordingV1ListTransport(worldRelationStatus: 'approved'),
+          transport: _RecordingV1ListTransport(
+            worldRelationStatus: 'approved',
+            originPrecharacter: inLocation
+                ? const {'name': 'Preset Hero'}
+                : null,
+            originCharacters: const [
+              {
+                'char_id': 'c_recommended',
+                'name': 'Template role',
+                'is_recommend': 1,
+              },
+            ],
+          ),
           useMock: false,
           initialAuthToken: 'token',
-          initialUserInfo: const {
+          initialUserInfo: {
             'uid': 'u_mock',
             'name': 'Profile Hero',
             'avatar': profileUrl,
@@ -16881,20 +16719,56 @@ void main() {
         final edit = find.byKey(
           const ValueKey('origin-setup-role-edit-current-user'),
         ).hitTestable();
-        await tester.tap(edit);
+        tester.widget<InkWell>(edit).onTap!();
         await tester.pumpAndSettle();
         final editorAvatar = find.byKey(
           const ValueKey('origin-setup-role-inline-avatar-current-user'),
         );
+        final cachedEditorImage = find.descendant(
+          of: editorAvatar,
+          matching: find.image(MemoryImage(previewBytes)),
+        );
+
+        final profileRead = Completer<Map<String, dynamic>?>();
+        session.heldProfileRead = profileRead;
+        final fill = find.byKey(const ValueKey('origin-persona-fill-profile'));
+        await tester.ensureVisible(fill);
+        await tester.pumpAndSettle();
+        await tester.tap(fill);
+        await tester.pump();
+        expect(cachedEditorImage, findsOneWidget);
+
+        session.heldProfileRead = null;
+        profileRead.complete({
+          'uid': 'u_mock',
+          'name': 'Profile Hero',
+          'avatar': profileUrl,
+        });
+        await tester.pumpAndSettle();
+        final editorNetworkImage = find.descendant(
+          of: editorAvatar,
+          matching: find.byType(GenesisStaticNetworkImage),
+        );
         expect(
-          tester.widget<CreateUploadBox>(editorAvatar).initialPreviewBytes,
-          same(previewBytes),
+          tester.widget<GenesisStaticNetworkImage>(editorNetworkImage).imageUrl,
+          '$profileUrl?x-oss-process=image/resize,w_208/format,webp',
+        );
+        expect(cachedEditorImage, findsOneWidget);
+        pendingEditor.complete();
+        await tester.pumpAndSettle();
+        expect(cachedEditorImage, findsNothing);
+        expect(
+          find.descendant(
+            of: editorNetworkImage,
+            matching: find.byType(RawImage),
+          ),
+          findsOneWidget,
         );
         await tester.tap(
           find.byKey(const ValueKey('origin-role-editor-cancel-current-user')),
         );
         await tester.pumpAndSettle();
-        pendingPortrait.complete(ImageInfo(image: originItemTestImage.clone()));
+        pendingPortrait.complete();
         await tester.runAsync(() async {
           for (var i = 0; i < 100; i += 1) {
             await tester.pump(const Duration(milliseconds: 16));
@@ -21274,7 +21148,7 @@ void main() {
     for (final recommended in [false, true]) {
       testWidgets(
         'Origin shared role cards ${inLocation ? 'Location' : 'Opening'} '
-        '${recommended ? 'recommended' : 'custom'} edit in the persona form and show full details',
+        '${recommended ? 'with a recommended preset' : 'with a regular preset'} edits the custom card in the persona form and show full details',
         (tester) async {
           tester.view.physicalSize = const Size(390, 844);
           tester.view.devicePixelRatio = 1;
@@ -21341,7 +21215,7 @@ void main() {
             of: host,
             matching: find.byKey(ValueKey<String>(key)),
           );
-          final id = recommended ? 'c_player' : 'current-user';
+          const id = 'current-user';
           final card = inside('origin-setup-role-card-frame-$id');
           await tester.ensureVisible(card);
           await tester.pumpAndSettle();
@@ -21369,12 +21243,7 @@ void main() {
               .onTap!();
           await tester.pumpAndSettle();
           final details = inside('origin-setup-role-details-$id');
-          for (final value in [
-            identity,
-            personality,
-            setting,
-            if (recommended) goal,
-          ]) {
+          for (final value in [identity, personality, setting]) {
             final text = find.descendant(
               of: details,
               matching: find.text(value),
@@ -21396,7 +21265,7 @@ void main() {
           await tester.pump();
           final lastValue = find.descendant(
             of: details,
-            matching: find.text(recommended ? goal : setting),
+            matching: find.text(setting),
           );
           expect(
             tester.getBottomLeft(lastValue).dy,
@@ -21488,7 +21357,7 @@ void main() {
               .widget<TextField>(form('origin-setup-role-inline-$field-$id'))
               .controller!
               .text;
-          expect(fieldText('name'), 'N' * (recommended ? 128 : 30));
+          expect(fieldText('name'), 'N' * 30);
           expect(fieldText('identity'), isEmpty);
           expect(fieldText('brief'), isEmpty);
           expect(fieldText('setting'), isEmpty);
@@ -21501,6 +21370,7 @@ void main() {
                 .text,
             profileAvatar,
           );
+          expect(form('origin-role-editor-avatar-hint'), findsOneWidget);
           tester.view.viewInsets = FakeViewPadding.zero;
           formPosition.jumpTo(0);
           await tester.pumpAndSettle();
@@ -23921,14 +23791,14 @@ void main() {
       );
       return data!.buffer.asUint8List();
     });
-    await cache.replaceFromEdit(url, bytes!);
-
     final frame = Completer<ImageInfo>();
     debugGenesisStaticNetworkImageCompleter = (provider) =>
         OneFrameImageStreamCompleter(
           provider.imageUrl.startsWith(url)
               ? frame.future
-              : SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+              : SynchronousFuture(
+                  ImageInfo(image: originItemTestImage.clone()),
+                ),
         );
     addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
     await tester.pumpWidget(
@@ -23946,6 +23816,17 @@ void main() {
       tester.widget<GenesisStaticNetworkImage>(avatar).imageUrl,
       '$url?x-oss-process=image/resize,w_160/format,webp',
     );
+    expect(
+      find.descendant(
+        of: avatar,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is ColoredBox && widget.color == Colors.black,
+        ),
+      ),
+      findsOneWidget,
+    );
+    await cache.replaceFromEdit(url, bytes!);
+    await tester.pumpAndSettle();
     final preview = find.descendant(
       of: avatar,
       matching: find.byWidgetPredicate(
@@ -34400,7 +34281,9 @@ void main() {
       find.descendant(of: skeleton, matching: find.byType(DecoratedBox)),
     );
     expect(bones, isNotEmpty);
-    for (final bone in bones) {
+    expect(bones.first.decoration, isA<BoxDecoration>());
+    expect((bones.first.decoration as BoxDecoration).color, Colors.black);
+    for (final bone in bones.skip(1)) {
       final decoration = bone.decoration as BoxDecoration;
       expect(decoration.color, GenesisColors.darkFaintFill);
       expect(decoration.gradient, isNull);
@@ -34436,6 +34319,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Penny Hardaway'), findsOneWidget);
+    final avatar = find.byType(GenesisAvatar);
+    expect(
+      find.descendant(
+        of: avatar,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is ColoredBox && widget.color == Colors.black,
+        ),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

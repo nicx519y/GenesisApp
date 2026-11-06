@@ -8,17 +8,19 @@
 - `chat_photo.dart`：共享 photo/receipt/request/target 模型。创建响应 `data.photo`，V2/WS `payload.photo`，World History 顶层 `photo`。ID 只接受整数或十进制整数字符串，不经过浮点数。
 - `chat_photo_events.dart`、`world_chatroom_photos.dart`：独立 `live_photo` 消息和 `phone.photo.result`（仅 `source=chat`）。以地点消息 ID 合并，以 task ID 关联提前结果；请求键允许为空。终态不回退为 generating；候选 WS 依据 payload.card_id 只更新所属卡；正式 WS 才进入正式消息队列和游标。图片状态不改变文字生成状态或等待锁。
 - `chat_photo_request_store.dart`：按环境、账号、World、地点隔离未确认请求及活跃任务。原请求参数原样保存；候选请求按轮次与卡隔离，活跃任务保留卡片身份，独立于有界聊天缓存。受理后释放文字操作；同卡图片 generating 时禁止重复拍照，不同卡可独立提交。
-- `location_chat_photos.dart`：询价、确认、提交、失败展示周期、历史恢复与通知定位；`location_chat_photo_visibility.dart` 只控制显示，不删除记录、分页游标或去重身份。
+- `location_chat_photos.dart`：询价、确认、提交、失败展示周期、历史恢复；`location_chat_photo_visibility.dart` 只控制显示，不删除记录、分页游标或去重身份。
 
 ## 拍照与错误处理
 
-点击相机只从当前本地状态解析目标，不前置查询 cards，也不创建卡组。无卡组的正式回复保留当前轮次并省略 `card_id`；已知候选卡使用当前查看的真实卡 ID，不能因候选身份未确定而回退到正式回复。新请求在确认弹窗返回及请求日志保存后重新校验轮次、查看卡、选卡限制和生成／操作状态；失效时不发送，保存后失效的未发送请求清除日志。超时等结果不明的旧请求继续复用原键和原参数，不按新目标重建。受理后的候选卡刷新、任务恢复及 Inbox 定位仍按需查询 cards。
+Location Chat 相机支持本人触发的 `user_message`、`go_on` 和 `user_enter_location`。Enter 轮次须为当前最新轮次，并已完成且有正式 AI 回复。相机在回复渲染结束后可用，创建请求使用 Enter 的 `conversation_round_id`，无卡组时省略 `card_id`。
+
+点击相机只从当前本地状态解析目标，不前置查询 cards，也不创建卡组。无卡组的正式回复保留当前轮次并省略 `card_id`；已知候选卡使用当前查看的真实卡 ID，不能因候选身份未确定而回退到正式回复。新请求在确认弹窗返回及请求日志保存后重新校验轮次、查看卡、选卡限制和生成／操作状态；失效时不发送，保存后失效的未发送请求清除日志。超时等结果不明的旧请求继续复用原键和原参数，不按新目标重建。受理后的候选卡刷新及任务恢复仍按需查询 cards。 对已知卡片，照片刷新只合并 `live_photo`，保留已有文字消息、生成身份、流式解码来源及文字生成状态；整卡响应中的文字字段不通过照片链路覆盖，避免旧文字重新进入流式队列并阻挡图片占位。未知卡片仍通过正常卡组初始化恢复；真正的文字重试、编辑及普通卡片恢复继续由文字链路处理。
 
 拍照与其他回复操作共用 `_submitReplyAction` 连接准备入口。业务条件满足时，连接未就绪不直接禁用相机；点击后相机 busy、其他可见按钮 disabled，先检查设备网络，再使用已有地点 join 流程，成功后才进入目标校验、确认与 create。Socket 已断开或网络/加入失败时沿用公共错误提示并结束本次操作，不新增专用自动重连或重发。确认弹层等待用户期间结束连接准备计时，后续仍校验原目标与请求参数。
 
 仅实际打开 Sheet 时异步请求 price 并通过 `formatGemCent` 填充数字；尚未返回时显示占位，不阻塞 Generate。询价失败走公共提示但不禁用生成。create 不带价格字段；首张免费和实际费用由服务端决定。聊天“记住”按环境、账号保存布尔偏好（兼容已有真实价格确认记录），以后直接提交，不弹 Sheet、不请求 price；与 MiniPhone 相机及旧预览偏好隔离。
 
-create 请求期间相机显示 busy，其余回复操作图标 disabled；请求返回恢复。受理前不插入占位。create 发出时即使用 Send 相同的锚点测量与滚动留白，不等待响应。受理后先隐藏整排 actions 图标（保留行高以避免跳动），等待本次滚动完成后照片行从零高度在 420 ms 内展开，完全展开后恢复图标；重复 HTTP/WS、状态更新和列表重建不重复入场，用户手势可打断自动滚动。 展开中的照片行保持挂载至动画结束；消息先到、请求标识稍后登记时仍补上一次入场并使行缓存失效。操作栏同方向的展开／收起不因滚动重建重启计时。超时、断线、响应损坏保留原请求；再次点击复用原键及参数，不自动重发。已记住时同样跳过 Sheet；未记住时 Sheet 显示恢复说明。旧请求日志中的价格字段在恢复时忽略。
+create 请求期间相机显示 busy，其余回复操作图标 disabled；请求返回恢复。受理前不插入占位。首次生图在 create 发出时即使用 Send 相同的锚点测量与滚动留白，不等待响应。受理后先隐藏整排 actions 图标（保留行高以避免跳动），等待本次滚动完成后照片行从零高度在 420 ms 内展开，完全展开后恢复图标；重复 HTTP/WS、状态更新和列表重建不重复入场，用户手势可打断自动滚动。 展开中的照片行保持挂载至动画结束；消息先到、请求标识稍后登记时仍补上一次入场并使行缓存失效。操作栏同方向的展开／收起不因滚动重建重启计时。目标已有成功图时，重拍跳过滚动留白与入场动画，原位更新照片。超时、断线、响应损坏保留原请求；再次点击复用原键及参数，不自动重发。已记住时同样跳过 Sheet；未记住时 Sheet 显示恢复说明。旧请求日志中的价格字段在恢复时忽略。
 
 | 错误 | 客户端处理 |
 | --- | --- |
@@ -37,7 +39,7 @@ create 请求期间相机显示 busy，其余回复操作图标 disabled；请�
 
 ## 状态、恢复和通知
 
-共享 `ChatImageMessage` 为照片保留固定 2:3 图片区域，左右沿用消息列表边距，分别对齐角色头像左边和用户头像右边；图片内部不另加头像侧占位，不设 280 逻辑像素上限：generating 无旧图时显示静态占位；succeeded 显示图片与 description，可打开现有查看器；generating/failed 有旧成功图时保留并显示当前状态。再次生图使用同一卡的拍照入口。下载失败不改变任务状态。
+共享 `ChatImageMessage` 为照片保留固定 2:3 图片区域，左右沿用消息列表边距，分别对齐角色头像左边和用户头像右边；图片内部不另加头像侧占位，不设 280 逻辑像素上限：generating 无旧图时显示静态占位；succeeded 显示图片与 description，可打开现有查看器；有旧成功图时保留图片：generating 在图内右下角显示加载圆环，failed 在图下显示失败提示。再次生图使用同一卡的拍照入口。下载失败不改变任务状态。
 
 卡内照片三态全部展示。旧独立照片沿用访问周期过滤：首次进入校准发现的失败照片隐藏，包括缓存生成中随后被历史确认失败。本次实时新照片及本次确认生成中的任务随后失败继续显示；普通重建、刷新、重连不清除。离开地点、切换地点/账号重置。World History 不使用该过滤，展示三态并在现有历史同步中校准含未完成照片的驻留页。
 
@@ -47,20 +49,19 @@ create 请求期间相机显示 busy，其余回复操作图标 disabled；请�
 
 World 会话以 event_id 去重结果提示，使用服务端 title/summary；只处理到达时仍在该 World 前台的实时通知。成功和失败均通过根 Overlay 复用 `GenesisPushBanner`，与 New Location / New Character 共用毛玻璃横幅、顶部位置及淡入滑出动画；默认 5 秒自动收起，可点击提前收起，不阻断页面操作。手机及其透明浮层上方同样展示，后台、会话释放或账号切换时移除当前横幅，后台/离线/离开后不补弹。结果横幅与公共余额面板串行，横幅收起后才继续本人余额不足的充值处理，充值按任务去重。历史和 Inbox 阅读不弹结果/充值。
 
-## Inbox 与定位
+## Inbox 跳转（2026-11-06）
 
 - `message_notification_model.dart` 独立识别 photo_succeeded/photo_failed，不当入世申请，无审核按钮。
 - failed 保留正文、时间、未读点；InkWell 回调为 null，无点击语义；列表原有进入已读机制继续生效。
-- succeeded 通过 `ChatPhotoTarget` 传递 location/round/chat_global_message_id/可选 card_id；有卡 ID 时读取所属候选卡并定位，不能用正式历史的同 ID 内容替代。路由 World ID 来自 biz_id，obj_id 仅任务 ID。
-- 已缓存目标直接识别；缺失时指定轮次确认，再从最新消息沿分页补齐连续窗口。只有相邻、无缺口的缓存段才可复用，不把孤立目标轮次拼到最新列表。
-- 定位期间保护连续窗口；离开、切换账号/地点或用户手势取消。目标无法读取时提示并恢复最新聊天。
-- `LocationChatAnchoredMessageList.historyRevealAlignTop` 使用布局测量的图片锚点，位于 Header 下的消息视口顶部，偏移限制在实际可滚动范围。尾部不足则真实贴底，不填充空白。定位优先于首次贴底/旧锚点；保持历史阅读状态，布局修正不重新启动动画。用户拖动取得控制后释放定位窗口保护。
+- 聊天 succeeded 通知仅使用 biz_id 与 photo_target.location_id 进入对应 World 的地点聊天，按普通进入流程展示聊天。不定位到图片消息，不为通知读取旧轮次或候选卡，不连续补齐目标至最新的历史，也不额外保护整段消息缓存。obj_id 仍仅为任务 ID。
+- 通知中的 round/chat_global_message_id/card_id 继续按现有协议解析，但不再作为页面定位参数传递。照片生成、状态恢复、普通历史分页及实时照片入场行为保持原流程。
+- MiniPhone Camera 成功通知仍沿用相册资产打开流程，见 [相机接入](mini-phone-camera-integration.md)。
 
 ## 验证入口与待联调
 
 定向测试：`chat_photo_test.dart`、`world_chatroom_service_test.dart`（photo cases）、`location_chat_photo_visibility_test.dart`、`location_chat_photo_navigation_test.dart`、`camera_moment_confirmation_test.dart`、`world_history_latest_sync_test.dart`、`gem_balance_prompt_host_test.dart`、`widget_test.dart` 的 photo Inbox 场景。新增文案走全部目标语言翻译与 `tool/l10n/check`。
 
-LocalMock 的报价/创建/重复键及历史仅用于本地协议验证，不提供正式服务、费用结论或模拟成功资产回退。真实后端与设备仍需验收：成功/失败推送、首张免费与扣费/退款、后台与断线恢复、多任务并行、长历史定位、图片解码后位置及手势取消。
+LocalMock 的报价/创建/重复键及历史仅用于本地协议验证，不提供正式服务、费用结论或模拟成功资产回退。真实后端与设备仍需验收：成功/失败推送、首张免费与扣费/退款、后台与断线恢复、多任务并行、通知进入地点聊天及图片展示。
 
 ## 候选卡与 Regenerate
 

@@ -94,7 +94,6 @@ class WorldPage extends StatefulWidget {
     this.onRetryInitialLaunch,
     this.initialDefinitionVersion = 0,
     this.initialMapLocationId = '',
-    this.initialPhotoTarget,
     this.initialCameraTarget,
     this.miniPhoneSession,
   });
@@ -113,7 +112,6 @@ class WorldPage extends StatefulWidget {
   final VoidCallback? onRetryInitialLaunch;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
-  final ChatPhotoTarget? initialPhotoTarget;
   final PhoneCameraTarget? initialCameraTarget;
   final MiniPhoneSession? miniPhoneSession;
 
@@ -168,7 +166,6 @@ class _WorldPageState extends State<WorldPage>
   Future<void> _photoResultQueue = Future.value();
   GenesisPushBannerHandle? _photoResultBanner;
   int _photoResultEpoch = 0;
-  bool _initialPhotoTargetAssigned = false;
   bool _initialCameraTargetConsumed = false;
   Future<void>? _worldChatroomAuthRecovery;
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =

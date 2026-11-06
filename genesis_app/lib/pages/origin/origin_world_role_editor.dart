@@ -15,6 +15,12 @@ final _originRoleEditorSupportingStyle = GenesisTypography.supporting.copyWith(
   decoration: TextDecoration.none,
 );
 
+const String _originRoleEditorCameraGlyph =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/>'
+    '<path d="M12 10a3 3 0 1 0 0 6 3 3 0 1 0 0-6z"/></svg>';
+
 /// Whether the player's role is being edited on the opening sheet or on a
 /// location page. The form itself lives in [_OriginRoleEditorHost].
 class _OriginRoleEditorInteractionController extends ChangeNotifier {
@@ -66,17 +72,13 @@ class _OriginRoleEditorHost extends StatefulWidget {
   const _OriginRoleEditorHost({
     required this.interaction,
     required this.role,
-    required this.stableId,
-    required this.isPreset,
     required this.busy,
     required this.onFillFromProfile,
     this.topInset = 0,
   });
 
   final _OriginRoleEditorInteractionController interaction;
-  final OriginCustomRoleDraft? role;
-  final String stableId;
-  final bool isPreset;
+  final OriginCustomRoleDraft role;
   final bool busy;
   final OriginRoleProfileLoader onFillFromProfile;
 
@@ -132,7 +134,7 @@ class _OriginRoleEditorHostState extends State<_OriginRoleEditorHost>
   }
 
   void _syncWithInteraction() {
-    final editing = widget.interaction.editing && widget.role != null;
+    final editing = widget.interaction.editing;
     if (editing == _open) return;
     _open = editing;
     FocusManager.instance.primaryFocus?.unfocus();
@@ -183,8 +185,6 @@ class _OriginRoleEditorHostState extends State<_OriginRoleEditorHost>
               child: _OriginRoleEditorPanel(
                 key: ValueKey<int>(_session),
                 role: role,
-                stableId: widget.stableId,
-                isPreset: widget.isPreset,
                 busy: widget.busy,
                 topInset: widget.topInset,
                 onFillFromProfile: widget.onFillFromProfile,
@@ -203,8 +203,6 @@ class _OriginRoleEditorPanel extends StatefulWidget {
   const _OriginRoleEditorPanel({
     super.key,
     required this.role,
-    required this.stableId,
-    required this.isPreset,
     required this.busy,
     required this.topInset,
     required this.onFillFromProfile,
@@ -213,8 +211,6 @@ class _OriginRoleEditorPanel extends StatefulWidget {
   });
 
   final OriginCustomRoleDraft role;
-  final String stableId;
-  final bool isPreset;
   final bool busy;
   final double topInset;
   final OriginRoleProfileLoader onFillFromProfile;
@@ -237,7 +233,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   final ScrollController _scrollController = ScrollController();
   // A drag starting on a growing text field can scroll the form as well.
   final Set<int> _fieldPointers = {};
-  Uint8List? _avatarDisplayPreview;
   Uint8List? _editedAvatarPreview;
   bool _avatarInteractionActive = false;
   bool _fillingProfile = false;
@@ -257,12 +252,9 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
 
   bool get _doneEnabled => !_nameEmpty && _canFillProfile;
 
-  int get _nameMaxLength =>
-      widget.isPreset ? 128 : originCharacterNameMaxLength;
-  int get _identityMaxLength =>
-      widget.isPreset ? 255 : originCharacterIdentityMaxLength;
-  int get _personalityMaxLength =>
-      widget.isPreset ? 512 : originCharacterPersonalityMaxLength;
+  int get _nameMaxLength => originCharacterNameMaxLength;
+  int get _identityMaxLength => originCharacterIdentityMaxLength;
+  int get _personalityMaxLength => originCharacterPersonalityMaxLength;
 
   @override
   void initState() {
@@ -270,11 +262,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     WidgetsBinding.instance.addObserver(this);
     final role = widget.role;
     _editedAvatarPreview = role.avatarPreviewBytes;
-    _avatarDisplayPreview =
-        _editedAvatarPreview ??
-        AppServicesScope.maybeRead(
-          context,
-        )?.profileAvatarCache?.bytesFor(_resolveAssetUrl(role.avatarUrl));
     _seed(_form.avatarUrl, role.avatarUrl.trim());
     _seed(_form.name, role.name.trim(), maxLength: _nameMaxLength);
     _seed(_form.identity, role.identity.trim(), maxLength: _identityMaxLength);
@@ -375,9 +362,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
       final profile = await widget.onFillFromProfile();
       if (!mounted || profile == null) return;
       _editedAvatarPreview = null;
-      _avatarDisplayPreview = AppServicesScope.maybeRead(
-        context,
-      )?.profileAvatarCache?.bytesFor(_resolveAssetUrl(profile.avatarUrl));
       _form.fillFromProfile(
         OriginCustomRoleDraft(name: profile.name, avatarUrl: profile.avatarUrl),
         nameMaxLength: _nameMaxLength,
@@ -432,7 +416,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
         children: [
           _OriginRoleEditorHeaderAction(
             actionKey: ValueKey<String>(
-              'origin-role-editor-cancel-${widget.stableId}',
+              'origin-role-editor-cancel-${_OriginWorldPageState._profileLocationChatRoleId}',
             ),
             label: GenesisL10n.current.cancelAction,
             color: _originRoleEditorCancelColor,
@@ -456,7 +440,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
           ),
           _OriginRoleEditorHeaderAction(
             actionKey: ValueKey<String>(
-              'origin-role-editor-done-${widget.stableId}',
+              'origin-role-editor-done-${_OriginWorldPageState._profileLocationChatRoleId}',
             ),
             label: GenesisL10n.current.worldoLaunchDone,
             color: doneEnabled
@@ -471,7 +455,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   }
 
   Widget _buildBody(BuildContext context) {
-    final stableId = widget.stableId;
+    final stableId = _OriginWorldPageState._profileLocationChatRoleId;
     final focusNodes = _form.focusNodes;
     final bottomInset = _keyboardOverlap > 0
         ? 0.0
@@ -597,36 +581,100 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   }
 
   Widget _buildAvatar() {
-    return CreateUploadBox(
-      key: ValueKey<String>(
-        'origin-setup-role-inline-avatar-${widget.stableId}',
-      ),
-      controller: _form.avatarUrl,
-      label: GenesisL10n.current.createCharacterAvatarOptional,
-      onChanged: _handleFormChanged,
-      onInteractionActiveChanged: (active) {
-        if (active) _dismissKeyboard();
-        setState(() => _avatarInteractionActive = active);
-      },
-      initialPreviewBytes: _avatarDisplayPreview,
-      onPreviewBytesChanged: (bytes) {
-        _avatarDisplayPreview = bytes;
-        _editedAvatarPreview = bytes;
-      },
-      optimisticCropPreview: true,
+    final hasAvatar = _form.avatarUrl.text.trim().isNotEmpty;
+    return SizedBox(
       width: _avatarSize,
       height: _avatarSize,
-      previewUrlBuilder: (url) => _originRoleAvatarUrl(url, _avatarSize),
+      child: Stack(
+        children: [
+          CreateUploadBox(
+            key: ValueKey<String>(
+              'origin-setup-role-inline-avatar-${_OriginWorldPageState._profileLocationChatRoleId}',
+            ),
+            controller: _form.avatarUrl,
+            label: '',
+            onChanged: _handleFormChanged,
+            onInteractionActiveChanged: (active) {
+              if (active) _dismissKeyboard();
+              setState(() => _avatarInteractionActive = active);
+            },
+            initialPreviewBytes: _editedAvatarPreview,
+            onPreviewBytesChanged: (bytes) {
+              _editedAvatarPreview = bytes;
+            },
+            optimisticCropPreview: true,
+            width: _avatarSize,
+            height: _avatarSize,
+            previewBuilder: _buildAvatarPreview,
+            iconSize: 24,
+            borderRadius: GenesisAvatarRadii.character,
+            cropSize: originCharacterAvatarUploadSize,
+            maxOutputSize: originCharacterAvatarUploadSize,
+            showRemoveLinkWhenFilled: false,
+            emptyLabelFontWeight: FontWeight.w600,
+            emptyLabelFontSize: 1,
+            emptyIconLabelGap: 0,
+            emptyBackgroundColor: GenesisColors.darkFaintFill,
+            emptyBorderColor: hasAvatar
+                ? Colors.transparent
+                : originWorldDetailSheetTertiaryTextColor,
+            emptyIconColor: GenesisColors.createAdd,
+            emptyLabelColor: originWorldDetailSheetTertiaryTextColor,
+          ),
+          if (hasAvatar)
+            Positioned(
+              right: 3,
+              bottom: 3,
+              child: IgnorePointer(
+                child: Container(
+                  key: const ValueKey<String>('origin-role-editor-avatar-hint'),
+                  width: 22,
+                  height: 22,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Color(0xAD000000),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SvgPicture.string(
+                    _originRoleEditorCameraGlyph,
+                    width: 13,
+                    height: 13,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildAvatarPreview(String url, Uint8List? localBytes) {
+    final filling = _fillingProfile;
+    final avatarUrl = filling ? '' : _resolveAssetUrl(url);
+    if (!filling && avatarUrl.isEmpty && localBytes == null) return null;
+
+    Widget avatar({Uint8List? local, Uint8List? cached}) => GenesisAvatar(
+      key: ValueKey(avatarUrl),
+      name: _form.name.text,
+      url: avatarUrl,
+      localImage: local == null ? null : MemoryImage(local),
+      cachedImage: cached == null ? null : MemoryImage(cached),
+      size: _avatarSize,
       borderRadius: GenesisAvatarRadii.character,
-      cropSize: originCharacterAvatarUploadSize,
-      maxOutputSize: originCharacterAvatarUploadSize,
-      previewAlignment: Alignment.topCenter,
-      emptyIconLabelGap: 8,
-      emptyBackgroundColor: GenesisColors.darkFaintFill,
-      emptyBorderColor: GenesisColors.darkTextTertiary,
-      emptyLabelColor: GenesisColors.darkTextSecondary,
-      previewMaxDevicePixelRatio:
-          originWorldOpeningRoleAvatarMaxDevicePixelRatio,
+      useFixedCdnWidth: true,
+      maxDevicePixelRatio: originWorldOpeningRoleAvatarMaxDevicePixelRatio,
+      showFallbackWhenUnavailable: false,
+      placeholderColor: Colors.black,
+    );
+
+    if (!filling && localBytes != null) return avatar(local: localBytes);
+    final cache = AppServicesScope.maybeOf(context)?.profileAvatarCache;
+    if (cache == null) return avatar();
+    return ListenableBuilder(
+      listenable: cache,
+      builder: (context, _) => filling
+          ? avatar(local: cache.currentBytes)
+          : avatar(cached: cache.bytesFor(avatarUrl)),
     );
   }
 }
