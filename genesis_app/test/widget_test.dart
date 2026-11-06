@@ -15095,7 +15095,7 @@ void main() {
   });
 
   testWidgets(
-    'Origin role editor keeps its sheet and keyboard while scrolling',
+    'Origin role editor dismisses the keyboard on form drags outside inputs',
     (WidgetTester tester) async {
       _mockGenesisKeyboardAnimationEvents();
       tester.view.physicalSize = const Size(390, 844);
@@ -15197,34 +15197,39 @@ void main() {
         const ValueKey<String>('origin-setup-role-inline-editor-current-user'),
       );
       expect(editor, findsOneWidget);
-      final field = tester.widget<TextField>(
-        find.descendant(of: editor, matching: find.byType(TextField)).first,
-      );
+      final name = find
+          .descendant(of: editor, matching: find.byType(TextField))
+          .first;
+      final field = tester.widget<TextField>(name);
       expect(field.focusNode!.hasFocus, isTrue);
       tester.view.viewInsets = const FakeViewPadding(bottom: 260);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      final scroll = find.byKey(
+        const ValueKey<String>(
+          'origin-setup-role-inline-editor-scroll-current-user',
+        ),
+      );
       final controller = tester
-          .widget<SingleChildScrollView>(
-            find.byKey(
-              const ValueKey<String>(
-                'origin-setup-role-inline-editor-scroll-current-user',
-              ),
-            ),
-          )
+          .widget<SingleChildScrollView>(scroll)
           .controller!;
       final beforeDrag = controller.offset;
-      await tester.drag(editor, const Offset(0, -60));
+      await tester.dragFrom(tester.getCenter(name), const Offset(0, -60));
       await tester.pumpAndSettle();
       expect(controller.offset, greaterThan(beforeDrag));
       expect(field.focusNode!.hasFocus, isTrue);
       expect(tester.testTextInput.isVisible, isTrue);
       final afterUpwardDrag = controller.offset;
-      await tester.drag(editor, const Offset(0, 40));
+      final viewport = tester.getRect(scroll);
+      await tester.dragFrom(
+        Offset(viewport.left + 8, viewport.center.dy),
+        const Offset(0, 40),
+      );
       await tester.pumpAndSettle();
       expect(controller.offset, lessThan(afterUpwardDrag));
-      expect(field.focusNode!.hasFocus, isTrue);
-      expect(tester.testTextInput.isVisible, isTrue);
+      expect(field.focusNode!.hasFocus, isFalse);
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(editor, findsOneWidget);
       expect(openingController.positions, hasLength(1));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -21211,7 +21216,7 @@ void main() {
           expect(tester.getSize(name).height, 40);
           expect(
             tester.getSize(form('origin-setup-role-inline-avatar-$id')),
-            const Size.square(62),
+            const Size.square(104),
           );
           if (inLocation) {
             // The location page has no sheet, so the form takes the whole page.

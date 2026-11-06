@@ -5,9 +5,6 @@ const Color _originRoleEditorMutedLabelColor = Color(0x99FFFFFF);
 const Color _originRoleEditorCountColor = GenesisColors.darkTextTertiary;
 const Color _originRoleEditorCancelColor = GenesisColors.darkTextSecondary;
 const Color _originRoleEditorDoneDisabledColor = Color(0x59FFFFFF);
-const Color _originRoleEditorDividerColor = Color(0x14FFFFFF);
-const Color _originRoleEditorFieldColor = Color(0x14FFFFFF);
-const Color _originRoleEditorFieldFocusedColor = Color(0x24FFFFFF);
 const Color _originRoleEditorFieldInvalidColor = Color(0x1FFF2442);
 const Duration _originRoleEditorFieldTransition = Duration(milliseconds: 150);
 
@@ -17,12 +14,6 @@ final _originRoleEditorSupportingStyle = GenesisTypography.supporting.copyWith(
   letterSpacing: 0,
   decoration: TextDecoration.none,
 );
-
-const String _originRoleEditorCameraGlyph =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" '
-    'stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/>'
-    '<path d="M12 10a3 3 0 1 0 0 6 3 3 0 1 0 0-6z"/></svg>';
 
 /// Whether the player's role is being edited on the opening sheet or on a
 /// location page. The form itself lives in [_OriginRoleEditorHost].
@@ -232,7 +223,7 @@ class _OriginRoleEditorPanel extends StatefulWidget {
 class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     with WidgetsBindingObserver {
   static const double _headerHeight = 48;
-  static const double _avatarSize = 62;
+  static const double _avatarSize = 104;
   static const double _avatarGap = 12;
   static const double _overflowFadeHeight = 56;
   static const double _scrollEndTolerance = 6;
@@ -241,6 +232,8 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     charId: 'current_user_custom_role',
   );
   final ScrollController _scrollController = ScrollController();
+  // A drag starting on a growing text field can scroll the form as well.
+  final Set<int> _fieldPointers = {};
   var _keyboardOverlap = 0.0;
   var _hasContentBelow = false;
 
@@ -340,6 +333,24 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     return true;
   }
 
+  bool _handleScroll(ScrollNotification notification) {
+    if (notification.depth == 0 &&
+        notification is ScrollStartNotification &&
+        notification.dragDetails != null &&
+        _fieldPointers.isEmpty) {
+      _dismissKeyboard();
+    }
+    return _handleScrollMetrics(notification.metrics);
+  }
+
+  void _trackFieldPointer(PointerEvent event) {
+    if (event is PointerDownEvent) {
+      _fieldPointers.add(event.pointer);
+    } else {
+      _fieldPointers.remove(event.pointer);
+    }
+  }
+
   void _complete() {
     if (widget.busy || _nameEmpty) return;
     widget.onDone(
@@ -429,11 +440,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     return Container(
       height: _headerHeight,
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: _originRoleEditorDividerColor),
-        ),
-      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -484,8 +490,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
         ? 0.0
         : MediaQuery.viewPaddingOf(context).bottom;
     return NotificationListener<ScrollNotification>(
-      onNotification: (notification) =>
-          _handleScrollMetrics(notification.metrics),
+      onNotification: _handleScroll,
       child: NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) =>
             _handleScrollMetrics(notification.metrics),
@@ -508,46 +513,49 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildAvatar(),
                       const SizedBox(width: _avatarGap),
                       Expanded(
-                        child: _OriginRoleEditorField(
-                          fieldKey: ValueKey<String>(
-                            'origin-setup-role-inline-name-$stableId',
-                          ),
-                          label: GenesisL10n.current.worldoLaunchName,
-                          controller: _form.name,
-                          focusNode: focusNodes.name,
-                          nextFocusNode: focusNodes.identity,
-                          maxLength: _nameMaxLength,
-                          multiline: false,
-                          invalid: _nameEmpty,
-                          onDismiss: _dismissKeyboard,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _OriginRoleEditorField(
+                              fieldKey: ValueKey<String>(
+                                'origin-setup-role-inline-name-$stableId',
+                              ),
+                              label: GenesisL10n.current.worldoLaunchName,
+                              controller: _form.name,
+                              focusNode: focusNodes.name,
+                              nextFocusNode: focusNodes.identity,
+                              maxLength: _nameMaxLength,
+                              multiline: false,
+                              invalid: _nameEmpty,
+                              onDismiss: _dismissKeyboard,
+                              onPointer: _trackFieldPointer,
+                            ),
+                            if (_nameEmpty) ...[
+                              const SizedBox(height: 6),
+                              Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  GenesisL10n.current.enterNameValidation,
+                                  key: const ValueKey<String>(
+                                    'origin-role-editor-name-error',
+                                  ),
+                                  style: _originRoleEditorSupportingStyle
+                                      .copyWith(
+                                        color: GenesisColors.redSecondary,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  if (_nameEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: 6,
-                        left: _avatarSize + _avatarGap,
-                      ),
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          GenesisL10n.current.enterNameValidation,
-                          key: const ValueKey<String>(
-                            'origin-role-editor-name-error',
-                          ),
-                          style: _originRoleEditorSupportingStyle.copyWith(
-                            color: GenesisColors.redSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
                   const SizedBox(height: 16),
                   _OriginRoleEditorField(
                     fieldKey: ValueKey<String>(
@@ -559,6 +567,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                     nextFocusNode: focusNodes.personality,
                     maxLength: _identityMaxLength,
                     onDismiss: _dismissKeyboard,
+                    onPointer: _trackFieldPointer,
                   ),
                   const SizedBox(height: 16),
                   _OriginRoleEditorField(
@@ -571,6 +580,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                     nextFocusNode: focusNodes.bio,
                     maxLength: _personalityMaxLength,
                     onDismiss: _dismissKeyboard,
+                    onPointer: _trackFieldPointer,
                   ),
                   const SizedBox(height: 16),
                   _OriginRoleEditorField(
@@ -583,6 +593,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                     maxLength: originCharacterBioMaxLength,
                     minLines: 4,
                     onDismiss: _dismissKeyboard,
+                    onPointer: _trackFieldPointer,
                   ),
                 ],
               ),
@@ -594,68 +605,32 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   }
 
   Widget _buildAvatar() {
-    final hasAvatar = _form.avatarUrl.text.trim().isNotEmpty;
-    return SizedBox(
+    return CreateUploadBox(
+      key: ValueKey<String>(
+        'origin-setup-role-inline-avatar-${widget.stableId}',
+      ),
+      controller: _form.avatarUrl,
+      label: GenesisL10n.current.createCharacterAvatarOptional,
+      onChanged: _handleFormChanged,
+      onInteractionActiveChanged: (active) {
+        if (active) _dismissKeyboard();
+      },
       width: _avatarSize,
       height: _avatarSize,
-      child: Stack(
-        children: [
-          CreateUploadBox(
-            key: ValueKey<String>(
-              'origin-setup-role-inline-avatar-${widget.stableId}',
-            ),
-            controller: _form.avatarUrl,
-            label: '',
-            onChanged: _handleFormChanged,
-            onInteractionActiveChanged: (active) {
-              if (active) _dismissKeyboard();
-            },
-            width: _avatarSize,
-            height: _avatarSize,
-            previewUrlBuilder: (url) =>
-                buildGenesisCdnResizeUrl(_resolveAssetUrl(url), width: 128),
-            iconSize: 24,
-            borderRadius: GenesisAvatarRadii.character,
-            cropSize: originCharacterAvatarUploadSize,
-            maxOutputSize: originCharacterAvatarUploadSize,
-            previewAlignment: Alignment.topCenter,
-            showRemoveLinkWhenFilled: false,
-            emptyLabelFontWeight: FontWeight.w600,
-            emptyLabelFontSize: 1,
-            emptyIconLabelGap: 0,
-            emptyBackgroundColor: GenesisColors.darkFaintFill,
-            emptyBorderColor: hasAvatar
-                ? Colors.transparent
-                : originWorldDetailSheetTertiaryTextColor,
-            emptyIconColor: GenesisColors.createAdd,
-            emptyLabelColor: originWorldDetailSheetTertiaryTextColor,
-            previewMaxDevicePixelRatio:
-                originWorldOpeningRoleAvatarMaxDevicePixelRatio,
-          ),
-          if (hasAvatar)
-            Positioned(
-              right: 3,
-              bottom: 3,
-              child: IgnorePointer(
-                child: Container(
-                  key: const ValueKey<String>('origin-role-editor-avatar-hint'),
-                  width: 22,
-                  height: 22,
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: Color(0xAD000000),
-                    shape: BoxShape.circle,
-                  ),
-                  child: SvgPicture.string(
-                    _originRoleEditorCameraGlyph,
-                    width: 13,
-                    height: 13,
-                  ),
-                ),
-              ),
-            ),
-        ],
+      previewUrlBuilder: (url) => buildGenesisCdnResizeUrl(
+        _resolveAssetUrl(url),
+        width: (_avatarSize * 2).round(),
       ),
+      borderRadius: GenesisAvatarRadii.character,
+      cropSize: originCharacterAvatarUploadSize,
+      maxOutputSize: originCharacterAvatarUploadSize,
+      previewAlignment: Alignment.topCenter,
+      emptyIconLabelGap: 8,
+      emptyBackgroundColor: GenesisColors.darkFaintFill,
+      emptyBorderColor: GenesisColors.darkTextTertiary,
+      emptyLabelColor: GenesisColors.darkTextSecondary,
+      previewMaxDevicePixelRatio:
+          originWorldOpeningRoleAvatarMaxDevicePixelRatio,
     );
   }
 }
@@ -713,6 +688,7 @@ class _OriginRoleEditorField extends StatelessWidget {
     required this.focusNode,
     required this.maxLength,
     required this.onDismiss,
+    required this.onPointer,
     this.nextFocusNode,
     this.multiline = true,
     this.minLines = 1,
@@ -726,6 +702,7 @@ class _OriginRoleEditorField extends StatelessWidget {
   final FocusNode? nextFocusNode;
   final int maxLength;
   final VoidCallback onDismiss;
+  final ValueChanged<PointerEvent> onPointer;
   final bool multiline;
   final int minLines;
   final bool invalid;
@@ -735,9 +712,7 @@ class _OriginRoleEditorField extends StatelessWidget {
     final focused = focusNode.hasFocus;
     final fieldColor = invalid
         ? _originRoleEditorFieldInvalidColor
-        : focused
-        ? _originRoleEditorFieldFocusedColor
-        : _originRoleEditorFieldColor;
+        : GenesisColors.darkFaintFill;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -780,50 +755,55 @@ class _OriginRoleEditorField extends StatelessWidget {
           duration: _originRoleEditorFieldTransition,
           decoration: BoxDecoration(
             color: fieldColor,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: const BorderRadius.all(GenesisRadii.sm),
           ),
-          child: TextField(
-            key: fieldKey,
-            controller: controller,
-            focusNode: focusNode,
-            maxLength: maxLength,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            minLines: minLines,
-            maxLines: multiline ? null : 1,
-            scrollPhysics: const NeverScrollableScrollPhysics(),
-            keyboardType: multiline
-                ? TextInputType.multiline
-                : TextInputType.text,
-            textInputAction: nextFocusNode == null
-                ? TextInputAction.done
-                : TextInputAction.next,
-            onEditingComplete: () {
-              final next = nextFocusNode;
-              if (next == null) {
-                onDismiss();
-              } else {
-                next.requestFocus();
-              }
-            },
-            cursorColor: Colors.white,
-            // Keep the field's label in view above a caret on its first line.
-            scrollPadding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
-            style: GenesisTypography.body.copyWith(
-              height: 20 / 14,
-              fontWeight: FontWeight.w400,
-              letterSpacing: 0,
-              color: _originRoleEditorTextColor,
-              decoration: TextDecoration.none,
-            ),
-            decoration: const InputDecoration(
-              isCollapsed: true,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              counterText: '',
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
+          child: Listener(
+            onPointerDown: onPointer,
+            onPointerUp: onPointer,
+            onPointerCancel: onPointer,
+            child: TextField(
+              key: fieldKey,
+              controller: controller,
+              focusNode: focusNode,
+              maxLength: maxLength,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              minLines: minLines,
+              maxLines: multiline ? null : 1,
+              scrollPhysics: const NeverScrollableScrollPhysics(),
+              keyboardType: multiline
+                  ? TextInputType.multiline
+                  : TextInputType.text,
+              textInputAction: nextFocusNode == null
+                  ? TextInputAction.done
+                  : TextInputAction.next,
+              onEditingComplete: () {
+                final next = nextFocusNode;
+                if (next == null) {
+                  onDismiss();
+                } else {
+                  next.requestFocus();
+                }
+              },
+              cursorColor: Colors.white,
+              // Keep the field's label in view above a caret on its first line.
+              scrollPadding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+              style: GenesisTypography.body.copyWith(
+                height: 20 / 14,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 0,
+                color: _originRoleEditorTextColor,
+                decoration: TextDecoration.none,
+              ),
+              decoration: const InputDecoration(
+                isCollapsed: true,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                counterText: '',
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
             ),
           ),
