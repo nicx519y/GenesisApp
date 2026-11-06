@@ -4,6 +4,7 @@ import '../../../components/common/genesis_image_viewer_overlay.dart';
 import '../../../l10n/genesis_localizations.dart';
 import '../shared/mini_phone_ui.dart';
 import '../../../ui/components/genesis_primary_button.dart';
+import '../../../ui/tokens/genesis_typography.dart';
 import 'mini_phone_camera_preview_jobs.dart';
 
 /// Separate local preview section; never merged into the server asset list.
@@ -156,7 +157,11 @@ class _TaskTile extends StatelessWidget {
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: miniStyle(10, FontWeight.w400, miniSecondary),
+                      style: GenesisTypography.supporting.copyWith(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w400,
+                        color: miniSecondary,
+                      ),
                     ),
                   ),
                 ],

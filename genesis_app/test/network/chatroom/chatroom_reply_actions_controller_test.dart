@@ -439,6 +439,79 @@ void main() {
     }, conversationRoundId: _round);
   }
 
+  test(
+    'photo batch reads one round and reuses unchanged card bodies',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([
+        withPhoto(101, 'generating'),
+        withPhoto(102, 'generating'),
+      ]);
+      await h.controller.restoreLocationCards('l');
+      final body = h.state.messagesForCard(101);
+      final calls = h.api.calls.length;
+      var notifications = 0;
+      h.controller.changesForLocation('l').addListener(() => notifications++);
+      final unchanged = await h.controller.refreshPhotoCards('l', _round, {
+        101,
+        102,
+      });
+      expect(unchanged, {101, 102});
+      expect(h.api.calls.length - calls, 1);
+      expect(identical(h.state.messagesForCard(101), body), isTrue);
+      expect(notifications, 0);
+      h.api.cards = _cards([
+        withPhoto(101, 'succeeded'),
+        withPhoto(102, 'failed'),
+      ]);
+      await h.controller.refreshPhotoCards('l', _round, {101, 102});
+      expect(notifications, 1);
+      expect(h.state.messagesForCard(101).last.photo!.status.name, 'succeeded');
+      expect(h.state.messagesForCard(102).last.photo!.status.name, 'failed');
+    },
+  );
+
+  test('photo batch ignores stale target but applies the other card', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    final initial = _cards([
+      withPhoto(101, 'generating'),
+      withPhoto(102, 'generating'),
+    ]);
+    h.api.cards = initial;
+    await h.controller.restoreLocationCards('l');
+    final barrier = Completer<ChatroomLlmCardsResponse>();
+    h.api.cardsBarrier = barrier;
+    final refresh = h.controller.refreshPhotoCards('l', _round, {101, 102});
+    final terminal = withPhoto(101, 'succeeded').messages.last;
+    await h.controller.acceptCardPhoto(
+      ChatroomV2Message.fromJson({
+        ...terminal.rawJson,
+        'payload': {...terminal.message.payload, 'card_id': 101},
+      }),
+    );
+    barrier.complete(
+      _cards([withPhoto(101, 'generating'), withPhoto(102, 'failed')]),
+    );
+    expect(await refresh, {102});
+    expect(h.state.messagesForCard(101).last.photo!.status.name, 'succeeded');
+    expect(h.state.messagesForCard(102).last.photo!.status.name, 'failed');
+  });
+
+  test('photo batch drops response after controller disposal', () async {
+    final h = _Harness();
+    h.api.cards = _cards([withPhoto(101, 'generating')]);
+    await h.controller.restoreLocationCards('l');
+    final barrier = Completer<ChatroomLlmCardsResponse>();
+    h.api.cardsBarrier = barrier;
+    final refresh = h.controller.refreshPhotoCards('l', _round, {101});
+    final rejected = expectLater(refresh, throwsStateError);
+    h.controller.dispose();
+    barrier.complete(_cards([withPhoto(101, 'succeeded')]));
+    await rejected;
+  });
+
   test('formal photo target keeps its round without querying cards', () async {
     final h = _Harness();
     addTearDown(h.controller.dispose);

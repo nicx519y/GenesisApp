@@ -1297,7 +1297,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get worldoLaunchSelectRole => 'Select Your Role';
 
   @override
-  String get worldoLaunchProfile => 'Your Profile';
+  String get worldoLaunchProfile => 'Your Persona';
 
   @override
   String get worldoLaunchDone => 'Done';
@@ -5252,7 +5252,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get worldoLaunchSelectRole => '選擇你的角色';
 
   @override
-  String get worldoLaunchProfile => '你的角色資料';
+  String get worldoLaunchProfile => '你的人設';
 
   @override
   String get worldoLaunchDone => '完成';

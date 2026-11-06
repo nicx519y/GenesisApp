@@ -8,6 +8,7 @@
 - 创建正文只有 `client_request_id/world_id/character_ids/aspect_ratio/style` 与非空时的 `prompt`，不传价格或免费资格字段。最多选择四个真实 World 角色；描述可空，五种既有比例默认 2:3；风格展示服务端 name，发送 label。
 - `PhotoTask` 保存共享三态、真实图片和结构化失败。聊天解析仍严格要求聊天消息 ID；camera 解析不要求该字段。ID 不经过浮点数。
 - World 的 `MiniPhoneStore.cameraTasks` 持有任务，`MiniPhoneCameraController` 仅持有草稿。正式入口不使用模拟任务队列。关闭相机、相册或手机不取消已提交任务；World 释放停止监听，原请求日志仍保留。
+- 相机复用 World 会话的 [生图超时监控](mini-phone-collect-events.md#photo-generation-timeout)。关闭手机继续计时，退出 World 停止计时。
 - 复用 `phone-writes` 日志，按环境、账号和 World 隔离，保存完整原请求及照片状态。相机请求不会进入普通聊天发送锁、候选回复、History 或地点分页水位。
 - 相机所有网络图片统一按 DPR 2 构建 CDN 缩放 URL：角色头像、风格入口、相册入口和风格 Sheet 示例图按实际固定展示宽度 × 2 请求；取景框 World 封面与结果图按布局宽度 × 2 匹配公共阶梯尺寸。URL 使用公共构建入口，替换旧 OSS 处理参数并保留其他参数；不改写任务、风格、相册或发帖中保存的原始 URL，结果图与大图来源预览使用相同缩放 URL。本地资源沿用本地加载。
 

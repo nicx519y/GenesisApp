@@ -880,8 +880,9 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           },
         );
       }
-      if (attached.photo?.terminal == true) {
-        _photoTerminals[attached.photo!.taskId] = attached.photo!;
+      if (attached.photo case final photo? when photo.terminal) {
+        _photoTerminals[photo.taskId] = photo;
+        _photoGenerationMonitor?.observe('chat', photo);
       }
       final incoming =
           attached.streaming &&

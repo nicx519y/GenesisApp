@@ -460,7 +460,7 @@ class _WorldLaunchedCharacterSummary extends StatelessWidget {
             name: name,
             size: worldCharacterAvatarLogicalSize,
             showFallbackWhileLoading: false,
-            maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+            useFixedCdnWidth: true,
           ),
         ),
         const SizedBox(width: 8),

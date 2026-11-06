@@ -16,6 +16,7 @@ import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/origin.dart';
+import '../../platform/session/profile_avatar_cache.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../pages/world/world_page_result.dart';
 import '../../routers/app_router.dart';

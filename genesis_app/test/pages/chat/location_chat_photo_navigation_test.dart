@@ -9,6 +9,71 @@ import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
 void main() {
+  testWidgets('photo resources are released and evicted tasks do not replay', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    var rows = [_text('before')];
+    var revision = 0;
+    final tasks = <String>{};
+    Widget tree() => MaterialApp(
+      home: Scaffold(
+        body: LocationChatAnchoredMessageList(
+          coordinator: coordinator,
+          messages: rows,
+          topTitle: '',
+          photoVisitIdentity: 'visit',
+          photoContentRevision: revision,
+          photoArrivalTaskIds: Set.of(tasks),
+          replyWaitingPositioningEnabled: false,
+        ),
+      ),
+    );
+    dynamic state() =>
+        tester.state(find.byType(LocationChatAnchoredMessageList));
+    await tester.pumpWidget(tree());
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 8; i++) {
+      final photo = _photo(localId: 'photo-$i');
+      photo.photo = ChatPhoto(
+        taskId: 'task-$i',
+        requestId: '',
+        status: ChatPhotoStatus.generating,
+      );
+      tasks.add('task-$i');
+      rows = [_text('before'), photo];
+      revision++;
+      await tester.pumpWidget(tree());
+      expect(state().debugPhotoResources.animations, 1);
+      await tester.pumpAndSettle();
+      expect(state().debugPhotoResources, (
+        animations: 0,
+        preparations: 0,
+        retired: 0,
+      ));
+      rows = [_text('before')];
+      revision++;
+      await tester.pumpWidget(tree());
+      await tester.pumpAndSettle();
+      rows = [...rows, photo];
+      revision++;
+      await tester.pumpWidget(tree());
+      expect(state().debugPhotoResources.animations, 0);
+      expect(
+        tester
+            .widget<SizeTransition>(
+              find.byKey(ValueKey('photo-arrival-photo-$i')),
+            )
+            .sizeFactor
+            .value,
+        1,
+      );
+    }
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
+
   for (final dispatchAtSubmission in [true, false]) {
     testWidgets(
       'photo positioning preserves the completed send toolbar: $dispatchAtSubmission',
@@ -63,6 +128,14 @@ void main() {
         await tester.pumpWidget(tree());
         await tester.pumpAndSettle();
         expect(actions, findsOneWidget);
+        final dynamic listState = tester.state(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        expect(listState.debugPhotoResources, (
+          animations: 0,
+          preparations: 0,
+          retired: 0,
+        ));
         expect(tester.getSize(actions).height, greaterThanOrEqualTo(32));
         final viewport = tester.getRect(
           find.byType(LocationChatAnchoredMessageList),
@@ -828,8 +901,8 @@ ChatMessageVm _text(String id) => ChatMessageVm(
   status: 'sent',
 );
 
-ChatMessageVm _photo() => ChatMessageVm(
-  localId: 'photo',
+ChatMessageVm _photo({String localId = 'photo'}) => ChatMessageVm(
+  localId: localId,
   senderId: '',
   senderName: '',
   senderType: 'image',

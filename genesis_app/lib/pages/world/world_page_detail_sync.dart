@@ -246,13 +246,15 @@ extension _WorldPageDetailSync on _WorldPageState {
     }
     if (currentCharacter == null || !mounted) return;
 
-    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final devicePixelRatio = genesisImageDevicePixelRatio(
+      MediaQuery.devicePixelRatioOf(context),
+    );
     final avatarUrl = selectGenesisImageUrl(
       worldMapString(currentCharacter, const ['avatar']),
       logicalWidth: worldCharacterAvatarLogicalSize,
       logicalHeight: worldCharacterAvatarLogicalSize,
       devicePixelRatio: devicePixelRatio,
-      maxDevicePixelRatio: devicePixelRatio,
+      useFixedCdnWidth: true,
     ).trim();
     if (avatarUrl.isEmpty) return;
 

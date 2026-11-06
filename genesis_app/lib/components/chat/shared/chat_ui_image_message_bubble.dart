@@ -150,16 +150,7 @@ class ChatImageMessage extends StatelessWidget {
               ),
             ),
           if (hasImage && photo.description.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                photo.description,
-                style: const TextStyle(
-                  color: GenesisColors.darkTextSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ),
+            _ChatPhotoDescription(photo.description),
         ],
       ),
     );
@@ -200,6 +191,76 @@ class ChatImageMessage extends StatelessWidget {
       ],
       source: source,
       initialIndex: viewerInitialIndex,
+    );
+  }
+}
+
+/// The caption under a generated photo: a record of the shot, not narration,
+/// so it borrows the narrator's plate without its icon or italics. It is never
+/// truncated, because that would cut off the closing bracket.
+class _ChatPhotoDescription extends StatelessWidget {
+  const _ChatPhotoDescription(this.description);
+
+  static const double _maxWidth = 282;
+  static const Map<String, String> _wrappers = <String, String>{
+    '"': '"',
+    "'": "'",
+    '“': '”',
+    '‘': '’',
+    '「': '」',
+    '『': '』',
+    '《': '》',
+    '(': ')',
+    '（': '）',
+    '[': ']',
+    '【': '】',
+  };
+
+  final String description;
+
+  /// The app adds its own brackets, so drop any pair already around the text.
+  @visibleForTesting
+  static String captionFor(String description) {
+    var text = description.trim();
+    while (text.characters.length >= 2) {
+      final closing = _wrappers[text.characters.first];
+      if (closing == null || text.characters.last != closing) break;
+      text = text.characters.skipLast(1).skip(1).toString().trim();
+    }
+    return text.isEmpty ? '' : '「$text」';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final caption = captionFor(description);
+    if (caption.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _maxWidth),
+          child: DecoratedBox(
+            key: const ValueKey<String>('chat-photo-description'),
+            decoration: BoxDecoration(
+              color: kChatNarratorBubbleColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Text(
+                caption,
+                textAlign: TextAlign.center,
+                style: GenesisTypography.body.copyWith(
+                  color: GenesisColors.darkTextPrimary,
+                  fontSize: 13,
+                  height: 18 / 13,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

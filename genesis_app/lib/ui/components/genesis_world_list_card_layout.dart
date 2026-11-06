@@ -37,6 +37,7 @@ class GenesisWorldListCardLayout extends StatelessWidget {
           height: coverHeight,
           borderRadius: BorderRadius.circular(thumbnailBorderRadius),
           maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          useFixedCdnWidth: true,
         ),
         const SizedBox(width: contentGap),
         Expanded(child: content),

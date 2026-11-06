@@ -1317,7 +1317,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get worldoLaunchSelectRole => 'Scegli il tuo ruolo';
 
   @override
-  String get worldoLaunchProfile => 'Il tuo profilo';
+  String get worldoLaunchProfile => 'La tua persona';
 
   @override
   String get worldoLaunchDone => 'Fine';

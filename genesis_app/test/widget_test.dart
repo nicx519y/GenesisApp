@@ -1,4 +1,5 @@
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
+import 'package:genesis_flutter_android/components/common/local_image_crop_page.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_camera_models.dart';
 import 'package:genesis_flutter_android/components/login_provider_button.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_cancelled_exception.dart';
@@ -182,6 +183,7 @@ import 'package:genesis_flutter_android/platform/device/android_sdk_version.dart
 import 'package:genesis_flutter_android/platform/keyboard/genesis_keyboard_animation.dart';
 import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparency_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
+import 'package:genesis_flutter_android/platform/session/profile_avatar_cache.dart';
 import 'package:genesis_flutter_android/platform/session/user_session_store.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_wallet_page.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
@@ -373,6 +375,7 @@ Future<AppServices> _testServices({
   String? initialAuthToken,
   Map<String, dynamic>? initialUserInfo,
   MemoryUserSessionStore? sessionStoreOverride,
+  ProfileAvatarCache? profileAvatarCache,
   DirectMessageConversationStore? directMessageConversations,
   DirectMessageMessageStore? directMessageMessages,
   ChatroomMessageStorage? chatroomMessages,
@@ -421,6 +424,7 @@ Future<AppServices> _testServices({
     deviceId: deviceId,
     sessionStore: sessionStore,
     identityAuth: resolvedIdentityAuth,
+    profileAvatarCache: profileAvatarCache,
     backendAuth: resolvedBackendAuth,
     api: api,
     chatroom:
@@ -2522,6 +2526,39 @@ TransportResponse _v1Response(Object? data) {
     headers: const {'content-type': 'application/json'},
     body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
   );
+}
+
+class _MeAvatarEditTransport implements HttpTransport {
+  _MeAvatarEditTransport({this.initialAvatar = previousUrl});
+
+  static const previousUrl = 'assets/images/map_default/l1_default.webp';
+  static const uploadedUrl = 'https://cdn.example.com/uploaded-avatar.png';
+  static const savedUrl = 'https://cdn.example.com/saved-avatar.png';
+  final String initialAvatar;
+
+  final uploadStarted = Completer<void>();
+  final uploadResult = Completer<TransportResponse>();
+  final updateStarted = Completer<String>();
+  final updateResult = Completer<TransportResponse>();
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    switch (request.uri.path) {
+      case '/api/v1/user/info':
+        return _v1Response({
+          'user': {'uid': 'u_me', 'name': 'My profile', 'avatar': initialAvatar},
+        });
+      case '/api/v1/upload/image':
+        uploadStarted.complete();
+        return uploadResult.future;
+      case '/api/v1/user/update':
+        final body = jsonDecode(utf8.decode(request.bodyBytes!)) as Map;
+        updateStarted.complete(body['avatar'] as String);
+        return updateResult.future;
+      default:
+        return _v1Response({'list': const [], 'total': 0});
+    }
+  }
 }
 
 Finder _searchTabCount(String tab, String count) {
@@ -14486,7 +14523,11 @@ void main() {
         ),
         'Edited player',
       );
-      tester.widget<InkWell>(edit).onTap!();
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('origin-role-editor-done-current-user'),
+        ),
+      );
       await tester.pumpAndSettle();
       session.heldProfileRead = null;
       profileRead.complete({'name': 'Late profile', 'bio': 'Late personality'});
@@ -14588,13 +14629,13 @@ void main() {
           (widget) => widget.runtimeType.toString() == '_OriginSetupRoleCard',
         );
         final oldCardState = tester.state(cardFinder);
-        final oldCard = tester.widget(cardFinder) as dynamic;
-        final lateSave =
-            oldCard.onEditedRoleChanged as ValueChanged<OriginCustomRoleDraft>;
+        final done = find.byKey(
+          const ValueKey<String>('origin-role-editor-done-c_recommended'),
+        );
         await tester.enterText(name, 'First private edit');
         await tester.enterText(bio, 'First private setting');
         if (saveBeforeSwitch) {
-          await tester.tap(edit);
+          await tester.tap(done);
           await tester.pumpAndSettle();
           expect(role().name, 'First private edit');
         }
@@ -14647,19 +14688,10 @@ void main() {
           tester.widget<TextField>(bio).controller!.text,
           'Template setting',
         );
-        // A delayed callback from the first user's disposed editor must not
-        // commit even while the second user's editor is active again.
-        lateSave(
-          const OriginCustomRoleDraft(
-            name: 'Late first account',
-            bio: 'Late private setting',
-          ),
-        );
-        await tester.pump();
+        await tester.tap(done);
+        await tester.pumpAndSettle();
         expect(role().name, 'Second account');
         expect(role().bio, 'Template setting');
-        await tester.tap(edit);
-        await tester.pumpAndSettle();
         await (sheet().onSendLocationChatMessage as dynamic)(
           'l_o_test_1',
           'Second account launch',
@@ -14679,7 +14711,6 @@ void main() {
           containsPair('bio', 'Template setting'),
         );
         expect(jsonEncode(payload), isNot(contains('First private')));
-        expect(jsonEncode(payload), isNot(contains('Late private')));
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
       },
@@ -14687,7 +14718,7 @@ void main() {
   }
 
   testWidgets(
-    'Origin inline recommended avatar cancel restores focus and scrolling',
+    'Origin role editor stays open and scrollable around the avatar picker',
     (WidgetTester tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -14726,95 +14757,59 @@ void main() {
         const ValueKey<String>('origin-location-role-cards-visibility'),
       );
       expect(roleSection, findsOneWidget);
-      final edit = find.descendant(
-        of: roleSection,
-        matching: find.byKey(
-          const ValueKey<String>('origin-setup-role-edit-c_recommended'),
-        ),
-      );
-      tester.widget<InkWell>(edit).onTap!();
+      tester
+          .widget<InkWell>(
+            find.descendant(
+              of: roleSection,
+              matching: find.byKey(
+                const ValueKey<String>('origin-setup-role-edit-c_recommended'),
+              ),
+            ),
+          )
+          .onTap!();
       await tester.pumpAndSettle();
-      final identity = find.descendant(
-        of: roleSection,
-        matching: find.byKey(
+      final identityField = tester.widget<TextField>(
+        find.byKey(
           const ValueKey<String>(
             'origin-setup-role-inline-identity-c_recommended',
           ),
         ),
       );
-      final identityField = tester.widget<TextField>(identity);
       identityField.focusNode!.requestFocus();
       await tester.pumpAndSettle();
       tester.view.viewInsets = const FakeViewPadding(bottom: 260);
       await tester.pumpAndSettle();
-      final scroll = find.descendant(
-        of: roleSection,
-        matching: find.byKey(
-          const ValueKey<String>(
-            'origin-setup-role-inline-editor-scroll-c_recommended',
-          ),
+      final scroll = find.byKey(
+        const ValueKey<String>(
+          'origin-setup-role-inline-editor-scroll-c_recommended',
         ),
       );
       final controller = tester
           .widget<SingleChildScrollView>(scroll)
           .controller!;
       expect(controller.position.maxScrollExtent, greaterThan(100));
-      controller.jumpTo(24);
-      await tester.pump();
-      final offsetBeforePicker = controller.offset;
-      final avatar = find.descendant(
-        of: roleSection,
-        matching: find.byKey(
-          const ValueKey<String>(
-            'origin-setup-role-inline-avatar-c_recommended',
-          ),
-        ),
+      final avatar = find.byKey(
+        const ValueKey<String>('origin-setup-role-inline-avatar-c_recommended'),
       );
       final upload = tester.widget<CreateUploadBox>(avatar);
       // Match CreateUploadBox's picker lifecycle, including its cancellation
       // finally path, without invoking an OS gallery in the widget test.
       upload.onInteractionActiveChanged!(true);
       await tester.pump();
-      await tester.pumpAndSettle();
       expect(identityField.focusNode!.hasFocus, isFalse);
-      expect(
-        tester.widget<SingleChildScrollView>(scroll).physics,
-        isA<NeverScrollableScrollPhysics>(),
-      );
       tester.testTextInput.hide();
       tester.view.viewInsets = FakeViewPadding.zero;
-      await tester.pump();
+      await tester.pumpAndSettle();
       upload.onInteractionActiveChanged!(
         false,
       ); // Gallery canceled: no new URL.
-      await tester.pump();
-      await tester.pump();
-      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
-      for (var frame = 0; frame < 16; frame += 1) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<SingleChildScrollView>(scroll).physics,
-        isA<ClampingScrollPhysics>(),
-        reason: 'Canceling the gallery must release the editor scroll freeze.',
-      );
-      expect(identityField.focusNode!.hasFocus, isTrue);
-      expect(tester.testTextInput.isVisible, isTrue);
-      expect(controller.offset, closeTo(offsetBeforePicker, 0.1));
+      expect(scroll, findsOneWidget, reason: 'The form stays open.');
       expect(tester.widget<CreateUploadBox>(avatar).controller.text, isEmpty);
       final beforeDrag = controller.offset;
       await tester.drag(scroll, const Offset(0, -100));
       await tester.pumpAndSettle();
       expect(controller.offset, greaterThan(beforeDrag));
-      expect(identityField.focusNode!.hasFocus, isTrue);
-      expect(tester.testTextInput.isVisible, isTrue);
-      final afterUpwardDrag = controller.offset;
-      await tester.drag(scroll, const Offset(0, 60));
-      await tester.pumpAndSettle();
-      expect(controller.offset, lessThan(afterUpwardDrag));
-      expect(identityField.focusNode!.hasFocus, isTrue);
-      expect(tester.testTextInput.isVisible, isTrue);
       expect(identityField.controller!.text, 'Scout');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -14823,12 +14818,22 @@ void main() {
   );
 
   testWidgets(
-    'Origin merged role edits full Setting and scrolls without duplicating profile',
+    'Origin merged role truncates Setting on prefill and paste and keeps editing scrollable',
     (WidgetTester tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.reset);
       final setting = List.filled(180, 'Original setting line.\n').join();
+      const emoji = '👩‍🚀';
+      final clipboardText = List.filled(501, emoji).join();
+      final expectedPaste = List.filled(500, emoji).join();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => call.method == 'Clipboard.getData'
+            ? <String, dynamic>{'text': clipboardText}
+            : null,
+      );
+      addTearDown(_clearPlatformChannelHandler);
       final transport = _RecordingV1ListTransport(
         originCharacters: [
           {
@@ -14893,7 +14898,10 @@ void main() {
         ),
       );
       expect(tester.widget<TextField>(name).controller!.text, 'Profile player');
-      expect(tester.widget<TextField>(bio).controller!.text, setting);
+      expect(
+        tester.widget<TextField>(bio).controller!.text,
+        setting.substring(0, 500),
+      );
       final scroll = find.byKey(
         const ValueKey<String>(
           'origin-setup-role-inline-editor-scroll-c_recommended',
@@ -14918,16 +14926,25 @@ void main() {
         ),
         findsOneWidget,
       );
-      await tester.enterText(bio, 'Edited complete setting');
-      await tester.tap(edit);
-      await tester.pumpAndSettle();
-      // Reopening the same card reads the saved full-text draft.
-      await tester.tap(edit);
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<TextField>(bio).controller!.text,
-        'Edited complete setting',
+      await tester.enterText(bio, '');
+      final editableBio = find.descendant(
+        of: bio,
+        matching: find.byType(EditableText),
       );
+      await tester
+          .state<EditableTextState>(editableBio)
+          .pasteText(SelectionChangedCause.toolbar);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(bio).controller!.text, expectedPaste);
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('origin-role-editor-done-c_recommended'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(bio).controller!.text, expectedPaste);
       expect(tester.takeException(), isNull);
     },
   );
@@ -15235,12 +15252,12 @@ void main() {
             transport: transport,
             useMock: false,
             initialAuthToken: 'token',
-            initialUserInfo: const {
+            initialUserInfo: {
               'uid': 'u_profile',
               'name': 'Profile Hero',
               'avatar': '',
               'identity': 'Explorer',
-              'bio': 'Curious',
+              'bio': 'Curious.\n' * 30,
             },
           ),
           child: const MaterialApp(
@@ -16670,6 +16687,125 @@ void main() {
       AppStartupCoordinator.resetForTesting();
     },
   );
+
+  for (final inLocation in [false, true]) {
+    testWidgets(
+      'Origin role shows cached avatar until CDN loads, location=$inLocation',
+      (tester) async {
+        _mockGenesisKeyboardAnimationEvents();
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        const profileUrl = 'https://cdn.example.com/cached-role-profile.webp';
+        final session = MemoryUserSessionStore();
+        final revision = ValueNotifier(0);
+        addTearDown(revision.dispose);
+        final pendingPortrait = Completer<ImageInfo>();
+        debugGenesisStaticNetworkImageCompleter = (provider) =>
+            OneFrameImageStreamCompleter(
+              provider.imageUrl.startsWith(profileUrl)
+                  ? pendingPortrait.future
+                  : SynchronousFuture(
+                      ImageInfo(image: originItemTestImage.clone()),
+                    ),
+            );
+        addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+        final cache = ProfileAvatarCache(
+          sessionStore: session,
+          sessionRevision: revision,
+          namespace: 'role-preview-test',
+          cacheFile: () async =>
+              throw StateError('Disk cache disabled in test'),
+          download: (_) async => null,
+        );
+        final services = await _testServices(
+          transport: _RecordingV1ListTransport(worldRelationStatus: 'approved'),
+          useMock: false,
+          initialAuthToken: 'token',
+          initialUserInfo: const {
+            'uid': 'u_mock',
+            'name': 'Profile Hero',
+            'avatar': profileUrl,
+          },
+          sessionStoreOverride: session,
+          profileAvatarCache: cache,
+          billingService: _FakeBillingService(),
+        );
+        final previewBytes = await tester.runAsync(() async {
+          final data = await originItemTestImage.toByteData(
+            format: ui.ImageByteFormat.png,
+          );
+          return data!.buffer.asUint8List();
+        });
+        await cache.replaceFromEdit(profileUrl, previewBytes!);
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.iOS),
+              onGenerateRoute: AppRouter.onGenerateRoute,
+              home: OriginWorldPage(
+                oid: 'o_test_1',
+                originId: 0,
+                showOpeningSheetOnEntry: !inLocation,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (inLocation) {
+          await tester.tap(find.text('Detail Location').first);
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byKey(
+                    const ValueKey<String>('origin-location-chat-l_o_test_1'),
+                  ),
+                  matching: find.byKey(
+                    const ValueKey<String>(
+                      'origin-location-chat-role-selector',
+                    ),
+                  ),
+                )
+                .hitTestable(),
+          );
+        }
+        await tester.pumpAndSettle();
+        final rolePortrait = find.byKey(
+          const ValueKey<String>('origin-setup-role-portrait-current-user'),
+        );
+        final portrait = inLocation
+            ? find.descendant(
+                of: find.byKey(
+                  const ValueKey<String>('origin-location-chat-l_o_test_1'),
+                ),
+                matching: rolePortrait,
+              )
+            : rolePortrait;
+        final memoryImage = find.descendant(
+          of: portrait,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Image &&
+                widget.image is ResizeImage &&
+                (widget.image as ResizeImage).imageProvider is MemoryImage,
+          ),
+        );
+        expect(memoryImage, findsOneWidget);
+        pendingPortrait.complete(ImageInfo(image: originItemTestImage.clone()));
+        await tester.runAsync(() async {
+          for (var i = 0; i < 100; i += 1) {
+            await tester.pump(const Duration(milliseconds: 16));
+            if (memoryImage.evaluate().isEmpty) return;
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        });
+        expect(portrait, findsOneWidget);
+        expect(memoryImage, findsNothing);
+      },
+    );
+  }
 
   testWidgets('Origin shows cached signed-in profile as a direct launch role', (
     WidgetTester tester,
@@ -19239,11 +19375,9 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
       await frames(12);
-      expect(
-        chatroom.session.sentMessages,
-        ['Start the match'],
-        reason: 'Sending must not wait for opening history.',
-      );
+      expect(chatroom.session.sentMessages, [
+        'Start the match',
+      ], reason: 'Sending must not wait for opening history.');
       expect(list().coordinator.shouldFollowLatest, isTrue);
       if (scenario != 'disabled') {
         expect(
@@ -21039,7 +21173,7 @@ void main() {
     for (final recommended in [false, true]) {
       testWidgets(
         'Origin shared role cards ${inLocation ? 'Location' : 'Opening'} '
-        '${recommended ? 'recommended' : 'custom'} edit inline and truncate details',
+        '${recommended ? 'recommended' : 'custom'} edit in the persona form and show full details',
         (tester) async {
           tester.view.physicalSize = const Size(390, 844);
           tester.view.devicePixelRatio = 1;
@@ -21108,6 +21242,23 @@ void main() {
           final card = inside('origin-setup-role-card-frame-$id');
           await tester.ensureVisible(card);
           await tester.pumpAndSettle();
+          // The card's face stops the identity at three lines, like its back.
+          final cardIdentity = tester.widget<Text>(
+            inside('origin-setup-role-identity-$id'),
+          );
+          expect(cardIdentity.maxLines, 3);
+          expect(cardIdentity.overflow, TextOverflow.ellipsis);
+          expect(
+            tester
+                .renderObject<RenderParagraph>(
+                  find.descendant(
+                    of: inside('origin-setup-role-identity-$id'),
+                    matching: find.byType(RichText),
+                  ),
+                )
+                .didExceedMaxLines,
+            isTrue,
+          );
           tester
               .widget<GestureDetector>(
                 inside('origin-setup-role-card-body-toggle-$id'),
@@ -21126,20 +21277,63 @@ void main() {
               matching: find.text(value),
             );
             expect(text, findsOneWidget);
-            expect(tester.widget<Text>(text).maxLines, 3);
-            expect(tester.widget<Text>(text).overflow, TextOverflow.ellipsis);
+            expect(tester.widget<Text>(text).maxLines, isNull);
             final paragraph = tester.renderObject<RenderParagraph>(
               find.descendant(of: text, matching: find.byType(RichText)),
             );
-            expect(paragraph.didExceedMaxLines, isTrue);
+            expect(paragraph.didExceedMaxLines, isFalse);
           }
+          // Everything is reachable by scrolling inside the card.
+          final detailsScroll = tester.widget<SingleChildScrollView>(
+            inside('origin-setup-role-details-scroll-$id'),
+          );
+          final detailsPosition = detailsScroll.controller!.position;
+          expect(detailsPosition.maxScrollExtent, greaterThan(0));
+          detailsPosition.jumpTo(detailsPosition.maxScrollExtent);
+          await tester.pump();
+          final lastValue = find.descendant(
+            of: details,
+            matching: find.text(recommended ? goal : setting),
+          );
+          expect(
+            tester.getBottomLeft(lastValue).dy,
+            lessThanOrEqualTo(tester.getBottomLeft(card).dy),
+          );
+          detailsPosition.jumpTo(0);
+          await tester.pump();
 
           final edit = inside('origin-setup-role-edit-$id');
           tester.widget<InkWell>(edit).onTap!();
           await tester.pumpAndSettle();
-          final editor = inside('origin-setup-role-inline-editor-$id');
+          // The form is a layer of its own over the sheet or the page.
+          Finder form(String key) => find.byKey(ValueKey<String>(key));
+          final editor = form('origin-setup-role-inline-editor-$id');
+          final title = form('origin-role-editor-title');
+          final scroll = form('origin-setup-role-inline-editor-scroll-$id');
+          final cancel = form('origin-role-editor-cancel-$id');
+          final done = form('origin-role-editor-done-$id');
+          final name = form('origin-setup-role-inline-name-$id');
           expect(editor, findsOneWidget);
           expect(find.byType(BottomSheet), findsNothing);
+          expect(tester.widget<Text>(title).data, 'Your Persona');
+          expect(tester.getSize(name).height, 40);
+          expect(
+            tester.getSize(form('origin-setup-role-inline-avatar-$id')),
+            const Size.square(62),
+          );
+          if (inLocation) {
+            // The location page has no sheet, so the form takes the whole page.
+            expect(tester.getTopLeft(cancel).dy, lessThan(10));
+          } else {
+            final sheetTop = tester
+                .getTopLeft(
+                  find.byKey(
+                    const ValueKey<String>('origin-detail-sheet-surface'),
+                  ),
+                )
+                .dy;
+            expect(tester.getTopLeft(cancel).dy, closeTo(sheetTop + 2, 1));
+          }
           for (final entry in {
             'identity': identity,
             'brief': personality,
@@ -21148,17 +21342,17 @@ void main() {
             expect(
               tester
                   .widget<TextField>(
-                    inside('origin-setup-role-inline-${entry.key}-$id'),
+                    form('origin-setup-role-inline-${entry.key}-$id'),
                   )
                   .controller!
                   .text,
               entry.value,
             );
           }
+          final closedBottom = tester.getBottomLeft(scroll).dy;
           tester.view.viewInsets = const FakeViewPadding(bottom: 260);
           await tester.pumpAndSettle();
-          final cardBottom = tester.getRect(card).bottom;
-          expect(cardBottom, lessThanOrEqualTo(844 - 260 - 29));
+          expect(tester.getBottomLeft(scroll).dy, closedBottom - 260);
           final composerVisibility = tester.widget<IgnorePointer>(
             inside(
               inLocation
@@ -21167,11 +21361,19 @@ void main() {
             ),
           );
           expect(composerVisibility.ignoring, isTrue);
-          await tester.enterText(
-            inside('origin-setup-role-inline-name-$id'),
-            'Edited player',
-          );
-          tester.widget<InkWell>(edit).onTap!();
+
+          // No name, no Done: the form says why and nothing is saved.
+          await tester.enterText(name, '  ');
+          await tester.pump();
+          expect(form('origin-role-editor-name-error'), findsOneWidget);
+          await tester.tap(done);
+          await tester.pumpAndSettle();
+          expect(editor, findsOneWidget);
+
+          await tester.enterText(name, 'Edited player');
+          await tester.pump();
+          expect(form('origin-role-editor-name-error'), findsNothing);
+          await tester.tap(done);
           await tester.pump();
           tester.view.viewInsets = FakeViewPadding.zero;
           await tester.pumpAndSettle();
@@ -21192,21 +21394,45 @@ void main() {
 
           tester.widget<InkWell>(edit).onTap!();
           await tester.pumpAndSettle();
-          final name = inside('origin-setup-role-inline-name-$id');
           expect(
             tester.widget<TextField>(name).controller!.text,
             'Edited player',
           );
           await tester.enterText(name, 'Discard this change');
-          tester
-              .widget<TapRegion>(inside('origin-setup-role-tap-region-$id'))
-              .onTapOutside!(const PointerDownEvent(position: Offset.zero));
+          await tester.tap(cancel);
           await tester.pumpAndSettle();
           expect(editor, findsNothing);
+
+          // Back leaves the form, not the page it was opened from.
           tester.widget<InkWell>(edit).onTap!();
           await tester.pumpAndSettle();
           expect(
             tester.widget<TextField>(name).controller!.text,
+            'Edited player',
+          );
+          await tester.enterText(name, 'Discard this as well');
+          if (inLocation) {
+            tester.widget<LocationChatPanel>(host).onBack!();
+          } else {
+            await tester.tap(
+              find.byKey(const ValueKey<String>('origin-top-back-glass')),
+              warnIfMissed: false,
+            );
+          }
+          await tester.pumpAndSettle();
+          expect(editor, findsNothing);
+          expect(host, findsOneWidget);
+          expect(
+            (tester.widget(
+                      find.byWidgetPredicate(
+                        (widget) =>
+                            widget.runtimeType.toString() ==
+                            '_OriginDetailDraggableSheet',
+                      ),
+                    )
+                    as dynamic)
+                .profileRole
+                .name,
             'Edited player',
           );
           expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
@@ -23507,6 +23733,232 @@ void main() {
     expect(find.text('430.0'), findsNothing);
   });
 
+  testWidgets('Me uses the cached avatar until the CDN frame arrives', (
+    tester,
+  ) async {
+    const url = 'https://cdn.example.com/me-cached-profile.webp';
+    final session = MemoryUserSessionStore();
+    final revision = ValueNotifier(0);
+    addTearDown(revision.dispose);
+    final cache = ProfileAvatarCache(
+      sessionStore: session,
+      sessionRevision: revision,
+      namespace: 'me-avatar-preview-test',
+      cacheFile: () async => throw StateError('Disk cache disabled in test'),
+      download: (_) async => null,
+    );
+    final services = await _testServices(
+      transport: _MeAvatarEditTransport(initialAvatar: url),
+      useMock: false,
+      initialUid: 'u_me',
+      initialAuthToken: 'backend-token',
+      initialUserInfo: const {
+        'uid': 'u_me',
+        'name': 'My profile',
+        'avatar': url,
+      },
+      billingService: _FakeBillingService(),
+      sessionStoreOverride: session,
+      profileAvatarCache: cache,
+    );
+    final bytes = await tester.runAsync(() async {
+      final data = await originItemTestImage.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      return data!.buffer.asUint8List();
+    });
+    await cache.replaceFromEdit(url, bytes!);
+
+    final frame = Completer<ImageInfo>();
+    debugGenesisStaticNetworkImageCompleter = (provider) =>
+        OneFrameImageStreamCompleter(
+          provider.imageUrl.startsWith(url)
+              ? frame.future
+              : SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+        );
+    addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const Scaffold(body: MePage()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final avatar = find.byKey(const ValueKey('user-profile-avatar-image'));
+    expect(
+      tester.widget<GenesisStaticNetworkImage>(avatar).imageUrl,
+      '$url?x-oss-process=image/resize,w_160/format,webp',
+    );
+    final preview = find.descendant(
+      of: avatar,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is ResizeImage &&
+            (widget.image as ResizeImage).imageProvider is MemoryImage,
+      ),
+    );
+    expect(preview, findsOneWidget);
+    frame.complete(ImageInfo(image: originItemTestImage.clone()));
+    await tester.pumpAndSettle();
+    expect(preview, findsNothing);
+    expect(
+      find.descendant(of: avatar, matching: find.byType(RawImage)),
+      findsOneWidget,
+    );
+  });
+
+  for (final failure in ['none', 'upload', 'save']) {
+    testWidgets('Me avatar previews locally with failure=$failure', (
+      tester,
+    ) async {
+      final transport = _MeAvatarEditTransport();
+      final session = MemoryUserSessionStore();
+      final revision = ValueNotifier(0);
+      addTearDown(revision.dispose);
+      final avatarCache = ProfileAvatarCache(
+        sessionStore: session,
+        sessionRevision: revision,
+        namespace: 'me-avatar-edit-test',
+        cacheFile: () async => throw StateError('Disk cache disabled in test'),
+        download: (_) async => null,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: 'u_me',
+        initialAuthToken: 'backend-token',
+        billingService: _FakeBillingService(),
+        sessionStoreOverride: session,
+        profileAvatarCache: avatarCache,
+        initialUserInfo: const {
+          'uid': 'u_me',
+          'name': 'My profile',
+          'avatar': _MeAvatarEditTransport.previousUrl,
+        },
+      );
+      const pickerChannel = MethodChannel('plugins.flutter.io/image_picker');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      final cdnUrls = <String>[];
+      debugGenesisStaticNetworkImageCompleter = (provider) {
+        cdnUrls.add(provider.imageUrl);
+        return OneFrameImageStreamCompleter(
+          SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+        );
+      };
+      addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+      messenger.setMockMethodCallHandler(
+        pickerChannel,
+        (_) async => 'assets/images/default_list_image.png',
+      );
+      addTearDown(() => messenger.setMockMethodCallHandler(pickerChannel, null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const Scaffold(body: MePage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final avatar = find.byKey(const ValueKey('user-profile-avatar-image'));
+      void expectPreviousAvatar() {
+        expect(
+          tester.widget<Image>(avatar).image,
+          const AssetImage(_MeAvatarEditTransport.previousUrl),
+        );
+      }
+
+      Future<void> pumpUntil(bool Function() ready) async {
+        for (var i = 0; i < 100; i += 1) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (ready()) return;
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        fail('The avatar edit did not advance');
+      }
+
+      expectPreviousAvatar();
+      final confirm = find.widgetWithIcon(IconButton, Icons.check);
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(MyFlutterApp.editImage));
+        await pumpUntil(
+          () => confirm.evaluate().isNotEmpty &&
+              tester.widget<IconButton>(confirm).onPressed != null,
+        );
+        expect(find.byType(LocalImageCropPage), findsOneWidget);
+        tester.widget<IconButton>(confirm).onPressed!();
+        await pumpUntil(() => transport.uploadStarted.isCompleted);
+      });
+      await tester.pumpAndSettle();
+      expect(find.byType(LocalImageCropPage), findsNothing);
+      final preview = tester.widget<Image>(avatar).image as ResizeImage;
+      expect(preview.imageProvider, isA<MemoryImage>());
+      expect(transport.updateStarted.isCompleted, isFalse);
+
+      final failed = TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({'err_no': 9000, 'err_msg': 'Avatar edit failed'}),
+      );
+      if (failure == 'upload') {
+        transport.uploadResult.complete(failed);
+      } else {
+        transport.uploadResult.complete(
+          _v1Response({'url': _MeAvatarEditTransport.uploadedUrl}),
+        );
+        await tester.runAsync(
+          () => pumpUntil(() => transport.updateStarted.isCompleted),
+        );
+        expect(transport.updateStarted.isCompleted, isTrue);
+        expect(
+          await transport.updateStarted.future,
+          _MeAvatarEditTransport.uploadedUrl,
+        );
+        expect(tester.widget<Image>(avatar).image, preview);
+        transport.updateResult.complete(
+          failure == 'save'
+              ? failed
+              : _v1Response({
+                  'user': {'avatar': _MeAvatarEditTransport.savedUrl},
+                }),
+        );
+      }
+      await tester.runAsync(
+        () => pumpUntil(
+          () => !tester
+              .widget<UserProfileContent>(find.byType(UserProfileContent))
+              .isUpdatingProfileListenable!
+              .value,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final cached = await services.sessionStore.readUserInfo();
+      if (failure == 'none') {
+        expect(tester.widget<Image>(avatar).image, preview);
+        expect(cached?['avatar'], _MeAvatarEditTransport.savedUrl);
+        await tester.runAsync(
+          () => pumpUntil(
+            () => avatarCache.bytesFor(_MeAvatarEditTransport.savedUrl) != null,
+          ),
+        );
+        expect(
+          avatarCache.bytesFor(_MeAvatarEditTransport.savedUrl),
+          (preview.imageProvider as MemoryImage).bytes,
+        );
+        expect(cdnUrls, isEmpty);
+      } else {
+        expectPreviousAvatar();
+        expect(cached?['avatar'], _MeAvatarEditTransport.previousUrl);
+        expect(avatarCache.bytesFor(_MeAvatarEditTransport.savedUrl), isNull);
+      }
+    });
+  }
+
   testWidgets('Me origin and world refresh preserve old list until response', (
     WidgetTester tester,
   ) async {
@@ -23993,7 +24445,8 @@ void main() {
             find.byKey(const ValueKey('user-profile-avatar-image')),
           )
           .imageUrl,
-      'https://cdn.example.com/old.png',
+      'https://cdn.example.com/old.png'
+      '?x-oss-process=image/resize,w_160/format,webp',
     );
 
     avatarUrl.value = 'https://cdn.example.com/new.png';
@@ -24007,7 +24460,8 @@ void main() {
             find.byKey(const ValueKey('user-profile-avatar-image')),
           )
           .imageUrl,
-      'https://cdn.example.com/new.png',
+      'https://cdn.example.com/new.png'
+      '?x-oss-process=image/resize,w_160/format,webp',
     );
   });
 

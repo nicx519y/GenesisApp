@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'
     show RenderProxySliver, SliverHitTestResult;
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
@@ -43,6 +45,7 @@ import '../../network/models/origin.dart';
 import '../create/create_form_widgets.dart';
 import '../../platform/keyboard/genesis_keyboard_animation.dart';
 import '../../platform/session/user_session_store.dart';
+import '../../platform/session/profile_avatar_cache.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -55,6 +58,7 @@ import '../../ui/components/genesis_search_field.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_radii.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
@@ -78,6 +82,7 @@ part 'origin_world_sheet_interaction.dart';
 part 'origin_world_detail_sheet.dart';
 part 'origin_world_sections.dart';
 part 'origin_world_role_setup.dart';
+part 'origin_world_role_editor.dart';
 part 'origin_world_launched_worlds.dart';
 part 'origin_world_characters.dart';
 part 'origin_world_location_chat.dart';
@@ -242,19 +247,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   late final _OriginRoleEditorInteractionController
   _previewRoleEditorInteraction;
   bool get _previewRoleEditing => _previewRoleEditorInteraction.editing;
-  final GlobalKey _previewRoleCardPositionKey = GlobalKey();
 
   void _handlePreviewRoleEditorChanged() {
     if (mounted) setState(() {});
-  }
-
-  @override
-  void didChangeMetrics() {
-    if (mounted && _activeChatLocation != null) {
-      _previewRoleEditorInteraction.handleKeyboardMetrics(
-        _previewKeyboardInset(),
-      );
-    }
   }
 
   OriginCustomRoleDraft? get _openingProfileRole =>
@@ -338,19 +333,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _previewRoleEditorInteraction =
-        _OriginRoleEditorInteractionController(
-            vsync: this,
-            readKeyboardInset: _previewKeyboardInset,
-            readKeyboardSafeAreaInset: _previewKeyboardSafeAreaInset,
-            readLayout: _readPreviewRoleEditorLayout,
-            onCommit: (role) => _saveProfileRoleLocally(
-              role,
-              profileRevision: _profileRoleRevision,
-            ),
-          )
-          ..attachScrollController(_locationPreviewScrollController)
-          ..addListener(_handlePreviewRoleEditorChanged);
+    _previewRoleEditorInteraction = _OriginRoleEditorInteractionController(
+      onCommit: (role) =>
+          _saveProfileRoleLocally(role, profileRevision: _profileRoleRevision),
+    )..addListener(_handlePreviewRoleEditorChanged);
     _waitingForOpeningSheetExpansion = widget.showOpeningSheetOnEntry;
     tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
@@ -927,6 +913,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   void _closeLocationChat() {
     if (_activeChatLocation == null || _launching) return;
+    if (_previewRoleEditing) {
+      _previewRoleEditorInteraction.cancelEditing();
+      return;
+    }
     _locationRoleFocusGeneration += 1;
     _locationComposerFocused.value = false;
     _previewRoleEditorInteraction.reset();
@@ -943,8 +933,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _closeLocationChat();
       return;
     }
-    if (_detailSheetRaisedNotifier.value) {
-      _roleSheetKey.currentState?._collapseToMinChildSize();
+    final sheet = _roleSheetKey.currentState;
+    if (sheet == null) return;
+    if (sheet._roleEditorInteraction.editing) {
+      sheet._roleEditorInteraction.cancelEditing();
+    } else if (_detailSheetRaisedNotifier.value) {
+      sheet._collapseToMinChildSize();
     }
   }
 

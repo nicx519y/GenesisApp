@@ -1,6 +1,24 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatPhotos on _LocationChatPanelState {
+  Set<String> _livePhotoTasks(List<ChatMessageVm> messages) {
+    final key = (
+      messages,
+      _replyProjectionEpoch,
+      _service?.photoRevision,
+      _photoVisit,
+    );
+    if (_photoArrivalIndexKey == key) return _photoArrivalTaskIds;
+    _photoArrivalIndexKey = key;
+    return _photoArrivalTaskIds = Set.unmodifiable({
+      for (final message in messages)
+        if (message.photo != null &&
+            (_service?.photoLiveRevision(message.photo!.taskId) ?? 0) >
+                _photoVisibility.liveBaseline)
+          message.photo!.taskId,
+    });
+  }
+
   Future<void> _takeScenePhoto() => _submitReplyAction(
     _LocationChatReplyActionTransaction(
       action: _LocationChatReplyConnectionAction.camera,
@@ -13,6 +31,8 @@ extension _LocationChatPhotos on _LocationChatPanelState {
     _photoReveal = null;
     _photoCardPreview = null;
     _photoArrivalRequests.clear();
+    _photoArrivalIndexKey = null;
+    _photoArrivalTaskIds = const {};
     _photoVisit++;
     _photoVisitService = null;
     _photoVisitSessionRevision = null;
@@ -281,20 +301,24 @@ extension _LocationChatPhotos on _LocationChatPanelState {
           rethrow;
         }
       }
-      _setLocationChatState(() {
+      _setReplyControlsState(() {
         _takingScenePhoto = true;
         _photoArrivalRequests.add(request.requestId);
       });
+      final monitor = service.photoGenerationMonitor;
+      monitor?.start('chat', request.requestId, locationId: location);
       try {
         final receipt = await services.api.chatroomHttp.createPhoto(request);
         if (revision != services.sessionRevision.value || service.isDisposed) {
           return;
         }
+        monitor?.observe('chat', receipt.photo);
         await service.acceptPhotoReceipt(receipt, request: request);
         await store.clear(request.requestId);
         return;
       } on ApiException catch (error) {
         if (error.kind == ApiExceptionKind.business) {
+          monitor?.finish('chat', request.requestId);
           await store.clear(request.requestId);
           if (!mounted || !current()) return;
           if ((error.code == 2072 || error.code == 2073) &&
@@ -340,7 +364,7 @@ extension _LocationChatPhotos on _LocationChatPanelState {
       }
     } finally {
       service.photoSubmittingLocations.remove(location);
-      if (mounted) _setLocationChatState(() => _takingScenePhoto = false);
+      if (mounted) _setReplyControlsState(() => _takingScenePhoto = false);
     }
   }
 }

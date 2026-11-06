@@ -12,6 +12,8 @@ class UserProfileContent extends StatefulWidget {
     this.worldsLoading = false,
     this.isUpdatingProfile = false,
     this.avatarUrlListenable,
+    this.avatarPreviewBytesListenable,
+    this.profileAvatarCache,
     this.displayNameListenable,
     this.displayNameTrailing,
     this.isUpdatingProfileListenable,
@@ -47,6 +49,8 @@ class UserProfileContent extends StatefulWidget {
   final bool worldsLoading;
   final bool isUpdatingProfile;
   final ValueListenable<String>? avatarUrlListenable;
+  final ValueListenable<Uint8List?>? avatarPreviewBytesListenable;
+  final ProfileAvatarCache? profileAvatarCache;
   final ValueListenable<String>? displayNameListenable;
   final Widget? displayNameTrailing;
   final ValueListenable<bool>? isUpdatingProfileListenable;
@@ -406,6 +410,8 @@ class _UserProfileContentState extends State<UserProfileContent>
                   url: data.avatarUrl,
                   name: data.displayName,
                   urlListenable: widget.avatarUrlListenable,
+                  previewBytesListenable: widget.avatarPreviewBytesListenable,
+                  profileAvatarCache: widget.profileAvatarCache,
                   nameListenable: widget.displayNameListenable,
                   isUpdating: widget.isUpdatingProfile,
                   updatingListenable: widget.isUpdatingProfileListenable,

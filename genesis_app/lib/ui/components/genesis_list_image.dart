@@ -19,6 +19,7 @@ class GenesisListImage extends StatelessWidget {
     this.placeholderAsset = genesisDefaultListImageAsset,
     this.placeholder,
     this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+    this.useFixedCdnWidth = false,
     this.onImageLoaded,
   });
 
@@ -30,6 +31,7 @@ class GenesisListImage extends StatelessWidget {
   final String placeholderAsset;
   final Widget? placeholder;
   final double maxDevicePixelRatio;
+  final bool useFixedCdnWidth;
   final VoidCallback? onImageLoaded;
 
   @override
@@ -74,6 +76,7 @@ class GenesisListImage extends StatelessWidget {
       logicalHeight: _finite(height) ?? _finite(constraints.maxHeight),
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
       maxDevicePixelRatio: maxDevicePixelRatio,
+      useFixedCdnWidth: useFixedCdnWidth,
     ).trim();
   }
 

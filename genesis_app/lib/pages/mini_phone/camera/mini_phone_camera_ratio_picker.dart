@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../ui/tokens/genesis_typography.dart';
 import '../shared/mini_phone_ui.dart';
 import 'mini_phone_camera_models.dart';
 
@@ -97,14 +99,18 @@ class _CameraRatioPickerState extends State<CameraRatioPicker> {
                           child: Center(
                             child: Text(
                               ratio.label,
-                              style: miniStyle(
-                                9,
-                                FontWeight.lerp(
+                              style: GenesisTypography.supporting.copyWith(
+                                fontSize: 9,
+                                fontWeight: FontWeight.lerp(
                                   FontWeight.w400,
                                   FontWeight.w600,
                                   emphasis,
-                                )!,
-                                Color.lerp(miniTertiary, miniWhite, emphasis)!,
+                                ),
+                                color: Color.lerp(
+                                  miniTertiary,
+                                  miniWhite,
+                                  emphasis,
+                                ),
                               ),
                             ),
                           ),

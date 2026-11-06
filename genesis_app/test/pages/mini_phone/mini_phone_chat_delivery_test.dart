@@ -830,6 +830,7 @@ void main() {
     (tester) async {
       final backend = PhoneBackend();
       final response = Completer<Object?>();
+      final historyResponse = Completer<Object?>();
       backend.respond = (r) {
         if (r.uri.path.endsWith('/dm_sessions')) {
           return ok(
@@ -839,10 +840,13 @@ void main() {
           );
         }
         if (r.uri.path.endsWith('/dm/send')) return response.future;
+        if (r.uri.path.endsWith('/messages')) return historyResponse.future;
         return null;
       };
       final store = await openChat(tester, backend);
       expect(backend.calls('messages'), isEmpty);
+      final notice = timeline(tester).oldestEdgeNotice;
+      expect(notice, isNotEmpty);
       await tester.enterText(find.byType(TextField), 'First hello');
       late Future<void> sending;
       await tester.runAsync(() async {
@@ -862,6 +866,9 @@ void main() {
         await sending;
       });
       await tester.pump();
+      expect(store.sessionFor('c'), 9);
+      expect(store.hasMore['messages:9'], isNull);
+      expect(timeline(tester).oldestEdgeNotice, notice);
       expect(store.waiting('c'), isNull);
       expect(deliveryRows(tester).map((m) => m.text), [
         'First hello',
@@ -884,6 +891,25 @@ void main() {
       expect(deliveryRows(tester).first.status, 'sent');
       expect(deliveryRows(tester), hasLength(2));
       expect(store.outgoingDm('c'), isEmpty);
+      final refreshing = store.refreshMessages('c');
+      await tester.pump();
+      expect(store.busy, contains('messages:9'));
+      expect(timeline(tester).oldestEdgeNotice, notice);
+      historyResponse.complete(
+        ok(
+          page([
+            phoneMessage(2, requestId: request),
+            {
+              ...phoneMessage(1, sender: 'user', requestId: request),
+              'content': 'First hello',
+            },
+          ]),
+        ),
+      );
+      expect(await refreshing, isTrue);
+      await tester.pump();
+      expect(store.hasMore['messages:9'], isFalse);
+      expect(timeline(tester).oldestEdgeNotice, notice);
       await closeChat(tester, store);
     },
   );

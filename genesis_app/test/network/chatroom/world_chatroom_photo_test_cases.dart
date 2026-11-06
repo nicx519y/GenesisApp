@@ -34,6 +34,125 @@ Map<String, Object?> _photoEnvelope(String status) => {
   },
 };
 void _photoServiceTests() {
+  test('leaving the World cancels both photo timeout timers', () async {
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final monitor = service.photoGenerationMonitor!;
+    final clock = FakeAsync()
+      ..run((_) {
+        monitor.start('chat', 'chat-pending', locationId: 'loc-1');
+        monitor.start('camera', 'camera-pending');
+      });
+    expect(clock.nonPeriodicTimerCount, 2);
+
+    final disconnecting = service.disconnect();
+    expect(clock.nonPeriodicTimerCount, 0);
+    expect(service.photoGenerationMonitor, isNull);
+    await disconnecting;
+
+    clock.run((_) => monitor.start('camera', 'late-old-create'));
+    expect(clock.nonPeriodicTimerCount, 0);
+  });
+
+  test(
+    'photo recovery merges journal and memory targets by round and retains failed reads',
+    () async {
+      final http = _MutationHttpTransport();
+      Map<String, dynamic> card(int id, String status) => {
+        'card_id': id,
+        'card_index': id == 9911 ? 1 : 2,
+        'is_original': id == 9911,
+        'generation_state': 'succeeded',
+        'created_at': '2026-11-05',
+        'can_edit': true,
+        'can_delete': true,
+        'billing': {'status': 'not_required'},
+        'messages': [
+          {
+            'type': 'character',
+            'sender_type': 'character',
+            'world_id': 'world-1',
+            'location_id': 'loc-1',
+            'conversation_round_id': 88,
+            'global_message_id': id + 200,
+            'card_id': id,
+            'card_message_index': 1,
+            'payload': {'content': 'Reply before photo'},
+          },
+          {
+            'type': 'live_photo',
+            'sender_type': 'live_photo',
+            'world_id': 'world-1',
+            'location_id': 'loc-1',
+            'conversation_round_id': 88,
+            'global_message_id': id + 100,
+            'card_id': id,
+            'card_message_index': 2,
+            'payload': {
+              'content': '',
+              'photo': {..._photo(status), 'task_id': 'batch-$id'},
+            },
+          },
+        ],
+      };
+      http.cards.addAll([card(9911, 'generating'), card(9912, 'generating')]);
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: http,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final store = ChatPhotoJobStore(
+        'https://chatroom.test/',
+        'user-1',
+        'world-1',
+        'loc-1',
+      );
+      addTearDown(() async {
+        await store.remove('batch-9911');
+        await store.remove('batch-9912');
+      });
+      for (final id in [9911, 9912]) {
+        await service.acceptPhotoReceipt(
+          ChatPhotoReceipt.fromJson({
+            'source': 'chat',
+            'world_id': 'world-1',
+            'location_id': 'loc-1',
+            'conversation_round_id': 88,
+            'card_id': id,
+            'global_message_id': id + 100,
+            'photo': {..._photo('generating'), 'task_id': 'batch-$id'},
+          }),
+        );
+      }
+      expect(await store.read(), hasLength(2));
+      http.cardRequests.clear();
+      await service.recoverPhotos('loc-1');
+      expect(http.cardRequests, hasLength(1));
+      expect(await store.read(), hasLength(2));
+      http.cardError = StateError('offline');
+      http.cardRequests.clear();
+      await service.recoverPhotos('loc-1');
+      expect(http.cardRequests, hasLength(1));
+      expect(await store.read(), hasLength(2));
+      http.cardError = null;
+      http.cards
+        ..clear()
+        ..addAll([card(9911, 'succeeded'), card(9912, 'failed')]);
+      http.cardRequests.clear();
+      await service.recoverPhotos('loc-1');
+      expect(http.cardRequests, hasLength(1));
+      expect(await store.read(), isEmpty);
+    },
+  );
+
   test(
     'private card photo events never enter formal history or cursors',
     () async {
@@ -81,6 +200,11 @@ void _photoServiceTests() {
       addTearDown(sub.cancel);
       final before = service.state.messagesByLocation;
       final waiting = service.state.waitingConversationRoundIdsByLocation;
+      final clock = FakeAsync()
+        ..run((_) {
+          service.photoGenerationMonitor!.start('camera', 'camera-r');
+        });
+      expect(clock.nonPeriodicTimerCount, 1);
       final result = {
         'world_id': 'world-1',
         'err_no': 0,
@@ -105,6 +229,7 @@ void _photoServiceTests() {
       socket.serverFrame('phone.photo.result', result);
       socket.serverFrame('phone.photo.result', result);
       await _waitFor(() => events.isNotEmpty);
+      expect(clock.nonPeriodicTimerCount, 0);
       expect(events, hasLength(1));
       expect(events.single.photo!.assetId, 9007199254740993);
       expect(service.state.messagesByLocation, before);
@@ -210,6 +335,19 @@ void _photoServiceTests() {
               ) ==
               true,
         );
+        final monitor = service.photoGenerationMonitor!;
+        final clock = FakeAsync()
+          ..run((_) {
+            monitor.start('chat', 'chat-r', locationId: 'loc-1');
+          });
+        monitor.observe(
+          'chat',
+          service.state.messagesByLocation['loc-1']!
+              .firstWhere((m) => m.photo != null)
+              .photo!,
+          requestId: 'chat-r',
+        );
+        expect(clock.nonPeriodicTimerCount, 1);
         final waiting = service.state.waitingConversationRoundIdsByLocation;
         socket.serverFrame('live_photo', _photoEnvelope(terminal));
         await _waitFor(
@@ -217,6 +355,7 @@ void _photoServiceTests() {
             (m) => m.photo?.status.name == terminal,
           ),
         );
+        expect(clock.nonPeriodicTimerCount, 0);
         socket.serverFrame('live_photo', _photoEnvelope('generating'));
         await Future<void>.delayed(const Duration(milliseconds: 30));
         final photos = service.state.messagesByLocation['loc-1']!

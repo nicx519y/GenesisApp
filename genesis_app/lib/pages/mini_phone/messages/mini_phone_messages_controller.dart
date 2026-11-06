@@ -137,6 +137,8 @@ class MiniPhoneMessagesController {
         if (m.senderType == 'char') sessionByChar[m.senderId] = id;
       }
     }
+    // A cached virtual row can predate a restored real session binding.
+    virtualSessionChars.removeAll(sessionByChar.keys);
   }
 
   int _sessionUnread(PhoneSession session) =>
@@ -193,7 +195,7 @@ class MiniPhoneMessagesController {
 
   final sessionByChar = <String, int>{};
   final peerByChar = <String, String>{};
-  final knownSessionChars = <String>{};
+  final virtualSessionChars = <String>{};
   final replyStates =
       <String, ({String status, String? failure, String? failureCode})>{};
   final appliedReplyTerminals = <String>{};
@@ -287,17 +289,22 @@ class MiniPhoneMessagesController {
   }
 
   void rememberSession(PhoneSession session) {
-    knownSessionChars.add(session.person.id);
-    peerByChar[session.person.id] = session.peerUid;
-    if (session.id > 0) sessionByChar[session.person.id] = session.id;
-    people[session.person.id] = session.person;
+    final charId = session.person.id;
+    peerByChar[charId] = session.peerUid;
+    if (session.id > 0) {
+      sessionByChar[charId] = session.id;
+    } else if (session.id == 0 && sessionFor(charId) == null) {
+      virtualSessionChars.add(charId);
+    }
+    people[charId] = session.person;
   }
 
   int? sessionFor(String charId) => sessionByChar[charId];
   bool historyStartVisible(String charId) {
     final id = sessionFor(charId);
-    if (id == null) return knownSessionChars.contains(charId);
-    return hasMore['messages:$id'] == false;
+    final more = id == null ? null : hasMore['messages:$id'];
+    // Keep the confirmed empty start while the first real history loads.
+    return more == null ? virtualSessionChars.contains(charId) : !more;
   }
 
   bool _historyStartVisible(int id) {
@@ -533,7 +540,7 @@ class MiniPhoneMessagesController {
 
   Future<bool> _resolveSession(String charId) async {
     if (sessionFor(charId) != null ||
-        knownSessionChars.contains(charId) && !unresolved('dm:$charId')) {
+        virtualSessionChars.contains(charId) && !unresolved('dm:$charId')) {
       return true;
     }
     final g = requests.generation;
@@ -649,6 +656,7 @@ class MiniPhoneMessagesController {
             !_historyStartVisible(id) &&
             (page.hasMore ||
                 oldest != null && cache.history(id).any((m) => m.id < oldest));
+        if (sessionFor(charId) == id) virtualSessionChars.remove(charId);
       },
       requestKey: '$pn:$next',
     );

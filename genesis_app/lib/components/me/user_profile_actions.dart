@@ -198,6 +198,8 @@ class _Avatar extends StatelessWidget {
     required this.url,
     required this.name,
     required this.urlListenable,
+    required this.previewBytesListenable,
+    required this.profileAvatarCache,
     required this.nameListenable,
     required this.isUpdating,
     required this.updatingListenable,
@@ -210,6 +212,8 @@ class _Avatar extends StatelessWidget {
   final String url;
   final String name;
   final ValueListenable<String>? urlListenable;
+  final ValueListenable<Uint8List?>? previewBytesListenable;
+  final ProfileAvatarCache? profileAvatarCache;
   final ValueListenable<String>? nameListenable;
   final bool isUpdating;
   final ValueListenable<bool>? updatingListenable;
@@ -250,19 +254,53 @@ class _Avatar extends StatelessWidget {
   }
 
   Widget _buildAvatar(String avatarUrl, String displayName, bool updating) {
+    ImageProvider<Object>? memoryImage(Uint8List? bytes) => bytes == null
+        ? null
+        : ResizeImage(
+            MemoryImage(bytes),
+            width: (_size * 2).round(),
+            height: (_size * 2).round(),
+          );
+
+    Widget avatar(Uint8List? previewBytes) {
+      Widget image(Uint8List? cachedBytes) => GenesisAvatar(
+        key: profileAvatarCache != null && previewBytes == null
+            ? ValueKey(avatarUrl)
+            : null,
+        url: avatarUrl,
+        localImage: memoryImage(previewBytes),
+        cachedImage: memoryImage(cachedBytes),
+        name: displayName,
+        size: _size,
+        useFixedCdnWidth: true,
+        borderRadius: _radius,
+        imageKey: const ValueKey('user-profile-avatar-image'),
+      );
+
+      final cache = profileAvatarCache;
+      if (previewBytes != null || cache == null || avatarUrl.isEmpty) {
+        return image(null);
+      }
+      return ListenableBuilder(
+        listenable: cache,
+        builder: (context, _) => image(cache.bytesFor(avatarUrl)),
+      );
+    }
+
+    final preview = previewBytesListenable;
     return SizedBox(
       width: _size,
       height: _size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          GenesisAvatar(
-            url: avatarUrl,
-            name: displayName,
-            size: _size,
-            borderRadius: _radius,
-            imageKey: const ValueKey('user-profile-avatar-image'),
-          ),
+          if (preview == null)
+            avatar(null)
+          else
+            ValueListenableBuilder<Uint8List?>(
+              valueListenable: preview,
+              builder: (context, bytes, _) => avatar(bytes),
+            ),
           if (onEdit != null)
             Positioned(
               right: 2,

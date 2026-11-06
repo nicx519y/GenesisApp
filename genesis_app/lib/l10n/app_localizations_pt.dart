@@ -1312,7 +1312,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get worldoLaunchSelectRole => 'Escolha seu personagem';
 
   @override
-  String get worldoLaunchProfile => 'Seu perfil';
+  String get worldoLaunchProfile => 'Sua persona';
 
   @override
   String get worldoLaunchDone => 'Concluído';

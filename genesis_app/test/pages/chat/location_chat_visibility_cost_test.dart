@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,8 @@ class _CountedMessages extends ListBase<ChatMessageVm> {
           status: 'sent',
         ),
       );
+
+  _CountedMessages.fromRows(this.rows);
 
   final List<ChatMessageVm> rows;
   int reads = 0;
@@ -154,6 +157,83 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  for (final count in [200, 600, 1200]) {
+    testWidgets(
+      'completed photo adds no history scans on scroll or controls ($count)',
+      (tester) async {
+        var messages = _CountedMessages(count);
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        var revision = 0;
+        Widget tree() => MaterialApp(
+          home: Scaffold(
+            body: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              messages: messages,
+              topTitle: '',
+              photoVisitIdentity: 'visit',
+              photoContentRevision: revision,
+              photoArrivalTaskIds: const {'task'},
+              replyWaitingPositioningEnabled: false,
+              showDateDividers: false,
+            ),
+          ),
+        );
+        await tester.pumpWidget(tree());
+        await tester.pumpAndSettle();
+        messages = _CountedMessages.fromRows([
+          ...messages.rows,
+          ChatMessageVm(
+            localId: 'photo',
+            senderId: '',
+            senderName: '',
+            senderType: 'image',
+            text: '',
+            isMe: false,
+            status: 'sent',
+            photo: const ChatPhoto(
+              taskId: 'task',
+              requestId: '',
+              status: ChatPhotoStatus.generating,
+            ),
+          ),
+        ]);
+        revision++;
+        await tester.pumpWidget(tree());
+        await tester.pumpAndSettle();
+        final dynamic state = tester.state(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        expect(state.debugPhotoResources, (
+          animations: 0,
+          preparations: 0,
+          retired: 0,
+        ));
+        final reads = state.debugPhotoMessageReads;
+        coordinator.beginHistoryNavigation();
+        for (var i = 0; i < 3; i++) {
+          coordinator.controller.jumpTo(coordinator.controller.offset - 1);
+          await tester.pump();
+          await tester.pumpWidget(tree());
+        }
+        expect(state.debugPhotoMessageReads, reads);
+        // The same VM/list can be mutated; the explicit content revision must
+        // discover the new photo without relying on object replacement.
+        messages.rows.last.photo = const ChatPhoto(
+          taskId: 'task',
+          requestId: '',
+          status: ChatPhotoStatus.failed,
+        );
+        revision++;
+        await tester.pumpWidget(tree());
+        expect(state.debugPhotoMessageReads, greaterThan(reads));
+        expect(state.debugPhotoResources.animations, 0);
+        await tester.pumpWidget(const SizedBox());
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final count in [200, 600, 1200]) {
     testWidgets(

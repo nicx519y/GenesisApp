@@ -270,6 +270,21 @@ extension _WorldChatroomConnection on WorldChatroomService {
   }
 
   void _enqueueEvent(ChatroomEvent event) {
+    // Stop the clock at receipt, even if earlier events are still being applied.
+    if (_photoGenerationMonitor case final monitor?) {
+      switch (event) {
+        case ChatroomLivePhotoMessage e
+            when e.message.worldId == _worldId && e.message.errNo == 0:
+          monitor.observe('chat', e.photo);
+        case ChatroomPhotoResult e
+            when e.message.worldId == _worldId &&
+                (e.source == 'chat' || e.source == 'camera') &&
+                e.photo?.terminal == true:
+          monitor.observe(e.source, e.photo!);
+        default:
+          break;
+      }
+    }
     final attemptStream = switch (event) {
       ChatroomAiStreamStart e => e.attemptNo != null,
       ChatroomAiStreamChunk e => e.attemptNo != null,

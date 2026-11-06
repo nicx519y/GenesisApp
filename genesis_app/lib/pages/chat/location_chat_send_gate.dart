@@ -37,7 +37,7 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
         worldTickInProgress: widget.worldTickInProgress,
       );
       _pageSendGate?.reconcile();
-      if (mounted) _setLocationChatState(() {});
+      if (mounted) _setReplyControlsState(() {});
     });
   }
 
@@ -63,17 +63,17 @@ extension _LocationChatSendGateBinding on _LocationChatPanelState {
 
   void _onSendGateChanged() {
     if (!mounted) return;
-    _setLocationChatState(() {
-      _syncTickProgressState(
-        progressing:
-            widget.worldTickInProgress ||
-            (_service?.state ?? _chatroomState).inputBlocked,
-        nextSource:
-            (_service?.state ?? _chatroomState).messagesByLocation[widget
-                .locationId] ??
-            const [],
-      );
-    });
+    final contentChanged = _syncTickProgressState(
+      progressing:
+          widget.worldTickInProgress ||
+          (_service?.state ?? _chatroomState).inputBlocked,
+      nextSource:
+          (_service?.state ?? _chatroomState).messagesByLocation[widget
+              .locationId] ??
+          const [],
+    );
+    if (contentChanged) _notifyMessageViewport();
+    _setReplyControlsState(() {});
   }
 
   void _releaseReplyPresentationWait() {

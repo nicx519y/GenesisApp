@@ -1813,6 +1813,68 @@ void main() {
     );
   }
 
+  testWidgets('chat avatars ignore the local account profile', (tester) async {
+    final harness = await _connectedLocationChatTestService();
+    await harness.services.sessionStore.saveUserInfo({
+      'uid': 'user-1',
+      'avatar': 'https://example.com/account-avatar.png',
+    });
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: harness.service,
+            leaveOnInactive: false,
+            messageQueueInitializationCovered: true,
+            networkAvailabilityCheck: _locationChatNetworkAvailable,
+          ),
+        ),
+      ),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.service.state.joinedLocationId == 'location-current',
+    );
+    await tester.pump();
+
+    final input = tester.widget<LocationChatComposerInput>(
+      find.byType(LocationChatComposerInput),
+    );
+    final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+    const messageText = 'Hello from the World';
+    composer.controller.text = messageText;
+    await tester.pump();
+    unawaited(tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend());
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.sendMessageCount == 1,
+    );
+    final message = tester
+        .widget<ChatSelfMessageBubble>(find.byType(ChatSelfMessageBubble))
+        .message;
+    final avatarBeforeEcho = message.avatarUrl;
+    harness.socket.serverV2AckForLatestSend(errNo: 0);
+    harness.socket.serverV2UserMessage(
+      messageId: 1,
+      clientMsgId: message.clientMsgId,
+      content: messageText,
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => message.locationMessageId == 1,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump(const Duration(seconds: 3));
+    expect(input.selfAvatarUrl, isEmpty);
+    expect(avatarBeforeEcho, isEmpty);
+    expect(message.avatarUrl, isEmpty);
+  });
+
   void narrationVersion(String version) {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(GenesisMethodChannels.device, (call) async {

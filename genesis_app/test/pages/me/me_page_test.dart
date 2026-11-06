@@ -14,6 +14,7 @@ import 'package:genesis_flutter_android/network/models/paged_response.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_profile_collection_list_item.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/utils/entity_deleted.dart';
 
@@ -488,12 +489,17 @@ void main() {
   testWidgets('profile collection pages keep a 10px gap while swiping', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 3;
+    tester.view.physicalSize = const Size(2400, 1800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
           body: UserProfileContent(
             data: UserProfileData(
-              avatarUrl: '',
+              avatarUrl: 'https://cdn.example.com/me-avatar.webp',
               displayName: 'User',
               uid: 'u_user',
               followingCount: 0,
@@ -504,7 +510,7 @@ void main() {
                   oid: 'oid_1',
                   title: 'Editable Worldo',
                   subtitle: '',
-                  imageUrl: '',
+                  imageUrl: 'https://cdn.example.com/me-worldo.webp',
                   copyCount: 0,
                   interactCount: 0,
                   characterCount: 0,
@@ -515,7 +521,7 @@ void main() {
                   wid: 'wid_1',
                   title: 'Playing World',
                   subtitle: '',
-                  imageUrl: '',
+                  imageUrl: 'https://cdn.example.com/me-world.webp',
                   progressCount: 0,
                   interactCount: 0,
                   characterCount: 0,
@@ -541,6 +547,27 @@ void main() {
       skipOffstage: false,
     );
     expect(tester.getRect(worldoPage), tester.getRect(tabBarView));
+    expect(
+      tester
+          .widget<GenesisStaticNetworkImage>(
+            find.byKey(const ValueKey('user-profile-avatar-image')),
+          )
+          .imageUrl,
+      'https://cdn.example.com/me-avatar.webp'
+      '?x-oss-process=image/resize,w_160/format,webp',
+    );
+    expect(
+      tester
+          .widget<GenesisStaticNetworkImage>(
+            find.descendant(
+              of: worldoPage,
+              matching: find.byType(GenesisStaticNetworkImage),
+            ),
+          )
+          .imageUrl,
+      'https://cdn.example.com/me-worldo.webp'
+      '?x-oss-process=image/resize,w_120/format,webp',
+    );
 
     final gesture = await tester.startGesture(tester.getCenter(tabBarView));
     await gesture.moveBy(const Offset(-20, 0));
@@ -564,6 +591,18 @@ void main() {
     await tester.tap(find.text('Playing'));
     await tester.pumpAndSettle();
     expect(tester.getRect(playingPage), tester.getRect(tabBarView));
+    expect(
+      tester
+          .widget<GenesisStaticNetworkImage>(
+            find.descendant(
+              of: playingPage,
+              matching: find.byType(GenesisStaticNetworkImage),
+            ),
+          )
+          .imageUrl,
+      'https://cdn.example.com/me-world.webp'
+      '?x-oss-process=image/resize,w_120/format,webp',
+    );
   });
 
   testWidgets('self profile keeps collection cards virtualized', (

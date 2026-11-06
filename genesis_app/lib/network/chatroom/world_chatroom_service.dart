@@ -15,6 +15,7 @@ import '../http_transport.dart';
 import '../json_utils.dart';
 import '../models/location_tree.dart';
 import '../models/world.dart';
+import '../photo_generation_monitor.dart';
 import 'chatroom_client.dart';
 import 'chatroom_disconnect_monitor.dart';
 import 'chatroom_queue_anomaly_monitor.dart';
@@ -500,6 +501,18 @@ class WorldChatroomService {
   bool photoConfirmedByHistory(String task) =>
       _photoConfirmedReads.contains(task);
   final _photoLiveRevisions = <String, int>{};
+  PhotoGenerationMonitor? _photoGenerationMonitor;
+
+  PhotoGenerationMonitor? get photoGenerationMonitor =>
+      _disposed || _userDisconnected
+      ? null
+      : _photoGenerationMonitor ??= PhotoGenerationMonitor(_worldId);
+
+  void _stopPhotoGenerationMonitor() {
+    _photoGenerationMonitor?.dispose();
+    _photoGenerationMonitor = null;
+  }
+
   int _photoRevision = 0;
   int get photoRevision => _photoRevision;
   int photoLiveRevision(String taskId) => _photoLiveRevisions[taskId] ?? 0;
@@ -1161,6 +1174,7 @@ class WorldChatroomService {
     final nextWorldId = worldId.trim();
     if (_worldId != nextWorldId ||
         (_identity != null && _identity!.userId != identity.userId)) {
+      _stopPhotoGenerationMonitor();
       final previousIdentity = _identity;
       final world = _state.world;
       if (previousIdentity != null) _userDisconnected = true;
@@ -1592,6 +1606,7 @@ class WorldChatroomService {
   }
 
   Future<void> disconnect() async {
+    _stopPhotoGenerationMonitor();
     abandonConnectionWait();
     _retryAttempts = 0;
     _disconnectMonitor?.cancel();
