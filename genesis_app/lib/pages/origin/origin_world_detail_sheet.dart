@@ -100,6 +100,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onEnterLaunchedWorld,
     required this.profileRole,
     required this.profileRoleRevision,
+    required this.onFillFromProfile,
     required this.onSaveProfileRole,
     required this.locationChatRole,
     required this.onSelectLocationChatRole,
@@ -123,6 +124,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
   final OriginCustomRoleDraft? profileRole;
   final int profileRoleRevision;
+  final OriginRoleProfileLoader onFillFromProfile;
   final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
   final _OriginLocationChatRoleOption locationChatRole;
   final ValueChanged<String> onSelectLocationChatRole;
@@ -1573,6 +1575,7 @@ class _OriginDetailDraggableSheetState
                                 'current-user',
                             isPreset: recommendedCharacter != null,
                             busy: widget.activeLaunchSource != null,
+                            onFillFromProfile: widget.onFillFromProfile,
                           ),
                         ),
                       ],

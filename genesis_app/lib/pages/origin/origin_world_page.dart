@@ -26,6 +26,7 @@ import '../../components/common/copyable_id_label.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
+import '../../components/origin/origin_role_profile.dart';
 import '../../components/origin/origin_character_form.dart';
 import '../../components/origin/origin_role_recommendation.dart';
 import '../../components/origin/origin_recommended_role.dart';
@@ -1043,40 +1044,22 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
-    if (!await _ensureProfileFillLogin()) return null;
-    if (!mounted) return null;
-    final services = AppServicesScope.read(context);
-    final userInfo = await services.sessionStore.readUserInfo();
-    if (userInfo == null || userInfo.isEmpty) {
-      if (mounted) {
-        showGenesisToast(
-          context,
-          GenesisL10n.current.worldDetailNoSavedProfileFound,
-          brightness: Brightness.dark,
-        );
-      }
-      return null;
-    }
-    final cachedUser = userInfo;
-    final cachedName = _mapString(cachedUser, const [
-      'name',
-      'nickname',
-      'user_name',
-      'displayName',
-      'display_name',
-    ]);
-    final resolvedAvatar = _resolvedProfileAvatar(cachedUser, '');
-
+    final profile = await _loadRoleProfileForFill();
+    if (profile == null) return null;
     return OriginCustomRoleDraft(
-      avatarUrl: resolvedAvatar,
-      name: cachedName,
-      identity: _mapString(cachedUser, const ['identity']),
-      personality: _mapString(cachedUser, const ['bio', 'description']),
+      avatarUrl: profile.avatarUrl,
+      name: profile.name,
+      identity: profile.identity,
+      personality: profile.bio,
     );
   }
 
-  Future<bool> _ensureProfileFillLogin() =>
-      ensureGenesisLogin(context, source: LoginSource.worldoDetail);
+  Future<OriginCustomRoleDraft?> _loadRoleProfileForFill() =>
+      loadOriginRoleProfile(
+        context,
+        source: LoginSource.worldoDetail,
+        resolveAvatar: (user) => _resolvedProfileAvatar(user, ''),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -1213,6 +1196,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         },
         profileRole: _openingProfileRole,
         profileRoleRevision: profileRoleRevision,
+        onFillFromProfile: _loadRoleProfileForFill,
         onSaveProfileRole: (role) =>
             _saveProfileRoleLocally(role, profileRevision: profileRoleRevision),
         locationChatRole: _locationChatRoleOption(origin),

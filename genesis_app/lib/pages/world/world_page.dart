@@ -26,6 +26,7 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_push_banner.dart';
 import '../../components/common/page_presentation_scope.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
+import '../../components/origin/origin_role_profile.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/tilemap/tilemap_view_state.dart';

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../pages/create/create_form_widgets.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import 'origin_role_draft.dart';
 
 const int originCharacterNameMaxLength = 30;
 const int originCharacterIdentityMaxLength = 100;
@@ -103,12 +104,36 @@ class OriginCharacterForm {
         controllers.any((controller) => controller.text.trim().isNotEmpty);
   }
 
+  void fillFromProfile(
+    OriginCustomRoleDraft profile, {
+    int nameMaxLength = originCharacterNameMaxLength,
+    int identityMaxLength = originCharacterIdentityMaxLength,
+  }) {
+    _fillProfileField(name, profile.name, nameMaxLength);
+    _fillProfileField(identity, profile.identity, identityMaxLength);
+    personality.clear();
+    _fillProfileField(bio, profile.bio, originCharacterBioMaxLength);
+    avatarUrl.text = profile.avatarUrl.trim();
+  }
+
   void clear() {
     isRecommended = false;
     for (final controller in controllers) {
       controller.clear();
     }
   }
+}
+
+void _fillProfileField(
+  TextEditingController controller,
+  String value,
+  int maxLength,
+) {
+  final limited = value.trim().characters.take(maxLength).toString();
+  controller.value = TextEditingValue(
+    text: limited,
+    selection: TextSelection.collapsed(offset: limited.length),
+  );
 }
 
 class OriginCharacterFormFocusNodes {

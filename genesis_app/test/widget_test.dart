@@ -15385,6 +15385,10 @@ void main() {
           .descendant(of: editor, matching: find.byType(TextField))
           .first;
       final field = tester.widget<TextField>(name);
+      expect(field.focusNode!.hasFocus, isFalse);
+      expect(tester.testTextInput.isVisible, isFalse);
+      await tester.tap(name);
+      await tester.pump();
       expect(field.focusNode!.hasFocus, isTrue);
       tester.view.viewInsets = const FakeViewPadding(bottom: 260);
       await tester.pumpAndSettle();
@@ -21281,6 +21285,7 @@ void main() {
               'Personality 1\nPersonality 2\nPersonality 3\nPersonality 4';
           const setting = 'Setting 1\nSetting 2\nSetting 3\nSetting 4';
           const goal = 'Goal 1\nGoal 2\nGoal 3\nGoal 4';
+          final session = _DeferredOriginProfileSessionStore();
           final transport = _RecordingV1ListTransport(
             originPrecharacter: const {
               'name': 'Player',
@@ -21309,6 +21314,7 @@ void main() {
                 transport: transport,
                 useMock: false,
                 initialAuthToken: 'token',
+                sessionStoreOverride: session,
               ),
               child: MaterialApp(
                 home: OriginWorldPage(
@@ -21413,6 +21419,8 @@ void main() {
           expect(editor, findsOneWidget);
           expect(find.byType(BottomSheet), findsNothing);
           expect(tester.widget<Text>(title).data, 'Your Persona');
+          expect(tester.widget<TextField>(name).focusNode!.hasFocus, isFalse);
+          expect(tester.testTextInput.isVisible, isFalse);
           expect(tester.getSize(name).height, 40);
           expect(
             tester.getSize(form('origin-setup-role-inline-avatar-$id')),
@@ -21459,6 +21467,44 @@ void main() {
           );
           expect(composerVisibility.ignoring, isTrue);
 
+          const profileAvatar = 'assets/images/default_list_image.png';
+          session.heldProfileRead = Completer<Map<String, dynamic>?>()
+            ..complete({
+              'name': 'N' * 140,
+              'avatar': profileAvatar,
+              'identity': 'Profile identity',
+              'bio': 'Profile bio',
+            });
+          final fill = form('origin-persona-fill-profile');
+          final formPosition = tester
+              .widget<SingleChildScrollView>(scroll)
+              .controller!
+              .position;
+          formPosition.jumpTo(formPosition.maxScrollExtent);
+          await tester.pumpAndSettle();
+          await tester.tap(fill);
+          await tester.pumpAndSettle();
+          String fieldText(String field) => tester
+              .widget<TextField>(form('origin-setup-role-inline-$field-$id'))
+              .controller!
+              .text;
+          expect(fieldText('name'), 'N' * (recommended ? 128 : 30));
+          expect(fieldText('identity'), isEmpty);
+          expect(fieldText('brief'), isEmpty);
+          expect(fieldText('setting'), isEmpty);
+          expect(
+            tester
+                .widget<CreateUploadBox>(
+                  form('origin-setup-role-inline-avatar-$id'),
+                )
+                .controller
+                .text,
+            profileAvatar,
+          );
+          tester.view.viewInsets = FakeViewPadding.zero;
+          formPosition.jumpTo(0);
+          await tester.pumpAndSettle();
+
           // No name, no Done: the form says why and nothing is saved.
           await tester.enterText(name, '  ');
           await tester.pump();
@@ -21485,9 +21531,10 @@ void main() {
           );
           final savedRole = openingSheet.profileRole as OriginCustomRoleDraft;
           expect(savedRole.name, 'Edited player');
-          expect(savedRole.identity, identity);
-          expect(savedRole.personality, personality);
-          expect(savedRole.bio, setting);
+          expect(savedRole.identity, isEmpty);
+          expect(savedRole.personality, isEmpty);
+          expect(savedRole.bio, isEmpty);
+          expect(savedRole.avatarUrl, profileAvatar);
 
           tester.widget<InkWell>(edit).onTap!();
           await tester.pumpAndSettle();
@@ -22197,25 +22244,24 @@ void main() {
     );
   });
 
-  testWidgets('Origin detail profile fill respects custom role length limits', (
+  testWidgets('Origin detail profile fill truncates and clears custom fields', (
     WidgetTester tester,
   ) async {
     final longName = 'N' * 40;
     final longIdentity = 'I' * 120;
     final longBio = 'B' * 520;
+    var profile = OriginCustomRoleDraft(
+      name: longName,
+      identity: longIdentity,
+      bio: longBio,
+    );
 
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: OriginRoleLaunchSheet(
             characters: const <OriginCharacter>[],
-            onFillFromProfile: () async {
-              return OriginCustomRoleDraft(
-                name: longName,
-                identity: longIdentity,
-                bio: longBio,
-              );
-            },
+            onFillFromProfile: () async => profile,
           ),
         ),
       ),
@@ -22238,6 +22284,17 @@ void main() {
     expect(tester.widget<TextField>(fields.at(0)).controller?.text, 'N' * 30);
     expect(tester.widget<TextField>(fields.at(1)).controller?.text, 'I' * 100);
     expect(tester.widget<TextField>(fields.at(2)).controller?.text, 'B' * 500);
+
+    profile = const OriginCustomRoleDraft();
+    final fill = find.text('Fill from my profile');
+    await tester.ensureVisible(fill);
+    await tester.pumpAndSettle();
+    await tester.tap(fill);
+    await tester.pumpAndSettle();
+    expect(fields, findsNWidgets(3));
+    for (final field in tester.widgetList<TextField>(fields)) {
+      expect(field.controller?.text, isEmpty);
+    }
   });
 
   testWidgets('World list item opens world detail with current wid', (

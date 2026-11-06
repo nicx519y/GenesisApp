@@ -69,6 +69,7 @@ class _OriginRoleEditorHost extends StatefulWidget {
     required this.stableId,
     required this.isPreset,
     required this.busy,
+    required this.onFillFromProfile,
     this.topInset = 0,
   });
 
@@ -77,6 +78,7 @@ class _OriginRoleEditorHost extends StatefulWidget {
   final String stableId;
   final bool isPreset;
   final bool busy;
+  final OriginRoleProfileLoader onFillFromProfile;
 
   /// Space above the header, for the host that reaches the top of the screen.
   final double topInset;
@@ -133,12 +135,12 @@ class _OriginRoleEditorHostState extends State<_OriginRoleEditorHost>
     final editing = widget.interaction.editing && widget.role != null;
     if (editing == _open) return;
     _open = editing;
+    FocusManager.instance.primaryFocus?.unfocus();
     if (editing) {
       _editedRole = widget.role;
       _session += 1;
       _visibility.forward();
     } else {
-      FocusManager.instance.primaryFocus?.unfocus();
       _visibility.reverse();
     }
     if (mounted) setState(() {});
@@ -185,6 +187,7 @@ class _OriginRoleEditorHostState extends State<_OriginRoleEditorHost>
                 isPreset: widget.isPreset,
                 busy: widget.busy,
                 topInset: widget.topInset,
+                onFillFromProfile: widget.onFillFromProfile,
                 onCancel: widget.interaction.cancelEditing,
                 onDone: widget.interaction.confirmEditing,
               ),
@@ -204,6 +207,7 @@ class _OriginRoleEditorPanel extends StatefulWidget {
     required this.isPreset,
     required this.busy,
     required this.topInset,
+    required this.onFillFromProfile,
     required this.onCancel,
     required this.onDone,
   });
@@ -213,6 +217,7 @@ class _OriginRoleEditorPanel extends StatefulWidget {
   final bool isPreset;
   final bool busy;
   final double topInset;
+  final OriginRoleProfileLoader onFillFromProfile;
   final VoidCallback onCancel;
   final ValueChanged<OriginCustomRoleDraft> onDone;
 
@@ -225,8 +230,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   static const double _headerHeight = 48;
   static const double _avatarSize = 104;
   static const double _avatarGap = 12;
-  static const double _overflowFadeHeight = 56;
-  static const double _scrollEndTolerance = 6;
 
   final OriginCharacterForm _form = OriginCharacterForm.empty(
     charId: 'current_user_custom_role',
@@ -234,11 +237,11 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   final ScrollController _scrollController = ScrollController();
   // A drag starting on a growing text field can scroll the form as well.
   final Set<int> _fieldPointers = {};
-  late final Uint8List? _initialAvatarPreview;
+  Uint8List? _avatarDisplayPreview;
   Uint8List? _editedAvatarPreview;
   bool _avatarInteractionActive = false;
+  bool _fillingProfile = false;
   var _keyboardOverlap = 0.0;
-  var _hasContentBelow = false;
 
   Iterable<FocusNode> get _focusNodes sync* {
     final nodes = _form.focusNodes;
@@ -249,8 +252,10 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   }
 
   bool get _nameEmpty => _form.name.text.trim().isEmpty;
-  bool get _doneEnabled =>
-      !_nameEmpty && !widget.busy && !_avatarInteractionActive;
+  bool get _canFillProfile =>
+      !widget.busy && !_avatarInteractionActive && !_fillingProfile;
+
+  bool get _doneEnabled => !_nameEmpty && _canFillProfile;
 
   int get _nameMaxLength =>
       widget.isPreset ? 128 : originCharacterNameMaxLength;
@@ -265,7 +270,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     WidgetsBinding.instance.addObserver(this);
     final role = widget.role;
     _editedAvatarPreview = role.avatarPreviewBytes;
-    _initialAvatarPreview =
+    _avatarDisplayPreview =
         _editedAvatarPreview ??
         AppServicesScope.maybeRead(
           context,
@@ -285,9 +290,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     for (final focusNode in _focusNodes) {
       focusNode.addListener(_handleFormChanged);
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _form.focusNodes.name.requestFocus();
-    });
   }
 
   void _seed(TextEditingController controller, String text, {int? maxLength}) {
@@ -331,19 +333,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     return math.max(0.0, bottom - keyboardTop);
   }
 
-  bool _handleScrollMetrics(ScrollMetrics metrics) {
-    final hasContentBelow =
-        metrics.maxScrollExtent - metrics.pixels >= _scrollEndTolerance;
-    if (hasContentBelow != _hasContentBelow) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _hasContentBelow = hasContentBelow);
-      });
-      WidgetsBinding.instance.ensureVisualUpdate();
-    }
-    // The sheet must not treat the form's scrolling as its own drag.
-    return true;
-  }
-
   bool _handleScroll(ScrollNotification notification) {
     if (notification.depth == 0 &&
         notification is ScrollStartNotification &&
@@ -351,7 +340,8 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
         _fieldPointers.isEmpty) {
       _dismissKeyboard();
     }
-    return _handleScrollMetrics(notification.metrics);
+    // The sheet must not treat the form's scrolling as its own drag.
+    return true;
   }
 
   void _trackFieldPointer(PointerEvent event) {
@@ -377,6 +367,26 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     );
   }
 
+  Future<void> _fillFromProfile() async {
+    if (!_canFillProfile) return;
+    _dismissKeyboard();
+    setState(() => _fillingProfile = true);
+    try {
+      final profile = await widget.onFillFromProfile();
+      if (!mounted || profile == null) return;
+      _editedAvatarPreview = null;
+      _avatarDisplayPreview = AppServicesScope.maybeRead(
+        context,
+      )?.profileAvatarCache?.bytesFor(_resolveAssetUrl(profile.avatarUrl));
+      _form.fillFromProfile(
+        OriginCustomRoleDraft(name: profile.name, avatarUrl: profile.avatarUrl),
+        nameMaxLength: _nameMaxLength,
+      );
+    } finally {
+      if (mounted) setState(() => _fillingProfile = false);
+    }
+  }
+
   void _dismissKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 
   @override
@@ -394,10 +404,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
 
   @override
   Widget build(BuildContext context) {
-    final showOverflowFade =
-        _keyboardOverlap > 0 &&
-        _hasContentBelow &&
-        !_form.focusNodes.bio.hasFocus;
     return Material(
       type: MaterialType.transparency,
       child: Column(
@@ -408,38 +414,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(bottom: _keyboardOverlap),
-              child: Stack(
-                children: [
-                  Positioned.fill(child: _buildBody(context)),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: _overflowFadeHeight,
-                    child: IgnorePointer(
-                      child: AnimatedOpacity(
-                        key: const ValueKey<String>(
-                          'origin-role-editor-overflow-fade',
-                        ),
-                        opacity: showOverflowFade ? 1 : 0,
-                        duration: _originRoleEditorFieldTransition,
-                        child: const DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Color(0x00151517),
-                                originWorldDetailSheetBackgroundColor,
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              child: _buildBody(context),
             ),
           ),
         ],
@@ -503,112 +478,117 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
         : MediaQuery.viewPaddingOf(context).bottom;
     return NotificationListener<ScrollNotification>(
       onNotification: _handleScroll,
-      child: NotificationListener<ScrollMetricsNotification>(
-        onNotification: (notification) =>
-            _handleScrollMetrics(notification.metrics),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _dismissKeyboard,
-          child: AbsorbPointer(
-            absorbing: widget.busy,
-            child: SingleChildScrollView(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _dismissKeyboard,
+        child: AbsorbPointer(
+          absorbing: widget.busy || _fillingProfile,
+          child: SingleChildScrollView(
+            key: ValueKey<String>(
+              'origin-setup-role-inline-editor-scroll-$stableId',
+            ),
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 28 + bottomInset),
+            child: Column(
               key: ValueKey<String>(
-                'origin-setup-role-inline-editor-scroll-$stableId',
+                'origin-setup-role-inline-editor-$stableId',
               ),
-              controller: _scrollController,
-              physics: const ClampingScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 28 + bottomInset),
-              child: Column(
-                key: ValueKey<String>(
-                  'origin-setup-role-inline-editor-$stableId',
-                ),
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildAvatar(),
-                      const SizedBox(width: _avatarGap),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _OriginRoleEditorField(
-                              fieldKey: ValueKey<String>(
-                                'origin-setup-role-inline-name-$stableId',
-                              ),
-                              label: GenesisL10n.current.worldoLaunchName,
-                              controller: _form.name,
-                              focusNode: focusNodes.name,
-                              nextFocusNode: focusNodes.identity,
-                              maxLength: _nameMaxLength,
-                              multiline: false,
-                              invalid: _nameEmpty,
-                              onDismiss: _dismissKeyboard,
-                              onPointer: _trackFieldPointer,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildAvatar(),
+                    const SizedBox(width: _avatarGap),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _OriginRoleEditorField(
+                            fieldKey: ValueKey<String>(
+                              'origin-setup-role-inline-name-$stableId',
                             ),
-                            if (_nameEmpty) ...[
-                              const SizedBox(height: 6),
-                              Semantics(
-                                liveRegion: true,
-                                child: Text(
-                                  GenesisL10n.current.enterNameValidation,
-                                  key: const ValueKey<String>(
-                                    'origin-role-editor-name-error',
-                                  ),
-                                  style: _originRoleEditorSupportingStyle
-                                      .copyWith(
-                                        color: GenesisColors.redSecondary,
-                                      ),
+                            label: GenesisL10n.current.worldoLaunchName,
+                            controller: _form.name,
+                            focusNode: focusNodes.name,
+                            nextFocusNode: focusNodes.identity,
+                            maxLength: _nameMaxLength,
+                            multiline: false,
+                            invalid: _nameEmpty,
+                            onDismiss: _dismissKeyboard,
+                            onPointer: _trackFieldPointer,
+                          ),
+                          if (_nameEmpty) ...[
+                            const SizedBox(height: 6),
+                            Semantics(
+                              liveRegion: true,
+                              child: Text(
+                                GenesisL10n.current.enterNameValidation,
+                                key: const ValueKey<String>(
+                                  'origin-role-editor-name-error',
                                 ),
+                                style: _originRoleEditorSupportingStyle
+                                    .copyWith(
+                                      color: GenesisColors.redSecondary,
+                                    ),
                               ),
-                            ],
+                            ),
                           ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _OriginRoleEditorField(
-                    fieldKey: ValueKey<String>(
-                      'origin-setup-role-inline-identity-$stableId',
                     ),
-                    label: GenesisL10n.current.worldoLaunchIdentity,
-                    controller: _form.identity,
-                    focusNode: focusNodes.identity,
-                    nextFocusNode: focusNodes.personality,
-                    maxLength: _identityMaxLength,
-                    onDismiss: _dismissKeyboard,
-                    onPointer: _trackFieldPointer,
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _OriginRoleEditorField(
+                  fieldKey: ValueKey<String>(
+                    'origin-setup-role-inline-identity-$stableId',
                   ),
-                  const SizedBox(height: 16),
-                  _OriginRoleEditorField(
-                    fieldKey: ValueKey<String>(
-                      'origin-setup-role-inline-brief-$stableId',
-                    ),
-                    label: GenesisL10n.current.worldoLaunchPersonality,
-                    controller: _form.personality,
-                    focusNode: focusNodes.personality,
-                    nextFocusNode: focusNodes.bio,
-                    maxLength: _personalityMaxLength,
-                    onDismiss: _dismissKeyboard,
-                    onPointer: _trackFieldPointer,
+                  label: GenesisL10n.current.worldoLaunchIdentity,
+                  controller: _form.identity,
+                  focusNode: focusNodes.identity,
+                  nextFocusNode: focusNodes.personality,
+                  maxLength: _identityMaxLength,
+                  onDismiss: _dismissKeyboard,
+                  onPointer: _trackFieldPointer,
+                ),
+                const SizedBox(height: 16),
+                _OriginRoleEditorField(
+                  fieldKey: ValueKey<String>(
+                    'origin-setup-role-inline-brief-$stableId',
                   ),
-                  const SizedBox(height: 16),
-                  _OriginRoleEditorField(
-                    fieldKey: ValueKey<String>(
-                      'origin-setup-role-inline-setting-$stableId',
-                    ),
-                    label: GenesisL10n.current.worldoLaunchSetting,
-                    controller: _form.bio,
-                    focusNode: focusNodes.bio,
-                    maxLength: originCharacterBioMaxLength,
-                    minLines: 4,
-                    onDismiss: _dismissKeyboard,
-                    onPointer: _trackFieldPointer,
+                  label: GenesisL10n.current.worldoLaunchPersonality,
+                  controller: _form.personality,
+                  focusNode: focusNodes.personality,
+                  nextFocusNode: focusNodes.bio,
+                  maxLength: _personalityMaxLength,
+                  onDismiss: _dismissKeyboard,
+                  onPointer: _trackFieldPointer,
+                ),
+                const SizedBox(height: 16),
+                _OriginRoleEditorField(
+                  fieldKey: ValueKey<String>(
+                    'origin-setup-role-inline-setting-$stableId',
                   ),
-                ],
-              ),
+                  label: GenesisL10n.current.worldoLaunchSetting,
+                  controller: _form.bio,
+                  focusNode: focusNodes.bio,
+                  maxLength: originCharacterBioMaxLength,
+                  minLines: 4,
+                  onDismiss: _dismissKeyboard,
+                  onPointer: _trackFieldPointer,
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: OriginRoleProfileFillAction(
+                    key: const ValueKey('origin-persona-fill-profile'),
+                    filling: _fillingProfile,
+                    onPressed: _canFillProfile ? _fillFromProfile : null,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -628,8 +608,11 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
         if (active) _dismissKeyboard();
         setState(() => _avatarInteractionActive = active);
       },
-      initialPreviewBytes: _initialAvatarPreview,
-      onPreviewBytesChanged: (bytes) => _editedAvatarPreview = bytes,
+      initialPreviewBytes: _avatarDisplayPreview,
+      onPreviewBytesChanged: (bytes) {
+        _avatarDisplayPreview = bytes;
+        _editedAvatarPreview = bytes;
+      },
       optimisticCropPreview: true,
       width: _avatarSize,
       height: _avatarSize,

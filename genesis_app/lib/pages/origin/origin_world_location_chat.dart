@@ -583,6 +583,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                             'current-user',
                         isPreset: _recommendedRole != null,
                         busy: _launching,
+                        onFillFromProfile: _loadRoleProfileForFill,
                         topInset: MediaQuery.viewPaddingOf(context).top,
                       ),
                     ),
