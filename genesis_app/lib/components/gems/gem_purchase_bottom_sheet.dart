@@ -1,7 +1,11 @@
+import '../../platform/billing/billing_analytics.dart';
+import '../../platform/session/app_background_resume.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
+import '../../platform/billing/checkout_preparation_budget.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import 'subscription_tracking_scope.dart';
 import '../../app/membership/subscription_analytics.dart';
@@ -10,6 +14,7 @@ import '../../app/gems/gem_wallet_store.dart';
 import '../../app/gems/gem_store_catalog.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/models/gem_product.dart';
+import '../../network/models/membership_order_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
@@ -67,11 +72,13 @@ Future<void> showGemPurchaseBottomSheet(
     backgroundColor: Colors.transparent,
     builder: (_) => FractionallySizedBox(
       key: const ValueKey<String>('gem-purchase-sheet-size'),
-      heightFactor: 0.8,
+      heightFactor: PurchaseSheetPanel.heightFactor,
       alignment: Alignment.bottomCenter,
       child: PurchaseOptionsSheet(
         analyticsPageId: analyticsPageId,
+        gemsSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
         gemsBuilder: (_) => GemPurchaseBottomSheet(
+          purchaseSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
           productsLoader: resolvedProductsLoader,
           catalog: productsLoader == null ? services?.gemStoreCatalog : null,
           walletStore: resolvedWalletStore,
@@ -85,6 +92,7 @@ Future<void> showGemPurchaseBottomSheet(
 Future<void> showSubscriptionPurchaseBottomSheet(
   BuildContext context, {
   SubscriptionSource source = SubscriptionSource.unknown,
+  MembershipType? initialMembershipType,
 }) async {
   final services = AppServicesScope.maybeRead(context);
   final billingService = services?.billing;
@@ -101,20 +109,26 @@ Future<void> showSubscriptionPurchaseBottomSheet(
     enableDrag: false,
     backgroundColor: Colors.transparent,
     builder: (_) => FractionallySizedBox(
-      heightFactor: 0.8,
+      heightFactor: PurchaseSheetPanel.heightFactor,
       alignment: Alignment.bottomCenter,
       child: PurchaseSessionBuilder(
         backgroundColor: GenesisColors.darkRaisedBackground,
         builder: (_, showBuyGems) => PurchaseOptionsSheet(
           showBuyGems: showBuyGems,
           initialTab: PurchaseSheetTab.subscription,
+          initialMembershipType: initialMembershipType,
           analyticsPageId: analyticsPageId,
           subscriptionSource: source,
           subscriptionTracking: subscriptionTracking,
-          onFirstBuyGems: () => _trackGemPurchaseSheetShow('subscription_tab'),
+          onFirstBuyGems: () => _trackGemPurchaseSheetShow(
+            BillingPurchaseSource.fromSubscriptionEntry(source.value).value,
+          ),
           gemsBuilder: (_) => services == null || billingService == null
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(
+                  purchaseSource: BillingPurchaseSource.fromSubscriptionEntry(
+                    source.value,
+                  ),
                   productsLoader: services.gemStoreCatalog.loadForEntry,
                   catalog: services.gemStoreCatalog,
                   walletStore: services.gemWallet,
@@ -127,12 +141,13 @@ Future<void> showSubscriptionPurchaseBottomSheet(
 }
 
 void _trackGemPurchaseSheetShow(String? analyticsTrigger) {
-  final trigger = analyticsTrigger?.trim() ?? '';
+  final source = BillingPurchaseSource.fromEntry(analyticsTrigger);
+  if (source == BillingPurchaseSource.unknown) return;
   GenesisTelemetry.collectLog(
     actionType: 'pay_event',
     action: 'buy_page_show',
-    object1: BillingPurchaseSource.buyGemsSheet.value,
-    object3: trigger.isEmpty ? null : trigger,
+    object1: source.value,
+    object3: 'buy_gems_sheet',
   );
 }
 
@@ -144,12 +159,14 @@ class GemPurchaseBottomSheet extends StatefulWidget {
     required this.walletStore,
     required this.billingService,
     this.catalog,
+    this.purchaseSource = BillingPurchaseSource.unknown,
   });
 
   final GemPurchaseProductsLoader productsLoader;
   final GemWalletStore walletStore;
   final BillingService billingService;
   final GemStoreCatalog? catalog;
+  final BillingPurchaseSource purchaseSource;
 
   @override
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
@@ -172,7 +189,8 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
+    final resumedFromBackground = _backgroundResume.update(state);
+    if (resumedFromBackground &&
         !_checkingPrice &&
         !widget.billingService.state.value.hasBusyPurchase) {
       unawaited(_loadProducts());
@@ -182,6 +200,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   List<GemProduct>? _products;
   Object? _productsError;
   bool _productsLoading = false;
+  final _backgroundResume = AppBackgroundResume();
   bool _blockingProductRefresh = false;
   int _productsRequestGeneration = 0;
   StreamSubscription<BillingUiEvent>? _billingEvents;
@@ -261,6 +280,18 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
         widget.billingService.state.value.hasBusyPurchase) {
       return;
     }
+    final clickAttemptId = newBillingAttemptId();
+    const GenesisBillingAnalytics().track(
+      'product_click',
+      properties: {
+        'product_id': product.productId,
+        'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
+            ? product.appleProductId
+            : product.googleProductId,
+        'source': widget.purchaseSource.value,
+      },
+    );
+    final budget = CheckoutPreparationBudget();
     _showPurchaseProcessing(attemptId: '');
     if (product.requiresStorePrice) {
       final catalog =
@@ -272,17 +303,49 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       }
       _checkingPrice = true;
       try {
-        final fresh = await catalog.confirm(product);
+        final fresh = await budget.wait(catalog.confirm(product));
         if (!mounted) return;
         setState(() {
           _products = catalog.cached;
         });
         if (fresh == null) {
+          reportGemConfirmationFailure(
+            product: product,
+            attemptId: clickAttemptId,
+            source: widget.purchaseSource.value,
+            reason: 'catalog_unavailable',
+            currentProducts: catalog.cached,
+            durationMs: DateTime.now()
+                .difference(budget.startedAt)
+                .inMilliseconds,
+          );
           _dismissPurchaseDialog();
           return;
         }
         product = fresh;
-      } catch (_) {
+      } on TimeoutException {
+        reportGemConfirmationTimeout(
+          product: product,
+          attemptId: clickAttemptId,
+          source: widget.purchaseSource.value,
+        );
+        _dismissPurchaseDialog();
+        if (mounted) {
+          showGenesisToast(context, GenesisL10n.current.gemsPurchaseTimeout);
+        }
+        return;
+      } catch (error, stackTrace) {
+        reportGemConfirmationFailure(
+          product: product,
+          attemptId: clickAttemptId,
+          source: widget.purchaseSource.value,
+          reason: 'store_query_error',
+          error: error,
+          stackTrace: stackTrace,
+          durationMs: DateTime.now()
+              .difference(budget.startedAt)
+              .inMilliseconds,
+        );
         _dismissPurchaseDialog();
         if (mounted) unawaited(_loadProducts());
         return;
@@ -293,9 +356,12 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     _startedProductIds.add(product.productId);
     _showPurchaseProcessing(attemptId: '');
     try {
-      await widget.billingService.purchaseGem(
-        product,
-        source: BillingPurchaseSource.buyGemsSheet,
+      await budget.run(
+        () => widget.billingService.purchaseGem(
+          product,
+          source: widget.purchaseSource,
+          operationId: clickAttemptId,
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -333,6 +399,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
       case BillingUiEventKind.deferred:
         _startedProductIds.remove(event.productId);
         _dismissPurchaseDialog();
+        if (event.requiresProductRefresh) unawaited(_loadProducts());
         showGenesisToast(
           context,
           purchaseToastMessage(
@@ -453,14 +520,13 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
     return AnimatedBuilder(
       animation: Listenable.merge([
         if (widget.catalog != null) widget.catalog!.queryingStore,
+        if (widget.catalog != null) widget.catalog!.displayRevision,
       ]),
       builder: (_, _) => _buildPurchaseContent(context),
     );
   }
 
-  bool get _isProductRefreshBlocking =>
-      _blockingProductRefresh ||
-      (_products != null && widget.catalog?.queryingStore.value == true);
+  bool get _isProductRefreshBlocking => _blockingProductRefresh;
 
   Widget _buildPurchaseContent(BuildContext context) {
     return SingleChildScrollView(
@@ -479,7 +545,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   }
 
   Widget _buildProducts() {
-    final products = _products;
+    final products = _products ?? widget.catalog?.cached;
     if (_productsLoading && products == null) {
       return const GemProductGridSkeleton();
     }

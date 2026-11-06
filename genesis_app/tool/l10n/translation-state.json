@@ -3912,10 +3912,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "e414ca1f3ea6c2066cd4195ddfdb2d42b8898c5d75249644ffd97a44fad34350",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "222739304e68a1708c32a9aa853346a876e281b9182b12e6f41bdfb14334219a",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -3996,9 +3996,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "e7765e607383ec6868cef0aacd837af63f7320d2fad8c0e5665fca5469e070dd",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "42121430b80e53ea1b25e603c9bd848545eeec7f2c6190c187394e5b75ce67b5",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -6262,6 +6262,162 @@
           "text_hash": "84ea7525adf70bc4d1d7c0ad6e499d4c9efd0c93592c85f784683810d921deaf",
           "status": "ai",
           "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "memoryMembershipDeluxe": {
+          "source_hash": "b385bc086bf9d679e0934ebae8fcf4d428c277dc641284b697498dbb9197faed",
+          "text_hash": "c097b290b3c6c50705145bf2d59be623a311e2d829fead70d1a1c2e0cbba5fdb",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipMonthlyGems": {
+          "source_hash": "584030978a4d46eb73a9a54bd0dc23fa259996fd8b61bdbffc5ef7f3e88749f1",
+          "text_hash": "2d4ea2281219531447ed5fed9c4acb71339ba260eac75a301e537ee7ec98c5c3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPeriod": {
+          "source_hash": "e6cda6cb204664c87cb7f6cf4fc1ab454a2a997829c6e82aa980cc338302c5e8",
+          "text_hash": "40c24b0ffe5e469a207c68baf0f9428249d0afa1af73ffbe9cdbe632fd1574bf",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBilledAnnually": {
+          "source_hash": "bad41bc63938582c646b88c9045c08364abd9b0c18aad701b64e50eec63d0806",
+          "text_hash": "151cb2d995c99ead2eeecb43dd373909e2f86af5bf72b67df425b559906054bd",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeProfileOffer": {
+          "source_hash": "1fadfd521104fd4ddb189a549acdbc7be6acd4d4101f2b05c6e4b1a65503dcb1",
+          "text_hash": "24a864fe0844963ff40fdf564fe0630f6d474421d456d1155c40ced8f05bb6f3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumOffer": {
+          "source_hash": "8852508727e282711af534f286b9f55dd9d35de558399a4370c2898663a96ae0",
+          "text_hash": "532e10066273a63c4c347717268b638d38b7be53f77f06514298e83127a0192f",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeOffer": {
+          "source_hash": "c56b941869a8a3faac3c8ec3cf39594981187c7fb020116c94ec9f41095df127",
+          "text_hash": "ad39588ba3aba7201bf673db53cb452e88c2bf171b264909e4111ef4012ddefd",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeTagline": {
+          "source_hash": "a1cfe7d462bbd4e5ccfe50533cb6ad93f3b543be93428477ad2940fb874f032c",
+          "text_hash": "cd134e75b2ccfd420cbf066b16e2df6979b141e7c66533933447ba97d738db2d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeUnavailable": {
+          "source_hash": "5f732f274eb6172cdc459b60dec516816c55f9d9453daaac4bcc4c61d6713378",
+          "text_hash": "385f13adaa1d6d9e82c3729c604ce96c2971545e61fd5806b561ab3a8fb426e1",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumCheckout": {
+          "source_hash": "e874c1f53023d3ab7da15f7f1cc779f930b9f2fef3ea1e1a8815f9b3f0dfb62d",
+          "text_hash": "a3ee1894295718545ab04dbfba8417fec0eaa1f0b47224061664ce524b6bb788",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDraftPreview": {
+          "source_hash": "242646aebae9704358a9d9a58d4808490105e17849d3c116d1f5145a9a33ab9b",
+          "text_hash": "70697644818b8af8048526dcb20364b3745fb2db83e7b557643fa6c921171161",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDetails": {
+          "source_hash": "d5a3ac8ef7eb08abebf6fa5e718445484b3ab7ef925613efd7ab80b2844c86a8",
+          "text_hash": "8c4c6b70f8df5d9a78c3ff7ad475fe6f366e0368a8dd77a9fc8337bd23d08934",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipTimelineBenefit": {
+          "source_hash": "f1bbe9eeb4ac3953c0cf5b0e2f256394d4c17fd3f774efeb689bc095caa99b94",
+          "text_hash": "0026ead66f477cbc54fe1bf8c34e86d2174e14e7dd3961ba40cd264ef79efcb7",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitTimeline": {
+          "source_hash": "4571f5d7ab9792ecebb1f73f8827c744729b23e068b47c99b3cebf8285ae17c9",
+          "text_hash": "3b8ca216739b210cf6c59807d9714896f579267e23fddb02e63f5c51d55e459d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitCast": {
+          "source_hash": "46f608c4b49906d50d8f4ff3b21d5e2463946cb9743f65c78da036d08496d85b",
+          "text_hash": "40e41aa0e434db10f5694dad3b6f3745326c4aeeb08d883025d781110d149055",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitBonds": {
+          "source_hash": "28ace7cb5430e6b14ee5808b82dddaa2138f40faa847734c4860766205308987",
+          "text_hash": "333e2346e00fce202715ce522a27cd316045084400f43a4caa3ac610fddaf76a",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRememberBenefit": {
+          "source_hash": "dc06d3c5f5b8577d0c83072e9f7142ea9db05679f10f2f11e6e750592880d55e",
+          "text_hash": "a50fa6b8ae688484f778aaeddb38427486b0fb044a3450f2eefdac78be9c2a52",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipSummaryBenefit": {
+          "source_hash": "6b154a9485a50a7ff143fbe3c0c124472d97973f021a518b93c58f790f33486e",
+          "text_hash": "100b8901d4d9ef2343eae86caf16133d1e708c677084ebf4235e95400dac5745",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipInspirationsBenefit": {
+          "source_hash": "bc24b0311677f9666f15a8f70bba8bef99ba0dde33daa215bec31829a4c0dbb8",
+          "text_hash": "8b1d0c18b8b89e115118e167948d41ff4bc9cc01dac6ebf16d5aa73877304a10",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipEditingBenefit": {
+          "source_hash": "1c80db14ce8aaa0cd70365e94f41f0113f0230b93ed4c06219af50c16937f224",
+          "text_hash": "beffa84af2344d38d0ccb6aae4da26a90292e11182be3a95366db50098b9475b",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBadgeBenefit": {
+          "source_hash": "af5d59043450d24797c7e1404bb316b8ea39c3996c2679a9b1b344aff8673a4e",
+          "text_hash": "1223fb2ef5374ec9f770402b113b4785c17b7ec86f8c86680ff40759ae0e7ba3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRechargeBenefit": {
+          "source_hash": "552633018f82574a5c0cc7f23d23d4e583f55289d9dfb50793228216c6a3bb88",
+          "text_hash": "8e5553ff44593e2e3947c270efcc4ecd04429149db2909ed6884412ccc45156e",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "mePurchasingDeluxe": {
+          "source_hash": "39fdb65f873029a6847db1751ab59fa5908a4f3616fad98e4bbcff077d191e28",
+          "text_hash": "26cd697b9ee70dfdc9c2d48ed2890455456cda8938dccca2a230d8dcb34cea6b",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meWorldoDeluxeSubscription": {
+          "source_hash": "d94f2a2fc01c652df2383f27b8cde72900a99e8e5a2e28987400df8121709f69",
+          "text_hash": "1a89e6b819560470c0da40bba3d6900be1def4b29a1ec3d4e64517ae4017a915",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "5e9d4ece2db68af5eed422eaa8c51602c1a5ed3c02340f4435d853bef3ea4689",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "9dcac987f3213294f1b996b36c974fbc7e10b70a844376b31c83f69ad03b0a6c",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -10175,10 +10331,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "59c2239f9f5d47b99befac34ce8d661853f583161d1a74f6fca042e104f05124",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "331343040cf652601b0fa765acc70000b89db685abba61dd7393c9548e77c526",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -10259,9 +10415,9 @@
           "note": "审校建议 R647（必改）：Registrarse 是「注册账号」，Registro 读起来像注册成功；签到统一用 check-in"
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "791e679ef81779a1d5e7f7c595d8b4462ce2f76033bf718fb947506bad70e781",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "982d433f191a19d9128cc633c0f3e9f04c0347fb8bb6605b795b9ea9ee992513",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -12525,6 +12681,162 @@
           "text_hash": "4715cab3b8d2f6cc718485c3a09390151e287d060bf2ca63b68ec9099b8f84bc",
           "status": "ai",
           "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "memoryMembershipDeluxe": {
+          "source_hash": "b385bc086bf9d679e0934ebae8fcf4d428c277dc641284b697498dbb9197faed",
+          "text_hash": "c097b290b3c6c50705145bf2d59be623a311e2d829fead70d1a1c2e0cbba5fdb",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipMonthlyGems": {
+          "source_hash": "584030978a4d46eb73a9a54bd0dc23fa259996fd8b61bdbffc5ef7f3e88749f1",
+          "text_hash": "49a38e5b7b12213c408d1532622f95b9b77335b0ba8b96192630c1fb114f00c3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPeriod": {
+          "source_hash": "e6cda6cb204664c87cb7f6cf4fc1ab454a2a997829c6e82aa980cc338302c5e8",
+          "text_hash": "6a7084c769f373e836e9f8add533e5de0100af15da51aec906ac96052097e015",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBilledAnnually": {
+          "source_hash": "bad41bc63938582c646b88c9045c08364abd9b0c18aad701b64e50eec63d0806",
+          "text_hash": "e4f3471257af9950ed1b17fb7e0b3ef974e54a1f54429bf61f9199b2c0f02048",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeProfileOffer": {
+          "source_hash": "1fadfd521104fd4ddb189a549acdbc7be6acd4d4101f2b05c6e4b1a65503dcb1",
+          "text_hash": "c315e000e0e1d58e3ac7d34a10a6961ffdb8f99450139967aac51ad299a5efe8",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumOffer": {
+          "source_hash": "8852508727e282711af534f286b9f55dd9d35de558399a4370c2898663a96ae0",
+          "text_hash": "04da56f5cc573af0026bd0c384202e7f0d3f2b3b97e6c7b8eaf63fdd578544aa",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeOffer": {
+          "source_hash": "c56b941869a8a3faac3c8ec3cf39594981187c7fb020116c94ec9f41095df127",
+          "text_hash": "3acae4bdf515c608b4efc7db488c2b570ffdc2f66137a106cdc5322c472b199a",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeTagline": {
+          "source_hash": "a1cfe7d462bbd4e5ccfe50533cb6ad93f3b543be93428477ad2940fb874f032c",
+          "text_hash": "bed40a1d22de22b4d397b358aaffdaed51a6b3ce401c35bf9845b375d1a7c6d0",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeUnavailable": {
+          "source_hash": "5f732f274eb6172cdc459b60dec516816c55f9d9453daaac4bcc4c61d6713378",
+          "text_hash": "b32a68593b95cc2eaea9ed6e57e7e42337161b7808d9cfda2208e489b65b31d1",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumCheckout": {
+          "source_hash": "e874c1f53023d3ab7da15f7f1cc779f930b9f2fef3ea1e1a8815f9b3f0dfb62d",
+          "text_hash": "9aef7fe9dabcb9b5903ce4dd52c8cfbf8b7df5a1828d5c82197c5bf6998ee454",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDraftPreview": {
+          "source_hash": "242646aebae9704358a9d9a58d4808490105e17849d3c116d1f5145a9a33ab9b",
+          "text_hash": "d540d51fb7e533cd0c0132de203f00022d8e89f123dfb47841913afec021d18f",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDetails": {
+          "source_hash": "d5a3ac8ef7eb08abebf6fa5e718445484b3ab7ef925613efd7ab80b2844c86a8",
+          "text_hash": "ff5790e88e00015518303b5f2f910eb26421412fa43b1d5135af30984998b686",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipTimelineBenefit": {
+          "source_hash": "f1bbe9eeb4ac3953c0cf5b0e2f256394d4c17fd3f774efeb689bc095caa99b94",
+          "text_hash": "606ab11fff2032ab587d19cdf6086953fa23f418848680d49ab1b4c88b128477",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitTimeline": {
+          "source_hash": "4571f5d7ab9792ecebb1f73f8827c744729b23e068b47c99b3cebf8285ae17c9",
+          "text_hash": "fcb3b802d0ba6e88556dc249fd4de51c7918b28ed712ddf6aebb45727aeccf2d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitCast": {
+          "source_hash": "46f608c4b49906d50d8f4ff3b21d5e2463946cb9743f65c78da036d08496d85b",
+          "text_hash": "c3611a8018e229be7e54e88344b3c1a8e0f5d50494920fed524c5047992f3cca",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitBonds": {
+          "source_hash": "28ace7cb5430e6b14ee5808b82dddaa2138f40faa847734c4860766205308987",
+          "text_hash": "e94a34b2d495ef3cb09a2535f270f7d98a52ba697feff0671d0bdaf7848111da",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRememberBenefit": {
+          "source_hash": "dc06d3c5f5b8577d0c83072e9f7142ea9db05679f10f2f11e6e750592880d55e",
+          "text_hash": "a04fa6b22f4cb9d716ecef28b8b6f5060b22205ac2a5a5f5e30413c4c6025dff",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipSummaryBenefit": {
+          "source_hash": "6b154a9485a50a7ff143fbe3c0c124472d97973f021a518b93c58f790f33486e",
+          "text_hash": "49f4434641953b2dfe0a4ea10a48e1f0e8297d9bd06aeb816dcaa3e20e8addb1",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipInspirationsBenefit": {
+          "source_hash": "bc24b0311677f9666f15a8f70bba8bef99ba0dde33daa215bec31829a4c0dbb8",
+          "text_hash": "5e437e5c1eefcd5c0e9eb57d39ee24b1078f6b40d887c27cc46c152a0b478344",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipEditingBenefit": {
+          "source_hash": "1c80db14ce8aaa0cd70365e94f41f0113f0230b93ed4c06219af50c16937f224",
+          "text_hash": "6305269e086ad1b1a9bc88702ac40c528a9dcc0bc00d826947d04475f3bab951",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBadgeBenefit": {
+          "source_hash": "af5d59043450d24797c7e1404bb316b8ea39c3996c2679a9b1b344aff8673a4e",
+          "text_hash": "ce494b53fbe41177089d7a47d2319371899db65e322668a4dc15406235555cee",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRechargeBenefit": {
+          "source_hash": "552633018f82574a5c0cc7f23d23d4e583f55289d9dfb50793228216c6a3bb88",
+          "text_hash": "8aa467b6b907648a1d8dc93e3dda7e1f67ba513e4a2f09f1e9d6054781d89c47",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "mePurchasingDeluxe": {
+          "source_hash": "39fdb65f873029a6847db1751ab59fa5908a4f3616fad98e4bbcff077d191e28",
+          "text_hash": "c13788e9efab166404f8d4eec5e904a42345b7bfc28c8f33e5cc5e33a8f9cc6b",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meWorldoDeluxeSubscription": {
+          "source_hash": "d94f2a2fc01c652df2383f27b8cde72900a99e8e5a2e28987400df8121709f69",
+          "text_hash": "18e33cebdad0d8722fc1af23b395c76d964f084d89bbbe9f33fd626390371e55",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "7d09c46b58e70b602a499f1e5a402ffa75fa62b72cfb7acc9bebd07be4b02512",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "ef6189efbfc1b650561e6477fe78d753a9ea94ed3a81563aada5d1691dbbc2db",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -16438,10 +16750,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "b947d3d288e3c5ab9a1100bc3ce48fb19bdf5259e09980ddf2107d9864ce032b",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "16a32a1e2ebb6354879c66dbf1684a5cdc5725bf4eac84d4bd758f0568559e53",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -16522,9 +16834,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "b0a401c1e20f4aca0aa022ebe859d4329b0bdb18820ac241a60aa90f0545dc82",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "addb57edbfd1dea42a41ba69648a5db8b7e431b2cf825ef66d4639a43cfa432b",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -18788,6 +19100,162 @@
           "text_hash": "bd3c62ec653fbe3072277f71cd7306176d27d8e57fe2fb5dfc35147a8087cd1b",
           "status": "ai",
           "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "memoryMembershipDeluxe": {
+          "source_hash": "b385bc086bf9d679e0934ebae8fcf4d428c277dc641284b697498dbb9197faed",
+          "text_hash": "c097b290b3c6c50705145bf2d59be623a311e2d829fead70d1a1c2e0cbba5fdb",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipMonthlyGems": {
+          "source_hash": "584030978a4d46eb73a9a54bd0dc23fa259996fd8b61bdbffc5ef7f3e88749f1",
+          "text_hash": "33af06566d741a5eb8616d9f6b676d02c6ac6f673ece430f0507831b49aa5f18",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPeriod": {
+          "source_hash": "e6cda6cb204664c87cb7f6cf4fc1ab454a2a997829c6e82aa980cc338302c5e8",
+          "text_hash": "c12373ba5354defbd62008604984a40792d33c0a54fb5391ee164fb0c25d8649",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBilledAnnually": {
+          "source_hash": "bad41bc63938582c646b88c9045c08364abd9b0c18aad701b64e50eec63d0806",
+          "text_hash": "e04fbee6aa8ec8283a571c01e29b4f119157a863992132359a8f334a68d1d880",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeProfileOffer": {
+          "source_hash": "1fadfd521104fd4ddb189a549acdbc7be6acd4d4101f2b05c6e4b1a65503dcb1",
+          "text_hash": "5c45bd27158f1e41a71e3ff9003f207c5c427fdd7ad5bce28b8aeba3a1aa756f",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumOffer": {
+          "source_hash": "8852508727e282711af534f286b9f55dd9d35de558399a4370c2898663a96ae0",
+          "text_hash": "0d4f4c114bd460b33d1e35070aea3bd1d7a3edb2e89ecd4e99df607cdf3ed480",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeOffer": {
+          "source_hash": "c56b941869a8a3faac3c8ec3cf39594981187c7fb020116c94ec9f41095df127",
+          "text_hash": "68a383f1e1508fb7097441a76abca3612b68d6eb3f9e1a2bebe17b52fa8797bf",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeTagline": {
+          "source_hash": "a1cfe7d462bbd4e5ccfe50533cb6ad93f3b543be93428477ad2940fb874f032c",
+          "text_hash": "0aeaf3f3a3bf12d0beeb7e1f4c400d4c79787748ca3f0537d1a39e5d09a53041",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeUnavailable": {
+          "source_hash": "5f732f274eb6172cdc459b60dec516816c55f9d9453daaac4bcc4c61d6713378",
+          "text_hash": "06f3e16dc395f179915526ae8435b4b5da6b4475663a4373a0bb6408b44d340e",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumCheckout": {
+          "source_hash": "e874c1f53023d3ab7da15f7f1cc779f930b9f2fef3ea1e1a8815f9b3f0dfb62d",
+          "text_hash": "b3566f445bb47216dd85d3b9a88d494a34a14e5e55ca1d1e519a9d5cdcc88ef7",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDraftPreview": {
+          "source_hash": "242646aebae9704358a9d9a58d4808490105e17849d3c116d1f5145a9a33ab9b",
+          "text_hash": "3b8795321eb9e9147a0c530c5d92003aaa3a00af649743335843dc1601c68706",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDetails": {
+          "source_hash": "d5a3ac8ef7eb08abebf6fa5e718445484b3ab7ef925613efd7ab80b2844c86a8",
+          "text_hash": "475e412ad218257e6b320ac5ca53f5f5fef9b764a1729220c62f4553e4f4271e",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipTimelineBenefit": {
+          "source_hash": "f1bbe9eeb4ac3953c0cf5b0e2f256394d4c17fd3f774efeb689bc095caa99b94",
+          "text_hash": "2b0be741d406f276a58b1477a13a83cee37182036ffeec1fed6b4d5828dfb435",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitTimeline": {
+          "source_hash": "4571f5d7ab9792ecebb1f73f8827c744729b23e068b47c99b3cebf8285ae17c9",
+          "text_hash": "c081465173a04ddfa7ad8d2a95bcb59ef433fe50649f79c0204c8aaa78df5e67",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitCast": {
+          "source_hash": "46f608c4b49906d50d8f4ff3b21d5e2463946cb9743f65c78da036d08496d85b",
+          "text_hash": "401e5de2cde236919441a2da21df6159b0667457b704dc6c64050b81e58a249e",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitBonds": {
+          "source_hash": "28ace7cb5430e6b14ee5808b82dddaa2138f40faa847734c4860766205308987",
+          "text_hash": "7b5aba699cfba226da2a2dba11df7b042f3d1feb1358f369167c989f81c8588b",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRememberBenefit": {
+          "source_hash": "dc06d3c5f5b8577d0c83072e9f7142ea9db05679f10f2f11e6e750592880d55e",
+          "text_hash": "a10b664df2e802eb01ff149efcba6b7f138f6aa4c17ec590afc30271e1f629b3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipSummaryBenefit": {
+          "source_hash": "6b154a9485a50a7ff143fbe3c0c124472d97973f021a518b93c58f790f33486e",
+          "text_hash": "0205be3db95f02d9c89d2de6ef8123461d6fb54f4ad653bf8bb90b248a79d809",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipInspirationsBenefit": {
+          "source_hash": "bc24b0311677f9666f15a8f70bba8bef99ba0dde33daa215bec31829a4c0dbb8",
+          "text_hash": "5369b3a3cde92dfd64769e0590a9a34e34d82d747a020a3fef9ba0537c291fbf",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipEditingBenefit": {
+          "source_hash": "1c80db14ce8aaa0cd70365e94f41f0113f0230b93ed4c06219af50c16937f224",
+          "text_hash": "0c53ac9e6384526f467757da9d93967923a29ca1f2e3def4e37b8f3895e3381a",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBadgeBenefit": {
+          "source_hash": "af5d59043450d24797c7e1404bb316b8ea39c3996c2679a9b1b344aff8673a4e",
+          "text_hash": "2e947135b360ef4bb422cf5c456a1f99f4345e03dc6a6927b81da1b79ad2716f",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRechargeBenefit": {
+          "source_hash": "552633018f82574a5c0cc7f23d23d4e583f55289d9dfb50793228216c6a3bb88",
+          "text_hash": "8aa467b6b907648a1d8dc93e3dda7e1f67ba513e4a2f09f1e9d6054781d89c47",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "mePurchasingDeluxe": {
+          "source_hash": "39fdb65f873029a6847db1751ab59fa5908a4f3616fad98e4bbcff077d191e28",
+          "text_hash": "c13788e9efab166404f8d4eec5e904a42345b7bfc28c8f33e5cc5e33a8f9cc6b",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meWorldoDeluxeSubscription": {
+          "source_hash": "d94f2a2fc01c652df2383f27b8cde72900a99e8e5a2e28987400df8121709f69",
+          "text_hash": "bba26ed505cd478ff0e1f6a0af97d7fab74e29b4f2071b23ae4e69c0a43b8e76",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "f59f1241d0af00b9ba9fe458630c0889f2c298077841a1cd18515ebeb2ccb11c",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "bd47c8ca906056d965da74a1df663c616aed1690b117f8fa94241781563cde58",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -22701,10 +23169,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "4ce2a64ccacb5bf953dbbff217b90d7d3fb32072083ad84e75471e820054e56c",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "1f74c83a1167196bdcc792c10d3fe0fb62df9d7a0f9694fffa6c13560abb37be",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -22785,9 +23253,9 @@
           "note": "审校建议 R647（建议优化）：签到用 Pointage(上班打卡)不自然，统一为 check-in"
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "71897a85c5ff140447310a97c9a2a8347c68b37e2596fec523e89eab8dd28428",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "c2ee6723d056412168ab0ccc69f9dc848b0ef6a8e03e3aaf4476f434e573e7ca",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -25051,6 +25519,162 @@
           "text_hash": "e81d7936cb610453af6507845e7031344a7e74f7e734fd5b8698213923e79c3a",
           "status": "ai",
           "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "memoryMembershipDeluxe": {
+          "source_hash": "b385bc086bf9d679e0934ebae8fcf4d428c277dc641284b697498dbb9197faed",
+          "text_hash": "c097b290b3c6c50705145bf2d59be623a311e2d829fead70d1a1c2e0cbba5fdb",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipMonthlyGems": {
+          "source_hash": "584030978a4d46eb73a9a54bd0dc23fa259996fd8b61bdbffc5ef7f3e88749f1",
+          "text_hash": "95bd2d6caf404f5dd32b06bf0d8cbf5158fbd601fa22b20d09b48ae9309026c4",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPeriod": {
+          "source_hash": "e6cda6cb204664c87cb7f6cf4fc1ab454a2a997829c6e82aa980cc338302c5e8",
+          "text_hash": "4e9aa525b495430ae7d793846f0e2ecc72c1597ae58a793211d5cdb4fccb251b",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBilledAnnually": {
+          "source_hash": "bad41bc63938582c646b88c9045c08364abd9b0c18aad701b64e50eec63d0806",
+          "text_hash": "79c39155c0f7d57f72712e49b06ab172a7aaf4be2182af54e5ed97aeb97a1874",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeProfileOffer": {
+          "source_hash": "1fadfd521104fd4ddb189a549acdbc7be6acd4d4101f2b05c6e4b1a65503dcb1",
+          "text_hash": "afffd3301f68840fd6ab37044f4366fe11ad079ae62b791278b4a7f8f4f34bef",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumOffer": {
+          "source_hash": "8852508727e282711af534f286b9f55dd9d35de558399a4370c2898663a96ae0",
+          "text_hash": "751e06eeed7f2270e11ca9f50bb0f03464885a3bedf77a252d77229ee21f349d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeOffer": {
+          "source_hash": "c56b941869a8a3faac3c8ec3cf39594981187c7fb020116c94ec9f41095df127",
+          "text_hash": "7c5459f3ccf7f4d1a56fbdcde23e006baea8f1d06e12bdf9395eefc73af5d2d8",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeTagline": {
+          "source_hash": "a1cfe7d462bbd4e5ccfe50533cb6ad93f3b543be93428477ad2940fb874f032c",
+          "text_hash": "ac09002b0d381452ba0be048d6922875376e5d188aac55caad50ce6abf7719a7",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeUnavailable": {
+          "source_hash": "5f732f274eb6172cdc459b60dec516816c55f9d9453daaac4bcc4c61d6713378",
+          "text_hash": "c74d141e12e8d68d508b23d91631ad844d6a1243850635519e5d4ec7b031a5c3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumCheckout": {
+          "source_hash": "e874c1f53023d3ab7da15f7f1cc779f930b9f2fef3ea1e1a8815f9b3f0dfb62d",
+          "text_hash": "afde9350c9693552a00fcf3fc94f27bd7fef34671b00400d1d957e36d02241fe",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDraftPreview": {
+          "source_hash": "242646aebae9704358a9d9a58d4808490105e17849d3c116d1f5145a9a33ab9b",
+          "text_hash": "11e0db9ebbac58625e88b9f0e391e1eafb761e4ba6fd58a2c9b1963569c2e127",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDetails": {
+          "source_hash": "d5a3ac8ef7eb08abebf6fa5e718445484b3ab7ef925613efd7ab80b2844c86a8",
+          "text_hash": "1808166ca5593e075687d9345eb99685e1183fe5c81d822498c5e21bf47d8939",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipTimelineBenefit": {
+          "source_hash": "f1bbe9eeb4ac3953c0cf5b0e2f256394d4c17fd3f774efeb689bc095caa99b94",
+          "text_hash": "c88fac71af3e7871631a99cee4286de33469784a270d8308dbaac05ef27928af",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitTimeline": {
+          "source_hash": "4571f5d7ab9792ecebb1f73f8827c744729b23e068b47c99b3cebf8285ae17c9",
+          "text_hash": "abf256f76961b2a3ec73b19d2d235236481b5cb884ca0e749740b79fc0975ce6",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitCast": {
+          "source_hash": "46f608c4b49906d50d8f4ff3b21d5e2463946cb9743f65c78da036d08496d85b",
+          "text_hash": "c2bcda3187fc4a53ddd01ef94fada72a1e85cd7a66f8e0fff36d4044a12aac77",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitBonds": {
+          "source_hash": "28ace7cb5430e6b14ee5808b82dddaa2138f40faa847734c4860766205308987",
+          "text_hash": "8fd44c7e7dca2c257f87826e96a8cc2bcc9aa10dedebd86800398f5f9f5f47ca",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRememberBenefit": {
+          "source_hash": "dc06d3c5f5b8577d0c83072e9f7142ea9db05679f10f2f11e6e750592880d55e",
+          "text_hash": "2a7873f160fe44a04d9d27c1e1078988dd47345d0df4d71067ae9f537229e6c6",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipSummaryBenefit": {
+          "source_hash": "6b154a9485a50a7ff143fbe3c0c124472d97973f021a518b93c58f790f33486e",
+          "text_hash": "64dfe3cebf79de67b733c1a250b79d1548e27cefc224dbca5a3bfe5be1ae7e98",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipInspirationsBenefit": {
+          "source_hash": "bc24b0311677f9666f15a8f70bba8bef99ba0dde33daa215bec31829a4c0dbb8",
+          "text_hash": "8fe5546d32a63d5ffa6467edc9433842980c33c14f54c2de604e885df2b8020d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipEditingBenefit": {
+          "source_hash": "1c80db14ce8aaa0cd70365e94f41f0113f0230b93ed4c06219af50c16937f224",
+          "text_hash": "7885adada5e7a9d8c6880c0601a4bd9434e8425849bde19a540e9f97736e08d6",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBadgeBenefit": {
+          "source_hash": "af5d59043450d24797c7e1404bb316b8ea39c3996c2679a9b1b344aff8673a4e",
+          "text_hash": "8f8b07027a3161c6e303079d2ac29d5c062c76fe21f166d8077ec4c0c7fe6caf",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRechargeBenefit": {
+          "source_hash": "552633018f82574a5c0cc7f23d23d4e583f55289d9dfb50793228216c6a3bb88",
+          "text_hash": "02f093166bceab0c238100f1b4f50b187ed93144b47caf74bd8ac96a5e2af108",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "mePurchasingDeluxe": {
+          "source_hash": "39fdb65f873029a6847db1751ab59fa5908a4f3616fad98e4bbcff077d191e28",
+          "text_hash": "4689e2883d3ea57236da24e625233f4036f47b38c4607ecb02697a8e9f1d2592",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meWorldoDeluxeSubscription": {
+          "source_hash": "d94f2a2fc01c652df2383f27b8cde72900a99e8e5a2e28987400df8121709f69",
+          "text_hash": "5e47be9ac9f7116a0d29e53ff4666f9a42d95cfde29fe11fe5940f861a643461",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "41c2c402f6eb20e98eff71030dfc1db88ccf22bba7f216ea54806530ee2978df",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "a18f74df1bf2bdf22f60f1c7036adc8acb6918fef565c0e5140f71bd48edba3d",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -28964,10 +29588,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "a5f0bf11adab6c41ff4ca739a9972ae134a123301cae32dcea9f0c5dbabf9d14",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "04a95b743d16e6ca2708b569cebce44ec00fbeac053e5754207c117fdf331a30",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -29048,9 +29672,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "6b9de75434e5417d6665dafa95f72ae1c8d4316da34d42016b2e6dcb47d2e613",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "c9c1681d0b66363c899c5f06ade30954717cefbebf40125cd2267d8a6e9c3f18",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -31314,6 +31938,162 @@
           "text_hash": "0ec35302cea32f8b69e7bed86f4740b221213954d0da6e9bed0ef7f8c2dc3f65",
           "status": "ai",
           "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "memoryMembershipDeluxe": {
+          "source_hash": "b385bc086bf9d679e0934ebae8fcf4d428c277dc641284b697498dbb9197faed",
+          "text_hash": "c097b290b3c6c50705145bf2d59be623a311e2d829fead70d1a1c2e0cbba5fdb",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipMonthlyGems": {
+          "source_hash": "584030978a4d46eb73a9a54bd0dc23fa259996fd8b61bdbffc5ef7f3e88749f1",
+          "text_hash": "739e7cf782966f4290263ca300d07fb60674239b205d497d81302079ea806025",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPeriod": {
+          "source_hash": "e6cda6cb204664c87cb7f6cf4fc1ab454a2a997829c6e82aa980cc338302c5e8",
+          "text_hash": "d490f543520254c3aca1951b78cc30796a3867b6f873283e70104203a2f420b5",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBilledAnnually": {
+          "source_hash": "bad41bc63938582c646b88c9045c08364abd9b0c18aad701b64e50eec63d0806",
+          "text_hash": "739d2f16007c5c3b3e7aad75827340545b3c97e5cc7e0c49c89e99c72952f503",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeProfileOffer": {
+          "source_hash": "1fadfd521104fd4ddb189a549acdbc7be6acd4d4101f2b05c6e4b1a65503dcb1",
+          "text_hash": "a84339c5f68b1c44b55974ef8a1df7e8c3fdf94a2ef98ea7aeaa1e1a0c2461c8",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumOffer": {
+          "source_hash": "8852508727e282711af534f286b9f55dd9d35de558399a4370c2898663a96ae0",
+          "text_hash": "339213c03e9a0d9669b4efacd92d355f88df7c86155d9d2b9d23f86911d5bcb3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeOffer": {
+          "source_hash": "c56b941869a8a3faac3c8ec3cf39594981187c7fb020116c94ec9f41095df127",
+          "text_hash": "034a450627c53bedc620bda6d2a5c4f27859073e0a7d81485488f1ddd7bbf126",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeTagline": {
+          "source_hash": "a1cfe7d462bbd4e5ccfe50533cb6ad93f3b543be93428477ad2940fb874f032c",
+          "text_hash": "1547e32e4084002d21a0f8975384c71164d655c19a7fb09eb8eb06cf9141ec5f",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeUnavailable": {
+          "source_hash": "5f732f274eb6172cdc459b60dec516816c55f9d9453daaac4bcc4c61d6713378",
+          "text_hash": "d41c16919da3c638edebb0d393d6019e3bdb55ed23201c2e0300b1012db129f3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumCheckout": {
+          "source_hash": "e874c1f53023d3ab7da15f7f1cc779f930b9f2fef3ea1e1a8815f9b3f0dfb62d",
+          "text_hash": "728fa809afedeee5d456f4238b2262ed4c0cd2053086c9f2985b54521d718a25",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDraftPreview": {
+          "source_hash": "242646aebae9704358a9d9a58d4808490105e17849d3c116d1f5145a9a33ab9b",
+          "text_hash": "3e5672727a320625b27de059f9b7628a174d4cb14506f731f4e519751105b597",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDetails": {
+          "source_hash": "d5a3ac8ef7eb08abebf6fa5e718445484b3ab7ef925613efd7ab80b2844c86a8",
+          "text_hash": "b19bf69f2f6c65b3d1ef95b582748b81f699543caa5fdee1fc53c27a61a99d6b",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipTimelineBenefit": {
+          "source_hash": "f1bbe9eeb4ac3953c0cf5b0e2f256394d4c17fd3f774efeb689bc095caa99b94",
+          "text_hash": "d27cdcb5c60cbadb0060b9b4dc00f280a6a97f37cb4f1756267f686941a34035",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitTimeline": {
+          "source_hash": "4571f5d7ab9792ecebb1f73f8827c744729b23e068b47c99b3cebf8285ae17c9",
+          "text_hash": "cc5fb0f1ce8e86b4296757ea10a878fc7faddc6a3406ebb07c1ba85800eb7790",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitCast": {
+          "source_hash": "46f608c4b49906d50d8f4ff3b21d5e2463946cb9743f65c78da036d08496d85b",
+          "text_hash": "ad1463f7f1eb46e5cebe9603428b829e57862b8c56dacec16868350917aea034",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitBonds": {
+          "source_hash": "28ace7cb5430e6b14ee5808b82dddaa2138f40faa847734c4860766205308987",
+          "text_hash": "e4ab35d2d1eeaf9162012bffae65f0a56cbd497b9364be37e43c8028486d99d7",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRememberBenefit": {
+          "source_hash": "dc06d3c5f5b8577d0c83072e9f7142ea9db05679f10f2f11e6e750592880d55e",
+          "text_hash": "743adc103611ec1b18fa2015a978269c9dc5ffbd501778d7ab0cbc830bddc84d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipSummaryBenefit": {
+          "source_hash": "6b154a9485a50a7ff143fbe3c0c124472d97973f021a518b93c58f790f33486e",
+          "text_hash": "60b76b05fb12c43dbd203ebc214df5621a0d7f332c41ab0cdb4fac207e394667",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipInspirationsBenefit": {
+          "source_hash": "bc24b0311677f9666f15a8f70bba8bef99ba0dde33daa215bec31829a4c0dbb8",
+          "text_hash": "1ac1b23436fed499148bcfddad299ed869d1ad084ae9aaa4136720e4899a1104",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipEditingBenefit": {
+          "source_hash": "1c80db14ce8aaa0cd70365e94f41f0113f0230b93ed4c06219af50c16937f224",
+          "text_hash": "eb558167632a1f0b516d2e5cb8c1fc3d243bd300378df6a4e11a30f9610d3edd",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBadgeBenefit": {
+          "source_hash": "af5d59043450d24797c7e1404bb316b8ea39c3996c2679a9b1b344aff8673a4e",
+          "text_hash": "63766762665e101510e4807f477c71ec131f374b11f3aa1837f2933e2fd97cc7",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRechargeBenefit": {
+          "source_hash": "552633018f82574a5c0cc7f23d23d4e583f55289d9dfb50793228216c6a3bb88",
+          "text_hash": "aa47162962741fdb3c10f161c960745881649810e6e468f261a48303fc842228",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "mePurchasingDeluxe": {
+          "source_hash": "39fdb65f873029a6847db1751ab59fa5908a4f3616fad98e4bbcff077d191e28",
+          "text_hash": "b0aceb3cbda4c6243e9088694ea0a3a4bf5addfe026b6ae3c42a4381510e9b06",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meWorldoDeluxeSubscription": {
+          "source_hash": "d94f2a2fc01c652df2383f27b8cde72900a99e8e5a2e28987400df8121709f69",
+          "text_hash": "9a08efed830129e1929895a9acd274fc8839ffbb0b338b8354933b4ebaeeedcc",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "b3c737c4cb4490e83b872931ebe67123e8909c615c951a1a17367b07530fdffd",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "b4a019d08b2112108bcdf5ffda2bb0b64db1a810b3271bdb56075c4c5c7a3ab6",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -35227,10 +36007,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "36cb7cfa8296223c3f2031aace7dc45d08272be1a16e43ce05ab4f070beff788",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "180dd69ee0860107f1a295e8ec36f06322afcd2470d808f5f5120b1ec8af43de",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -35311,9 +36091,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "2b60a7a702a51e811a4edbddf56974b709421f62e25ecf9670bc9ceb3fbe2e4b",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "c354446a10f1d252ab78cae7a9faa5cc5bc20d20e2a5e48937706d06d046141e",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -37577,6 +38357,162 @@
           "text_hash": "6cf99f3694fb088a11f78702bfc3ec9d9768974c063f8a87afaa7edcda740ff7",
           "status": "ai",
           "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "memoryMembershipDeluxe": {
+          "source_hash": "b385bc086bf9d679e0934ebae8fcf4d428c277dc641284b697498dbb9197faed",
+          "text_hash": "c097b290b3c6c50705145bf2d59be623a311e2d829fead70d1a1c2e0cbba5fdb",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipMonthlyGems": {
+          "source_hash": "584030978a4d46eb73a9a54bd0dc23fa259996fd8b61bdbffc5ef7f3e88749f1",
+          "text_hash": "7c44f32597f4bf2c48cebb3e9cd0c0c8e4a730f0b0faeacca6bdd5975926d7aa",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPeriod": {
+          "source_hash": "e6cda6cb204664c87cb7f6cf4fc1ab454a2a997829c6e82aa980cc338302c5e8",
+          "text_hash": "0a66c1ad43b8b01485b14ba9f20b6357ec5f873bebaba430889505fd6883c8d9",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBilledAnnually": {
+          "source_hash": "bad41bc63938582c646b88c9045c08364abd9b0c18aad701b64e50eec63d0806",
+          "text_hash": "6e63f8463061763d8f2fad8156dccb9e419c54fa9b2f008be598000ccd1aa195",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeProfileOffer": {
+          "source_hash": "1fadfd521104fd4ddb189a549acdbc7be6acd4d4101f2b05c6e4b1a65503dcb1",
+          "text_hash": "af16c343a3a74db5f41ccce168cfb034322ccaabf2d77324181442becb736966",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumOffer": {
+          "source_hash": "8852508727e282711af534f286b9f55dd9d35de558399a4370c2898663a96ae0",
+          "text_hash": "bb3863f93262407066d18d996a01a06c92968acbdc6337fcf28a0526c893d98c",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeOffer": {
+          "source_hash": "c56b941869a8a3faac3c8ec3cf39594981187c7fb020116c94ec9f41095df127",
+          "text_hash": "c43d1fc9adf45c0f83e80048503e87d7315f39eff6df82100f386f54e8c10706",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeTagline": {
+          "source_hash": "a1cfe7d462bbd4e5ccfe50533cb6ad93f3b543be93428477ad2940fb874f032c",
+          "text_hash": "5ced6daf56f46f1c2441f83056c761cc5d83efcc2e4a904b0ff196bc5e458e7a",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeUnavailable": {
+          "source_hash": "5f732f274eb6172cdc459b60dec516816c55f9d9453daaac4bcc4c61d6713378",
+          "text_hash": "3054ba8366dd87abd0bbd0d32902857e4f7f9ad79f823a175841f0f8b2856777",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumCheckout": {
+          "source_hash": "e874c1f53023d3ab7da15f7f1cc779f930b9f2fef3ea1e1a8815f9b3f0dfb62d",
+          "text_hash": "c66dd55424ce39f7a40836cfd792571b1675a560261aea07a5798917a8fc4be0",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDraftPreview": {
+          "source_hash": "242646aebae9704358a9d9a58d4808490105e17849d3c116d1f5145a9a33ab9b",
+          "text_hash": "52ef18f84abf12e3e5c23707322adc2ea6ba9fb1333ae3c54f53ef3eae828d48",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDetails": {
+          "source_hash": "d5a3ac8ef7eb08abebf6fa5e718445484b3ab7ef925613efd7ab80b2844c86a8",
+          "text_hash": "123a8a9438c615851b4b00a00aef1dd47dfa4db52a8ad09e18017a729365e868",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipTimelineBenefit": {
+          "source_hash": "f1bbe9eeb4ac3953c0cf5b0e2f256394d4c17fd3f774efeb689bc095caa99b94",
+          "text_hash": "0bba88e20740ae5db0c5414f8a3bb7895b82a2cc1706a67e48ed11cc2d89c699",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitTimeline": {
+          "source_hash": "4571f5d7ab9792ecebb1f73f8827c744729b23e068b47c99b3cebf8285ae17c9",
+          "text_hash": "17e64d0af14cc9e1b1f2cdbf2722f6a31e4ca47a210dce728b9cbaf744671c7b",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitCast": {
+          "source_hash": "46f608c4b49906d50d8f4ff3b21d5e2463946cb9743f65c78da036d08496d85b",
+          "text_hash": "235b235cbffbcca4004c91f4bf90f2de3c34244ec3cc6870200faae5e16d9a96",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitBonds": {
+          "source_hash": "28ace7cb5430e6b14ee5808b82dddaa2138f40faa847734c4860766205308987",
+          "text_hash": "e35223a51be313c8576a590f669bd5a464e5e952022fea5134760cc50c751455",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRememberBenefit": {
+          "source_hash": "dc06d3c5f5b8577d0c83072e9f7142ea9db05679f10f2f11e6e750592880d55e",
+          "text_hash": "49ec6fc03fa04d7a48d839b7136e7083f93688c79a0b6efb885cb44ab797c7f7",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipSummaryBenefit": {
+          "source_hash": "6b154a9485a50a7ff143fbe3c0c124472d97973f021a518b93c58f790f33486e",
+          "text_hash": "92b38677e94d6acfc69137adaf8a3a042f93c93a008bcdb079fbc0ab8da4d521",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipInspirationsBenefit": {
+          "source_hash": "bc24b0311677f9666f15a8f70bba8bef99ba0dde33daa215bec31829a4c0dbb8",
+          "text_hash": "a662904a064784b39f8ba29b788a7eaae835950326d57d1f09d337b00b5e62ab",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipEditingBenefit": {
+          "source_hash": "1c80db14ce8aaa0cd70365e94f41f0113f0230b93ed4c06219af50c16937f224",
+          "text_hash": "6bee0670dd1cb3ec32ebdcea669c4c7b412da2b30b10dd4dcc33b152728fb698",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBadgeBenefit": {
+          "source_hash": "af5d59043450d24797c7e1404bb316b8ea39c3996c2679a9b1b344aff8673a4e",
+          "text_hash": "b2476e3d3a0723e755f09fbf76fecce80a86667b86e81e559d396fc008dcf9fc",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRechargeBenefit": {
+          "source_hash": "552633018f82574a5c0cc7f23d23d4e583f55289d9dfb50793228216c6a3bb88",
+          "text_hash": "8f163306780b245851d1d2e6c885ee1a6b5d65a2821ea150eaba48c414ee7ae0",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "mePurchasingDeluxe": {
+          "source_hash": "39fdb65f873029a6847db1751ab59fa5908a4f3616fad98e4bbcff077d191e28",
+          "text_hash": "cf264f5d7249d11312d46c55c25beddc06928afa7b9285b027e1d8ae5294566b",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meWorldoDeluxeSubscription": {
+          "source_hash": "d94f2a2fc01c652df2383f27b8cde72900a99e8e5a2e28987400df8121709f69",
+          "text_hash": "ae0bf9bffc9f11204d2b92b83437596ec89286d53171cda3c661272548fc5b7b",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "c44952861e6322b3e7c98af4b18baaa0fb15a6f2e2562992a4c1c97b36f5ea46",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "cfd6424fd301a4fb573dfa9483652e9fecc404132be1aa716f3170fb62e49ae2",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -41490,10 +42426,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "b699f77fc74efadb3c8d1ed57fe089bc09ce5b4768bae5b6ecd5acb476566f57",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "d3ebc7a25cacae9d4adca7e44089a46dd5e5cdb16f11a3cf5340253ce23c87bb",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -41574,9 +42510,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "f794bcb3dfcdb2f3ea5365cd98cc910fb1b57f880a3a6903dcfe9823029dc87d",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "a0b22ce2a9cff3849418d5e4cb48c8ee7317aaa964a276b9cfedcb90d08c1dc9",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -43840,6 +44776,162 @@
           "text_hash": "aa418be3f40c6ddd4eeb9eefb6f061833343c0950ad7248b0bc338b0eb5607a7",
           "status": "ai",
           "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "memoryMembershipDeluxe": {
+          "source_hash": "b385bc086bf9d679e0934ebae8fcf4d428c277dc641284b697498dbb9197faed",
+          "text_hash": "c097b290b3c6c50705145bf2d59be623a311e2d829fead70d1a1c2e0cbba5fdb",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipMonthlyGems": {
+          "source_hash": "584030978a4d46eb73a9a54bd0dc23fa259996fd8b61bdbffc5ef7f3e88749f1",
+          "text_hash": "c57834aeed71fd5671d0dee88858f07e36d394653529d7d45c527ac069b19d18",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPeriod": {
+          "source_hash": "e6cda6cb204664c87cb7f6cf4fc1ab454a2a997829c6e82aa980cc338302c5e8",
+          "text_hash": "40c24b0ffe5e469a207c68baf0f9428249d0afa1af73ffbe9cdbe632fd1574bf",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBilledAnnually": {
+          "source_hash": "bad41bc63938582c646b88c9045c08364abd9b0c18aad701b64e50eec63d0806",
+          "text_hash": "078d01b39cc2d7ad76ead42597bc7e471e14f1838ec2ea9f342d48e8fc7d0d1c",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeProfileOffer": {
+          "source_hash": "1fadfd521104fd4ddb189a549acdbc7be6acd4d4101f2b05c6e4b1a65503dcb1",
+          "text_hash": "f62e0d11feee6376eb58b141a6b9c3ce4e52fd829b09a3a4b1cfc3d03aab4909",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumOffer": {
+          "source_hash": "8852508727e282711af534f286b9f55dd9d35de558399a4370c2898663a96ae0",
+          "text_hash": "cc13574c119f51d9ae2d6517f3f1b7592f7565e648d3df5705076c518fd4a56d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeOffer": {
+          "source_hash": "c56b941869a8a3faac3c8ec3cf39594981187c7fb020116c94ec9f41095df127",
+          "text_hash": "afc6c9db9f533ea592d744f8e0d192f52c58f57179d82f71e3d66ee0b67bfe53",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeTagline": {
+          "source_hash": "a1cfe7d462bbd4e5ccfe50533cb6ad93f3b543be93428477ad2940fb874f032c",
+          "text_hash": "1684c4622c2894d043760dd26eea9468060b9c7dbceeaf41c851bd03198f5565",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeUnavailable": {
+          "source_hash": "5f732f274eb6172cdc459b60dec516816c55f9d9453daaac4bcc4c61d6713378",
+          "text_hash": "40c896899c35d04edd274d15a8002d18802b1775e764977ae08e2b5b28987b96",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumCheckout": {
+          "source_hash": "e874c1f53023d3ab7da15f7f1cc779f930b9f2fef3ea1e1a8815f9b3f0dfb62d",
+          "text_hash": "f5f916bdda97a00dcd51f2026a4b7b984f61394c3f9ff7b0b2e12a62b7d18c58",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDraftPreview": {
+          "source_hash": "242646aebae9704358a9d9a58d4808490105e17849d3c116d1f5145a9a33ab9b",
+          "text_hash": "688a688cfd2dfedf0d95b4f453a4d51ca7f1cb3ddcb8c3f7cf56bbbf3ff41aa7",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDetails": {
+          "source_hash": "d5a3ac8ef7eb08abebf6fa5e718445484b3ab7ef925613efd7ab80b2844c86a8",
+          "text_hash": "e1c7660b06acee5ba9a1d995a8bd7ab26e904598d59e63121364066d06dd0167",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipTimelineBenefit": {
+          "source_hash": "f1bbe9eeb4ac3953c0cf5b0e2f256394d4c17fd3f774efeb689bc095caa99b94",
+          "text_hash": "d08d7571b48ce9a77cd0da01f9c04a61071cb4fa042cf47f2105e3cec99a331d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitTimeline": {
+          "source_hash": "4571f5d7ab9792ecebb1f73f8827c744729b23e068b47c99b3cebf8285ae17c9",
+          "text_hash": "9d6db198054d20779df3fce0145e0fa9a8ab3fdaa4223c513b9a00f5ab4a46ba",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitCast": {
+          "source_hash": "46f608c4b49906d50d8f4ff3b21d5e2463946cb9743f65c78da036d08496d85b",
+          "text_hash": "6b741274dbeaa9ee42360cb082192254bb73313743c509003e01b82efdd8cae0",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitBonds": {
+          "source_hash": "28ace7cb5430e6b14ee5808b82dddaa2138f40faa847734c4860766205308987",
+          "text_hash": "a439025049b945b98ce04efddae9cca4ec9e715b968a78ca095cf0c31389d3e5",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRememberBenefit": {
+          "source_hash": "dc06d3c5f5b8577d0c83072e9f7142ea9db05679f10f2f11e6e750592880d55e",
+          "text_hash": "a72fac629c353b5e87060749f80ee747188ecad60d872ad2465976ae0850da40",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipSummaryBenefit": {
+          "source_hash": "6b154a9485a50a7ff143fbe3c0c124472d97973f021a518b93c58f790f33486e",
+          "text_hash": "4735533f84b492fdb715c8118c201d87d0297cbc5504e734d0e12e9a87c31f4d",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipInspirationsBenefit": {
+          "source_hash": "bc24b0311677f9666f15a8f70bba8bef99ba0dde33daa215bec31829a4c0dbb8",
+          "text_hash": "27ec04f961b046505fe4ec5e50b5ead00bde2027a86d26a4acd0865f35e90906",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipEditingBenefit": {
+          "source_hash": "1c80db14ce8aaa0cd70365e94f41f0113f0230b93ed4c06219af50c16937f224",
+          "text_hash": "8687d44c82d9e4380c0f2af47d862d2b0f8322ec2b3b19e0b1834c6599565598",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBadgeBenefit": {
+          "source_hash": "af5d59043450d24797c7e1404bb316b8ea39c3996c2679a9b1b344aff8673a4e",
+          "text_hash": "a5d1667d6b6fa37068c270556deff775b0d54100b6490fecadbc06dae870b329",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRechargeBenefit": {
+          "source_hash": "552633018f82574a5c0cc7f23d23d4e583f55289d9dfb50793228216c6a3bb88",
+          "text_hash": "3e3d99a569df417a1ae52ebd2f783a1f39e00b9a5e0342c010e2bd485a69a479",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "mePurchasingDeluxe": {
+          "source_hash": "39fdb65f873029a6847db1751ab59fa5908a4f3616fad98e4bbcff077d191e28",
+          "text_hash": "aa1f68997eaabd402aa173af03789ee74b278303271e2c2fdf0c78cab9a8838f",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meWorldoDeluxeSubscription": {
+          "source_hash": "d94f2a2fc01c652df2383f27b8cde72900a99e8e5a2e28987400df8121709f69",
+          "text_hash": "0cae34a7b93caf9a57a8756b18f987a4c964431f6ea75dafb56aa14c8a62233d",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "866d0a58e77cd1dd75eea3983d92fbdca8024bcc77eab199b29faa45f06696c6",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "4f796e632078221cba50d2952c25e52d6922aa3f1a6bc6664d072c970e11a13c",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -47753,10 +48845,10 @@
           "note": ""
         },
         "meAccountLoggedAnotherDevice": {
-          "source_hash": "1890a0cc163850b7e39c6b439378d50d2ae6b73e423be6f4a68fb1edaf78c431",
-          "text_hash": "2e08739b0be4d57ec0bb1f3d094bb107841fa3ff343dbecd8092a708e016246b",
-          "status": "baseline",
-          "note": ""
+          "source_hash": "7149ad46e47af886b32afc7c6709cdc48c9d6e46e653219dc91dce360aab6125",
+          "text_hash": "ca6177729d6b33f09578be795fd3e5875319d7af96a686218bd608db35336d92",
+          "status": "ai",
+          "note": "Current-session error 10001; request sign-in again without implying another-device login."
         },
         "premiumSubscription": {
           "source_hash": "ba83bdedbbcba78147c9d4d19ebf63b825a355df7122e3204fca04956d594b03",
@@ -47837,9 +48929,9 @@
           "note": ""
         },
         "gemsDailyCheckInReward": {
-          "source_hash": "96d8e4ea2998a7e73daf785cabc1901b2912365241b2cab513cb4f0ae6ad4b8a",
-          "text_hash": "4e72d0538b05d07bb149fb871f1c5dfe28438c1d7bb607d6b905760a184ec8ed",
-          "status": "baseline",
+          "source_hash": "caf2ebc8bf59e4e263b74061705696a117687ef7a0a955787b619cf8f9e7d31e",
+          "text_hash": "9821e7348905b18f58216b07032e50d5a0506c4a44f1216581ea0a6b67f8b6fe",
+          "status": "ai",
           "note": ""
         },
         "meCheck": {
@@ -50103,6 +51195,162 @@
           "text_hash": "dbe24cad2858e43426b8e02e50d8f41660c69e21a39061729bb034908dad8792",
           "status": "ai",
           "note": "Camera API integration: preserve submission uncertainty and conditional free eligibility."
+        },
+        "memoryMembershipDeluxe": {
+          "source_hash": "b385bc086bf9d679e0934ebae8fcf4d428c277dc641284b697498dbb9197faed",
+          "text_hash": "c097b290b3c6c50705145bf2d59be623a311e2d829fead70d1a1c2e0cbba5fdb",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipMonthlyGems": {
+          "source_hash": "584030978a4d46eb73a9a54bd0dc23fa259996fd8b61bdbffc5ef7f3e88749f1",
+          "text_hash": "a7708220d77dbcb68c13a4e24a8f35d45d66df29ca51a02cb7bb33fd007ef8f0",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPeriod": {
+          "source_hash": "e6cda6cb204664c87cb7f6cf4fc1ab454a2a997829c6e82aa980cc338302c5e8",
+          "text_hash": "b16b85bdef056360e4e263655adc4707d7b31f603688a8ecae488897319b3831",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBilledAnnually": {
+          "source_hash": "bad41bc63938582c646b88c9045c08364abd9b0c18aad701b64e50eec63d0806",
+          "text_hash": "7051b12c45978bb722e8a61ea9c0a0b5169aca12df164c0d954f143273e379ab",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeProfileOffer": {
+          "source_hash": "1fadfd521104fd4ddb189a549acdbc7be6acd4d4101f2b05c6e4b1a65503dcb1",
+          "text_hash": "27ae67e3b7b13732aaf5a8930e00e05feb0472c0b7126635c6e89afe5744cf4a",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumOffer": {
+          "source_hash": "8852508727e282711af534f286b9f55dd9d35de558399a4370c2898663a96ae0",
+          "text_hash": "ceb8ad2e2216b981ae75c05a3604fb75fd7e283822b75c848e18949beefe35b2",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeOffer": {
+          "source_hash": "c56b941869a8a3faac3c8ec3cf39594981187c7fb020116c94ec9f41095df127",
+          "text_hash": "00b66d0aae922dff23c080805b0183e6b933d39c07dac144b4ae7ec94dd7ce5b",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeTagline": {
+          "source_hash": "a1cfe7d462bbd4e5ccfe50533cb6ad93f3b543be93428477ad2940fb874f032c",
+          "text_hash": "d6969823704152a41e1bcdc22f1387d1f31d9d1c589aeab9cfac402f8735a678",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDeluxeUnavailable": {
+          "source_hash": "5f732f274eb6172cdc459b60dec516816c55f9d9453daaac4bcc4c61d6713378",
+          "text_hash": "344cf00afc345a05990ee0806995e38ce34ffbfdc92ad59c2ac4c44b682ab619",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipPremiumCheckout": {
+          "source_hash": "e874c1f53023d3ab7da15f7f1cc779f930b9f2fef3ea1e1a8815f9b3f0dfb62d",
+          "text_hash": "70e2258d41722744468c7fdf9b5e98f7f3213e183d3a4bc580aee41fc0debbcd",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDraftPreview": {
+          "source_hash": "242646aebae9704358a9d9a58d4808490105e17849d3c116d1f5145a9a33ab9b",
+          "text_hash": "ca012986e7412d6a4c430ab5c65b1bf8fd657359a8bb19bd92a2ba36819ed2bd",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipDetails": {
+          "source_hash": "d5a3ac8ef7eb08abebf6fa5e718445484b3ab7ef925613efd7ab80b2844c86a8",
+          "text_hash": "2567e568f90f058dd842a764c9ec21df6711cadff53d55a5c29d186ae1688c06",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipTimelineBenefit": {
+          "source_hash": "f1bbe9eeb4ac3953c0cf5b0e2f256394d4c17fd3f774efeb689bc095caa99b94",
+          "text_hash": "834afe7b28ed9dc04b2fee5742226954e40611e05a85708d798088b56ecb7e94",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitTimeline": {
+          "source_hash": "4571f5d7ab9792ecebb1f73f8827c744729b23e068b47c99b3cebf8285ae17c9",
+          "text_hash": "dd48aec8f0c1ddf2d3e4d7bc9aa9f4278d58ca1b1daf5b3ac448ca7809c30b90",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitCast": {
+          "source_hash": "46f608c4b49906d50d8f4ff3b21d5e2463946cb9743f65c78da036d08496d85b",
+          "text_hash": "a358fcca44afc79bcf420e30a84e3504434cc4668becf50271b0fea1dc4830a9",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBenefitBonds": {
+          "source_hash": "28ace7cb5430e6b14ee5808b82dddaa2138f40faa847734c4860766205308987",
+          "text_hash": "3a7164e9217b8f73b6d5eb92a5cc4003c5b889679fb76ea84908b1a1d6273217",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRememberBenefit": {
+          "source_hash": "dc06d3c5f5b8577d0c83072e9f7142ea9db05679f10f2f11e6e750592880d55e",
+          "text_hash": "3eec9fd4dcd0d92ee63556fd479ca4c762a7421241b13a812602647788f2ba30",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipSummaryBenefit": {
+          "source_hash": "6b154a9485a50a7ff143fbe3c0c124472d97973f021a518b93c58f790f33486e",
+          "text_hash": "97a6fc69ac120a70c877fae3e3383a45631619e8e854a83e8d74865ca01cf1ba",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipInspirationsBenefit": {
+          "source_hash": "bc24b0311677f9666f15a8f70bba8bef99ba0dde33daa215bec31829a4c0dbb8",
+          "text_hash": "3b4503a54e15133b2a1575a44b632fc6a48705df98fffacc263e88aab9ec9fc7",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipEditingBenefit": {
+          "source_hash": "1c80db14ce8aaa0cd70365e94f41f0113f0230b93ed4c06219af50c16937f224",
+          "text_hash": "fd72c0c41e281f511606a106754b3222c7db0575d70fb1d6134dfcea63b967f3",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipBadgeBenefit": {
+          "source_hash": "af5d59043450d24797c7e1404bb316b8ea39c3996c2679a9b1b344aff8673a4e",
+          "text_hash": "84a77f5a6464f538598191d02d8bd2d7c40aa2861a755ad3599c2c2816c948a2",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "memoryMembershipRechargeBenefit": {
+          "source_hash": "552633018f82574a5c0cc7f23d23d4e583f55289d9dfb50793228216c6a3bb88",
+          "text_hash": "f84506dca3748e064fb1554ce173e8f80d3635825a2a875d6ea43c3f954fb8a9",
+          "status": "ai",
+          "note": "Migrated membership UI translation from source branch; AI migration, not human-reviewed."
+        },
+        "mePurchasingDeluxe": {
+          "source_hash": "39fdb65f873029a6847db1751ab59fa5908a4f3616fad98e4bbcff077d191e28",
+          "text_hash": "f5fec039e7286959f89d10df780185f3b96b99373298d7479ea73fa754c5cc6c",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meWorldoDeluxeSubscription": {
+          "source_hash": "d94f2a2fc01c652df2383f27b8cde72900a99e8e5a2e28987400df8121709f69",
+          "text_hash": "2daec6ab1d4a8ebb8c10c8c070f569cdf54a1bd9662d98389a5031e45d23cf50",
+          "status": "ai",
+          "note": "Deluxe processing and server-confirmed success dialog; preserve membership brand."
+        },
+        "meSignUpClaimDeluxe": {
+          "source_hash": "e2fead920e840475cd46a66dd5568d80a254fea6d85226ee91d288d70198ae3c",
+          "text_hash": "7e1fe827cdabc73f3fb6331ed08c90f122cf39dd92cc8347be278506af2c50d2",
+          "status": "ai",
+          "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "52b17382ecf23d2391bcc4834516953af9dade4c7d75dc8c1fbf67e6ab5432fe",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     }

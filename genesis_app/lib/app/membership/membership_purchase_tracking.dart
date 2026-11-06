@@ -2,11 +2,18 @@ part of 'membership_purchase_service.dart';
 
 extension _MembershipPurchaseTracking on MembershipPurchaseService {
   SubscriptionTracking _trackingFor(MembershipPurchaseRecord record) =>
-      _attemptTracking[record.requestId] ??=
-          record.tracking ??
-          SubscriptionTracking.recovery(
-            '${provider.name}:attempt:${record.requestId}',
-          );
+      _attemptTracking[record.requestId] =
+          (_attemptTracking[record.requestId] ??
+                  record.tracking ??
+                  SubscriptionTracking.recovery(
+                    '${provider.name}:attempt:${record.requestId}',
+                  ))
+              .copyWith(
+                storeProductId: record.product.storeProductId,
+                basePlanId: provider == MembershipProvider.google
+                    ? record.product.basePlanId
+                    : '',
+              );
 
   SubscriptionTracking _trackingForClaim(MembershipGuestClaimRecord claim) {
     final purchase = _claimPurchase(claim);
@@ -23,21 +30,69 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
     String reason, {
     bool fromStoreCallback = false,
     bool fromStoreStream = false,
+    Map<String, Object?> diagnostics = const {},
   }) {
-    if (!fromStoreCallback && !fromStoreStream) return;
-    final tracking = _attemptTracking[id];
-    if (tracking != null) analytics.failed(tracking, reason, once: true);
+    try {
+      if (!fromStoreCallback && !fromStoreStream) return;
+      final tracking = _attemptTracking[id];
+      if (tracking != null) {
+        analytics.failed(
+          tracking,
+          reason,
+          once: true,
+          diagnostics: {
+            'provider': provider.name,
+            'attempt_id': id,
+            if (_records[id] case final record?) ...{
+              'plan_code': record.product.planCode,
+              'store_product_id': record.product.storeProductId,
+              'base_plan_id': record.product.basePlanId,
+              'offer_id': record.product.offerId,
+            },
+            if (_checkoutWaits[id] case final wait?) ...{
+              'store_handoff_started': wait.storeHandedOff,
+              'store_callback_received': wait.storeCallbackReceived,
+            },
+            ...diagnostics,
+          },
+        );
+      }
+    } catch (_) {
+      /* Telemetry is best effort. */
+    }
   }
 
-  void _trackPreparationFailure(String id, String stage, String reason) {
-    final tracking = _attemptTracking[id];
-    if (tracking == null) return;
-    final action = switch (stage) {
-      'query_store_product' => 'query_failed',
-      'launch_store' => 'launch_failed',
-      _ => 'precheck_failed',
-    };
-    analytics.failed(tracking, '$action[$reason]', once: true);
+  void _trackPreparationFailure(
+    String id,
+    String stage,
+    String reason, {
+    Object? error,
+    StackTrace? stackTrace,
+    Map<String, Object?> context = const {},
+  }) {
+    try {
+      final tracking = _attemptTracking[id];
+      if (tracking == null) return;
+      final action = switch (stage) {
+        'query_store_product' => 'query_failed',
+        'launch_store' => 'launch_failed',
+        _ => 'precheck_failed',
+      };
+      analytics.failed(
+        tracking,
+        '$action[$reason]',
+        once: true,
+        diagnostics: paymentFailureDiagnostics(
+          provider: provider.name,
+          stage: stage,
+          error: error,
+          stackTrace: stackTrace,
+          context: {'attempt_id': id, ...context},
+        ),
+      );
+    } catch (_) {
+      /* Telemetry is best effort. */
+    }
   }
 
   String _preparationFailure(Object error, String stage) {
@@ -89,7 +144,49 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
     MembershipPurchaseRecord record,
     MembershipPurchaseRequest request,
   ) async {
-    return reportPurchase(request);
+    final tracking = _trackingFor(record);
+    void failed(String reason, {Object? error, StackTrace? stack}) {
+      analytics.failed(
+        tracking,
+        reason,
+        once: true,
+        diagnostics: paymentFailureDiagnostics(
+          provider: provider.name,
+          stage: 'report',
+          error: error,
+          stackTrace: stack,
+          context: {
+            'step': 'purchase_report',
+            'attempt_id': record.requestId,
+            'store_product_id': record.product.storeProductId,
+            'transaction_id': record.transactionId,
+            'success_callback_received': true,
+          },
+        ),
+      );
+    }
+
+    try {
+      final result = await reportPurchase(request);
+      if (result.status == MembershipReportStatus.rejected) {
+        failed('report_rejected[${result.reason ?? 'unknown'}]');
+      }
+      return result;
+    } catch (error, stack) {
+      final reason = subscriptionRequestTimedOut(error)
+          ? 'timeout'
+          : error is FormatException
+          ? 'invalid_response'
+          : error is ApiException
+          ? error.kind == ApiExceptionKind.business
+                ? 'business_error'
+                : error.kind == ApiExceptionKind.transport
+                ? 'network_error'
+                : 'request_error'
+          : 'request_error';
+      failed('report_failed[$reason]', error: error, stack: stack);
+      rethrow;
+    }
   }
 
   Future<MembershipClaimResult> _sendTrackedClaim(

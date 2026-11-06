@@ -7,29 +7,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     _billingService = service;
     _billingEvents = service.events.listen(_handleBillingEvent);
     unawaited(service.start());
-    final products = _products;
-    if (products != null) _startStoreRecovery(products);
     if (mounted) _updateState(() {});
-  }
-
-  void _startStoreRecovery(List<GemProduct> productCatalog) {
-    if (_storeRecoveryStarted) return;
-    final service = _billingService;
-    if (service == null) return;
-    _storeRecoveryStarted = true;
-    unawaited(_recoverStorePurchases(service, productCatalog));
-  }
-
-  Future<void> _recoverStorePurchases(
-    BillingService service,
-    List<GemProduct> productCatalog,
-  ) async {
-    try {
-      await service.recoverStorePurchases(productCatalog: productCatalog);
-    } catch (error, stackTrace) {
-      debugPrint('[Billing] store recovery failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-    }
   }
 
   Future<void> _purchaseProduct(GemProduct product) async {
@@ -43,22 +21,66 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         widget.billingService ??
         AppServicesScope.maybeRead(context)?.billing;
     if (service?.state.value.hasBusyPurchase == true) return;
+    final clickAttemptId = newBillingAttemptId();
+    const GenesisBillingAnalytics().track(
+      'product_click',
+      properties: {
+        'product_id': product.productId,
+        'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
+            ? product.appleProductId
+            : product.googleProductId,
+        'source': _gemsPurchaseSource.value,
+      },
+    );
+    final budget = CheckoutPreparationBudget();
     _showBillingPurchaseProcessing();
     if (product.requiresStorePrice) {
       final catalog = AppServicesScope.read(context).gemStoreCatalog;
       _checkingStorePrice = true;
       try {
-        final fresh = await catalog.confirm(product);
+        final fresh = await budget.wait(catalog.confirm(product));
         if (!mounted) return;
         _updateState(() {
           _products = catalog.cached;
         });
         if (fresh == null) {
+          reportGemConfirmationFailure(
+            product: product,
+            attemptId: clickAttemptId,
+            source: _gemsPurchaseSource.value,
+            reason: 'catalog_unavailable',
+            currentProducts: catalog.cached,
+            durationMs: DateTime.now()
+                .difference(budget.startedAt)
+                .inMilliseconds,
+          );
           _dismissBillingPurchaseDialog();
           return;
         }
         product = fresh;
-      } catch (_) {
+      } on TimeoutException {
+        reportGemConfirmationTimeout(
+          product: product,
+          attemptId: clickAttemptId,
+          source: _gemsPurchaseSource.value,
+        );
+        _dismissBillingPurchaseDialog();
+        if (mounted) {
+          showGenesisToast(context, GenesisL10n.current.gemsPurchaseTimeout);
+        }
+        return;
+      } catch (error, stackTrace) {
+        reportGemConfirmationFailure(
+          product: product,
+          attemptId: clickAttemptId,
+          source: _gemsPurchaseSource.value,
+          reason: 'store_query_error',
+          error: error,
+          stackTrace: stackTrace,
+          durationMs: DateTime.now()
+              .difference(budget.startedAt)
+              .inMilliseconds,
+        );
         _dismissBillingPurchaseDialog();
         if (mounted) unawaited(_refreshProducts(silent: true));
         return;
@@ -70,18 +92,26 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       _dismissBillingPurchaseDialog();
       const analytics = GenesisBillingAnalytics();
       analytics.track(
-        'product_click',
-        properties: <String, Object?>{
-          'product_id': product.productId,
-          'source': BillingPurchaseSource.buyGemsPage.value,
-        },
-      );
-      analytics.track(
         'purchase_failed',
         properties: <String, Object?>{
           'product_id': product.productId,
+          'attempt_id': clickAttemptId,
+          'source': _gemsPurchaseSource.value,
+          'provider': defaultTargetPlatform == TargetPlatform.iOS
+              ? 'apple'
+              : defaultTargetPlatform == TargetPlatform.android
+              ? 'google'
+              : 'unknown',
+          'store_product_id': defaultTargetPlatform == TargetPlatform.iOS
+              ? product.appleProductId
+              : product.googleProductId,
           'reason': 'precheck_failed',
           'error_code': 'service_unavailable',
+          'failure_diagnostics': {
+            'stage': 'prepare',
+            'step': 'resolve_billing_service',
+            'error_layer': 'business',
+          },
         },
       );
       showGenesisToast(
@@ -100,9 +130,12 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
     if (service.state.value.hasBusyPurchase) return;
     _showBillingPurchaseProcessing();
     try {
-      await service.purchaseGem(
-        product,
-        source: BillingPurchaseSource.buyGemsPage,
+      await budget.run(
+        () => service.purchaseGem(
+          product,
+          source: _gemsPurchaseSource,
+          operationId: clickAttemptId,
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -138,6 +171,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
       case BillingUiEventKind.pending:
       case BillingUiEventKind.deferred:
         _dismissBillingPurchaseDialog();
+        if (event.requiresProductRefresh) unawaited(_refreshAll(silent: true));
         showGenesisToast(
           context,
           purchaseToastMessage(

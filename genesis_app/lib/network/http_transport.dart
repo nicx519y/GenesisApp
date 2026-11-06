@@ -91,6 +91,7 @@ class TransportRequest {
 /// The child token also prevents delayed preparation from sending after expiry.
 Future<T> runWithNetworkDeadline<T>({
   required Duration timeout,
+  Object Function()? timeoutErrorFactory,
   required Future<T> Function(NetworkCancellationToken token) action,
   NetworkCancellationToken? cancellationToken,
 }) async {
@@ -107,7 +108,10 @@ Future<T> runWithNetworkDeadline<T>({
     () => cancel(const NetworkRequestCancelledException()),
   );
   final timer = Timer(timeout, () {
-    cancel(TimeoutException('HTTP request deadline exceeded.', timeout));
+    cancel(
+      timeoutErrorFactory?.call() ??
+          TimeoutException('HTTP request deadline exceeded.', timeout),
+    );
   });
   // Always observe late completion, including errors from aborted native tasks.
   unawaited(

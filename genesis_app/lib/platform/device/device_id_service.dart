@@ -8,6 +8,7 @@ class DeviceIdDiagnostics {
     this.androidId,
     this.adjustAdid,
     this.gaid,
+    this.gaidSource,
     this.idfa,
     this.idfv,
   });
@@ -16,6 +17,7 @@ class DeviceIdDiagnostics {
   final String? androidId;
   final String? adjustAdid;
   final String? gaid;
+  final String? gaidSource;
   final String? idfa;
   final String? idfv;
 }

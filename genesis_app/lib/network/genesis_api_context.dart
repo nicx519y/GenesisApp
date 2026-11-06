@@ -248,7 +248,7 @@ abstract class _GenesisApiContext {
     final errNo = asInt(errNoRaw);
     if (errNo != 10001) return;
 
-    const message = 'Your account is logged in on another device.';
+    final message = GenesisL10n.current.meAccountLoggedAnotherDevice;
     final handler = _onSessionExpired;
     if (handler != null) {
       unawaited(_notifyCurrentSessionExpired(response, handler, message));

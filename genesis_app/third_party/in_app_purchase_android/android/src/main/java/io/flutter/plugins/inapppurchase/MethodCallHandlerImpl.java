@@ -64,6 +64,67 @@ class MethodCallHandlerImpl implements Application.ActivityLifecycleCallbacks, I
   final InAppPurchaseCallbackApi callbackApi;
 
   private final HashMap<String, ProductDetails> cachedProducts = new HashMap<>();
+  private final java.util.Set<String> knownProductIds = new java.util.HashSet<>();
+  private static String queryKey(PlatformQueryProduct product) {
+    return toProductTypeString(product.getProductType()) + ":" + product.getProductId();
+  }
+  private final HashMap<String, Long> productTimes = new HashMap<>();
+  private final HashMap<String, Long> productVersions = new HashMap<>();
+  private final HashMap<String, List<Function1<? super Result<PlatformProductDetailsResponse>, Unit>>> pendingProducts = new HashMap<>();
+  private final HashMap<String, Boolean> pendingProductRefresh = new HashMap<>();
+
+  @Override
+  public synchronized void invalidateProductDetails(@Nullable List<String> ids) {
+    List<String> keys = ids == null ? new ArrayList<>(knownProductIds) : ids;
+    for (String id : keys) {
+      for (String type : new String[] {"inapp", "subs"}) {
+        String key = type + ":" + id;
+        productVersions.put(key, productVersions.getOrDefault(key, 0L) + 1);
+        pendingProducts.remove(key);
+        pendingProductRefresh.remove(key);
+      }
+      cachedProducts.remove(id);
+      productTimes.remove(id);
+    }
+  }
+
+  @Override
+  public synchronized void loadProductDetailsAsync(@NonNull PlatformQueryProduct product,
+      boolean forceRefresh,
+      @NonNull Function1<? super Result<PlatformProductDetailsResponse>, Unit> callback) {
+    String id = product.getProductId();
+    String key = queryKey(product);
+    knownProductIds.add(id);
+    if (forceRefresh && Boolean.TRUE.equals(pendingProductRefresh.get(key))) {
+      pendingProducts.get(key).add(callback); return;
+    }
+    if (forceRefresh) {
+      productVersions.put(key, productVersions.getOrDefault(key, 0L) + 1);
+      pendingProducts.remove(key);
+      pendingProductRefresh.remove(key);
+    }
+    PlatformProductDetails cached = forceRefresh ? null : getCachedProductDetails(product);
+    if (cached != null) {
+      ResultCompat.success(new PlatformProductDetailsResponse(
+          fromBillingResult(BillingResult.newBuilder().setResponseCode(BillingClient.BillingResponseCode.OK).build()),
+          java.util.Collections.singletonList(cached), java.util.Collections.emptyList(), true,
+          android.os.SystemClock.elapsedRealtime() - productTimes.getOrDefault(id, 0L)), callback);
+      return;
+    }
+    List<Function1<? super Result<PlatformProductDetailsResponse>, Unit>> pending = pendingProducts.get(key);
+    if (pending != null) { pending.add(callback); return; }
+    List<Function1<? super Result<PlatformProductDetailsResponse>, Unit>> waiters = new ArrayList<>();
+    waiters.add(callback);
+    pendingProducts.put(key, waiters);
+    pendingProductRefresh.put(key, forceRefresh);
+    queryProductDetailsAsync(java.util.Collections.singletonList(product), result -> {
+      synchronized (this) {
+        if (pendingProducts.get(key) == waiters) { pendingProducts.remove(key); pendingProductRefresh.remove(key); }
+      }
+      for (Function1<? super Result<PlatformProductDetailsResponse>, Unit> waiter : waiters) waiter.invoke(result);
+      return Unit.INSTANCE;
+    });
+  }
 
   /** Constructs the MethodCallHandlerImpl */
   MethodCallHandlerImpl(
@@ -249,18 +310,38 @@ class MethodCallHandlerImpl implements Application.ActivityLifecycleCallbacks, I
       return;
     }
 
+    final HashMap<String, Long> versions = new HashMap<>();
+    synchronized (this) {
+      for (PlatformQueryProduct product : products) {
+        knownProductIds.add(product.getProductId());
+        String key = queryKey(product);
+        long version = productVersions.getOrDefault(key, 0L) + 1;
+        productVersions.put(key, version);
+        versions.put(key, version);
+      }
+    }
     try {
       QueryProductDetailsParams params =
           QueryProductDetailsParams.newBuilder().setProductList(toProductList(products)).build();
       billingClient.queryProductDetailsAsync(
           params,
           (billingResult, productDetailsResult) -> {
-            updateCachedProducts(productDetailsResult.getProductDetailsList());
+            synchronized (this) {
+              boolean current = true;
+              for (String id : versions.keySet()) {
+                if (!versions.get(id).equals(productVersions.get(id))) current = false;
+              }
+              if (!current) {
+                ResultUtilsKt.completeWithError(callback, new FlutterError("product_query_invalidated", "Product query was superseded", null));
+                return;
+              }
+              updateCachedProducts(productDetailsResult.getProductDetailsList());
+            }
             PlatformProductDetailsResponse response =
                 new PlatformProductDetailsResponse(
                     fromBillingResult(billingResult),
                     fromProductDetailsList(productDetailsResult.getProductDetailsList()),
-                    fromUnfetchedProductList(productDetailsResult.getUnfetchedProductList()));
+                    fromUnfetchedProductList(productDetailsResult.getUnfetchedProductList()), false, 0L);
             ResultCompat.success(response, callback);
           });
     } catch (RuntimeException e) {
@@ -504,6 +585,17 @@ class MethodCallHandlerImpl implements Application.ActivityLifecycleCallbacks, I
     }
   }
 
+  @Override
+  public synchronized @Nullable PlatformProductDetails getCachedProductDetails(
+      @NonNull PlatformQueryProduct product) {
+    ProductDetails cached = cachedProducts.get(product.getProductId());
+    if (cached == null
+        || !cached.getProductType().equals(toProductTypeString(product.getProductType()))) {
+      return null;
+    }
+    return fromProductDetailsList(java.util.Collections.singletonList(cached)).get(0);
+  }
+
   protected void updateCachedProducts(@Nullable List<ProductDetails> productDetailsList) {
     if (productDetailsList == null) {
       return;
@@ -511,6 +603,7 @@ class MethodCallHandlerImpl implements Application.ActivityLifecycleCallbacks, I
 
     for (ProductDetails productDetails : productDetailsList) {
       cachedProducts.put(productDetails.getProductId(), productDetails);
+      productTimes.put(productDetails.getProductId(), android.os.SystemClock.elapsedRealtime());
     }
   }
 

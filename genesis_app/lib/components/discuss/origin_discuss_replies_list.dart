@@ -245,6 +245,9 @@ Map<String, InlineSpan> _replyLinePlaceholders(Map<String, dynamic> json) {
     ),
     'authorBadge': ProUserBadge.span(
       membershipStatus: asUserMembershipStatus(author?['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        author?['membership_deluxe_status'],
+      ),
       fontSize: 12,
       deleted: asBool(author?['deleted'] ?? json['author_deleted']),
     ),
@@ -260,6 +263,9 @@ Map<String, InlineSpan> _replyLinePlaceholders(Map<String, dynamic> json) {
       'replyToBadge': ProUserBadge.span(
         membershipStatus: asUserMembershipStatus(
           asOptionalJsonMap(json['reply_to_user'])['membership_status'],
+        ),
+        membershipDeluxeStatus: asUserMembershipStatus(
+          asOptionalJsonMap(json['reply_to_user'])['membership_deluxe_status'],
         ),
         fontSize: 12,
         deleted: entityDeleted(

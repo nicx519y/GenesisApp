@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../app/membership/subscription_analytics.dart';
+import '../../network/models/membership_order_product.dart';
 import '../../platform/billing/billing_models.dart';
 
 /// Owned by the page/sheet, so rebuilding a tab keeps the same exposure ID.
@@ -19,10 +20,23 @@ class SubscriptionPageTracking {
   final SubscriptionSource source;
   final SubscriptionAnalytics analytics;
 
-  void show() => analytics.pageShow(pageId, surface, source);
-  SubscriptionTracking click({required bool isYearly}) {
-    show();
-    return analytics.click(pageId, surface, source, isYearly: isYearly);
+  void show(MembershipType membershipType) =>
+      analytics.pageShow(pageId, surface, source, membershipType);
+  SubscriptionTracking click({
+    required MembershipType membershipType,
+    required bool isYearly,
+    String storeProductId = '',
+    String basePlanId = '',
+  }) {
+    show(membershipType);
+    return analytics.click(
+      pageId,
+      surface,
+      source,
+      isYearly: isYearly,
+      storeProductId: storeProductId,
+      basePlanId: basePlanId,
+    );
   }
 }
 
@@ -44,8 +58,7 @@ class SubscriptionTrackingScope extends InheritedWidget {
 }
 
 /// One-shot exposure after a frame actually paints inside its ancestors' clips.
-/// Offstage tabs never paint; adjacent PageView pages are clipped out. No timer
-/// or catalog/network result is needed to count the initial loading surface.
+/// Offstage tabs never paint; adjacent PageView pages are clipped out.
 class SubscriptionExposure extends SingleChildRenderObjectWidget {
   const SubscriptionExposure({
     super.key,

@@ -44,12 +44,79 @@ extension BillingRecoverySourceValue on BillingRecoverySource {
   };
 }
 
-enum BillingPurchaseSource { buyGemsPage, buyGemsSheet }
+enum BillingPurchaseSource {
+  buyGemsPage,
+  buyGemsSheet,
+  meGems,
+  tickNoBalance,
+  msgLowBalance,
+  msgNoBalance,
+  subscriptionTab,
+  subscriptionFromHomeMembership,
+  subscriptionFromMeMembership,
+  subscriptionFromMePinkGems,
+  subscriptionFromDailyCheckIn,
+  subscriptionFromChatFeatureQuota,
+  subscriptionFromChatEditSaveQuota,
+  subscriptionFromOnboarding,
+  subscriptionFromWorldRecap,
+  unknown;
+
+  static BillingPurchaseSource fromSubscriptionEntry(String entry) =>
+      switch (entry) {
+        'from_home_membership' => subscriptionFromHomeMembership,
+        'from_me_membership' => subscriptionFromMeMembership,
+        'from_me_pink_gems' => subscriptionFromMePinkGems,
+        'from_daily_check_in' => subscriptionFromDailyCheckIn,
+        'from_chat_feature_quota' => subscriptionFromChatFeatureQuota,
+        'from_chat_edit_save_quota' => subscriptionFromChatEditSaveQuota,
+        'from_onboarding' => subscriptionFromOnboarding,
+        'from_world_recap' => subscriptionFromWorldRecap,
+        _ => unknown,
+      };
+
+  static BillingPurchaseSource fromEntry(String? entry) {
+    final raw = entry?.trim() ?? '';
+    for (final source in values) {
+      if (source.value == raw) return source;
+    }
+    return switch (raw) {
+      'me_gems' => meGems,
+      'tick_no_balance' => tickNoBalance,
+      'msg_low_balance' => msgLowBalance,
+      'msg_no_balance' => msgNoBalance,
+      'subscription_tab' => subscriptionTab,
+      _ => unknown,
+    };
+  }
+}
 
 extension BillingPurchaseSourceValue on BillingPurchaseSource {
   String get value => switch (this) {
     BillingPurchaseSource.buyGemsPage => 'buy_gems_page',
     BillingPurchaseSource.buyGemsSheet => 'buy_gems_sheet',
+    BillingPurchaseSource.meGems => 'from_me_gems',
+    BillingPurchaseSource.tickNoBalance => 'from_tick_no_balance',
+    BillingPurchaseSource.msgLowBalance => 'from_msg_low_balance',
+    BillingPurchaseSource.msgNoBalance => 'from_msg_no_balance',
+    BillingPurchaseSource.subscriptionTab => 'from_subscription_tab',
+    BillingPurchaseSource.subscriptionFromHomeMembership =>
+      'from_subscription_tab[from_home_membership]',
+    BillingPurchaseSource.subscriptionFromMeMembership =>
+      'from_subscription_tab[from_me_membership]',
+    BillingPurchaseSource.subscriptionFromMePinkGems =>
+      'from_subscription_tab[from_me_pink_gems]',
+    BillingPurchaseSource.subscriptionFromDailyCheckIn =>
+      'from_subscription_tab[from_daily_check_in]',
+    BillingPurchaseSource.subscriptionFromChatFeatureQuota =>
+      'from_subscription_tab[from_chat_feature_quota]',
+    BillingPurchaseSource.subscriptionFromChatEditSaveQuota =>
+      'from_subscription_tab[from_chat_edit_save_quota]',
+    BillingPurchaseSource.subscriptionFromOnboarding =>
+      'from_subscription_tab[from_onboarding]',
+    BillingPurchaseSource.subscriptionFromWorldRecap =>
+      'from_subscription_tab[from_world_recap]',
+    BillingPurchaseSource.unknown => 'from_unknown',
   };
 }
 
@@ -84,17 +151,20 @@ class BillingStoreProduct {
 class BillingProductQueryResult {
   const BillingProductQueryResult.success(this.product)
     : errorCode = null,
+      errorMessage = null,
       errorSource = null,
       errorDetails = null;
 
   const BillingProductQueryResult.failure(
     this.errorCode, {
+    this.errorMessage,
     this.errorSource,
     this.errorDetails,
   }) : product = null;
 
   final BillingStoreProduct? product;
   final String? errorCode;
+  final String? errorMessage;
   final String? errorSource;
   final Object? errorDetails;
 
@@ -276,6 +346,7 @@ class BillingUiEvent {
     required this.attemptId,
     required this.message,
     this.grantedGemsCent = 0,
+    this.requiresProductRefresh = false,
     this.debugInfo,
   });
 
@@ -284,6 +355,7 @@ class BillingUiEvent {
   final String attemptId;
   final String message;
   final int grantedGemsCent;
+  final bool requiresProductRefresh;
   final String? debugInfo;
 }
 

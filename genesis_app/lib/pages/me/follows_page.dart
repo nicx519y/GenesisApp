@@ -521,6 +521,7 @@ class _FollowUsersPane extends StatelessWidget {
                   (defaultFollowed || item.isFollowed);
               return GenesisFollowUserListTile(
                 membershipStatus: item.membershipStatus,
+                membershipDeluxeStatus: item.membershipDeluxeStatus,
                 uid: item.uid,
                 displayName: item.displayName,
                 avatarUrl: item.avatarUrl,
@@ -581,6 +582,7 @@ class _FollowUserItem {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     required this.isFollowed,
   });
 
@@ -591,6 +593,7 @@ class _FollowUserItem {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final bool isFollowed;
 
   factory _FollowUserItem.fromJson(
@@ -624,6 +627,9 @@ class _FollowUserItem {
       gender: asString(user['gender']),
       age: asString(user['age']),
       membershipStatus: asUserMembershipStatus(user['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        user['membership_deluxe_status'],
+      ),
       uid: uid,
       displayName: formatUidForDisplay(
         displayName,

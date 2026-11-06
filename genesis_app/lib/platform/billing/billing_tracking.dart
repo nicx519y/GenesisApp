@@ -6,6 +6,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     String attemptId,
     String message, {
     required String debugInfo,
+    bool requiresProductRefresh = false,
   }) {
     _emitUiEvent(
       BillingUiEvent(
@@ -14,6 +15,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         attemptId: attemptId,
         message: message,
         debugInfo: debugInfo,
+        requiresProductRefresh: requiresProductRefresh,
       ),
     );
     _setBusy(productId, false);
@@ -154,6 +156,9 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         properties: <String, Object?>{
           'product_id': productId,
           'store_product_id': storeProductId,
+          'source': _purchaseSources[attemptId] ?? '',
+          if (action == 'purchase_failed') 'attempt_id': attemptId,
+          if (action == 'purchase_failed') 'provider': _platform.provider.name,
           ...data,
         },
       );
@@ -162,35 +167,36 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     }
   }
 
-  void _trackProduct(
-    String action, {
-    required GemProduct product,
-    required String attemptId,
-    Map<String, Object?> data = const <String, Object?>{},
-  }) {
-    _track(
-      action,
-      attemptId: attemptId,
-      productId: product.productId,
-      storeProductId: _storeProductIdFor(product, _platform.provider),
-      data: <String, Object?>{
-        'provider': _platform.provider.apiValue,
-        'trigger': BillingRecoverySource.direct.value,
-        ...data,
-      },
-    );
-  }
-
   void _trackPrecheckFailure(
     GemProduct product,
     String attemptId,
-    String errorCode,
-  ) {
+    String errorCode, {
+    Object? error,
+    StackTrace? stackTrace,
+    String? step,
+    int? durationMs,
+  }) {
     _trackFlowResult(
       product,
       attemptId,
       'precheck_failed',
       errorCode: errorCode,
+      failureDiagnostics: _storeFailureDiagnostics(
+        error: error,
+        stackTrace: stackTrace,
+        stage: 'precheck',
+        context: {
+          'step':
+              step ??
+              switch (errorCode) {
+                'purchase_in_progress' => 'check_purchase_busy',
+                'uuid_unavailable' => 'load_account_uuid',
+                'gp_unavailable' => 'check_store_availability',
+                _ => 'validate_product',
+              },
+          if (durationMs != null) 'total_duration_ms': durationMs,
+        },
+      ),
       failureReason: switch (errorCode) {
         'gp_unavailable' => 'service_unavailable',
         'product_not_purchasable' ||
@@ -207,6 +213,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     String status, {
     String? errorCode,
     String? failureReason,
+    Map<String, Object?> failureDiagnostics = const {},
   }) {
     _trackFlowResultById(
       attemptId: attemptId,
@@ -216,6 +223,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       source: BillingRecoverySource.direct,
       errorCode: errorCode,
       failureReason: failureReason,
+      failureDiagnostics: failureDiagnostics,
     );
   }
 
@@ -227,13 +235,17 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     required BillingRecoverySource source,
     String? errorCode,
     String? failureReason,
+    Map<String, Object?> failureDiagnostics = const {},
   }) {
     final failedReason = _failedReasonForFlowResult(
       status: status,
       errorCode: errorCode,
     );
     if (failedReason != null) {
-      if (attemptId.isNotEmpty && !_trackedFailedAttemptIds.add(attemptId)) {
+      final failureKey = status == 'stream_failed'
+          ? '$attemptId:stream'
+          : attemptId;
+      if (attemptId.isNotEmpty && !_trackedFailedAttemptIds.add(failureKey)) {
         return;
       }
       _trackFailedById(
@@ -249,6 +261,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
             ? errorCode
             : null,
         failureReason: failureReason,
+        failureDiagnostics: failureDiagnostics,
       );
     }
   }
@@ -260,6 +273,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     required String reason,
     String? errorCode,
     String? failureReason,
+    Map<String, Object?> failureDiagnostics = const {},
   }) {
     final normalizedReason = reason.trim();
     if (normalizedReason.isEmpty) return;
@@ -271,12 +285,47 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       storeProductId: storeProductId,
       data: <String, Object?>{
         'reason': normalizedReason,
+        'failure_diagnostics': <String, Object?>{
+          'stage': switch (normalizedReason) {
+            'query_failed' => 'query',
+            'launch_failed' => 'launch',
+            'canceled' ||
+            'purchase_callback_error' ||
+            'receipt_missing' => 'callback',
+            'stream_failed' => 'stream',
+            _ => 'precheck',
+          },
+          ...failureDiagnostics,
+        },
         if (normalizedErrorCode.isNotEmpty) 'error_code': normalizedErrorCode,
         if (failureReason?.trim().isNotEmpty == true)
           'failure_reason': failureReason!.trim(),
       },
     );
   }
+
+  Map<String, Object?> _storeFailureDiagnostics({
+    Object? error,
+    String? message,
+    StackTrace? stackTrace,
+    String? code,
+    String? source,
+    Object? details,
+    required String stage,
+    String? status,
+    Map<String, Object?> context = const {},
+  }) => paymentFailureDiagnostics(
+    provider: _platform.provider.name,
+    stage: stage,
+    error: error,
+    stackTrace: stackTrace,
+    message: message,
+    code: code,
+    source: source,
+    details: details,
+    status: status,
+    context: context,
+  );
 
   String? _storeFailureReason({
     Object? error,
@@ -326,11 +375,33 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     );
   }
 
+  void _trackSuccessSkipped(
+    BillingPurchase purchase,
+    BillingPurchaseAttempt attempt,
+    String reason,
+  ) {
+    if (purchase.status != BillingPurchaseStatus.purchased) return;
+    final identity = purchase.purchaseToken.isNotEmpty
+        ? purchase.purchaseToken
+        : purchase.transactionId;
+    if (!_skippedSuccessKeys.add(
+      '${attempt.id}:${purchase.provider.name}:$identity:$reason',
+    )) {
+      return;
+    }
+    _track(
+      'purchase_success_skipped',
+      attemptId: attempt.id,
+      productId: attempt.product.productId,
+      storeProductId: purchase.productId,
+      data: {'reason': reason},
+    );
+  }
+
   void _trackPurchasedCallback(
     BillingPurchase purchase, {
     required String productId,
-    int? priceAmountMicros,
-    String priceCurrencyCode = '',
+    required String attemptId,
   }) {
     if (purchase.status != BillingPurchaseStatus.purchased) return;
     final receipt = purchase.provider == BillingProvider.googlePlay
@@ -340,10 +411,19 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         : purchase.purchaseToken.trim();
     if (receipt.isEmpty ||
         !_trackedPurchasedKeys.add('${purchase.provider.name}:$receipt')) {
+      final attempt = _attemptForPurchase(purchase);
+      if (attempt != null) {
+        _trackSuccessSkipped(
+          purchase,
+          attempt,
+          receipt.isEmpty ? 'receipt_missing' : 'duplicate_transaction',
+        );
+      }
       return;
     }
     _track(
       'purchase_success',
+      attemptId: attemptId,
       productId: productId,
       storeProductId: purchase.productId,
       data: <String, Object?>{
@@ -354,22 +434,6 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         ),
       },
     );
-    final reporter = purchaseEventReporting;
-    if (reporter != null) {
-      unawaited(
-        reporter.recordPurchase(
-          provider: purchase.provider.apiValue,
-          productId: purchase.productId,
-          kind: PurchaseEventKind.gems,
-          purchaseIdentity: purchase.purchaseToken,
-          transactionIdentity: purchase.transactionId.trim().isNotEmpty
-              ? purchase.transactionId.trim()
-              : purchase.purchaseToken.trim(),
-          priceAmountMicros: priceAmountMicros,
-          priceCurrencyCode: priceCurrencyCode,
-        ),
-      );
-    }
   }
 
   void _trackTimeoutById({
@@ -377,13 +441,25 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     required String productId,
     required String storeProductId,
     required String timeoutType,
+    Map<String, Object?> diagnostics = const {},
   }) {
+    if (!_trackedFailedAttemptIds.add('$attemptId:timeout:$timeoutType')) {
+      return;
+    }
     _track(
-      'purchase_timeout',
+      'purchase_failed',
       attemptId: attemptId,
       productId: productId,
       storeProductId: storeProductId,
-      data: <String, Object?>{'timeout_type': timeoutType},
+      data: {
+        'reason': 'timeout',
+        'timeout_type': timeoutType,
+        'failure_diagnostics': {
+          'stage': 'prepare',
+          'step': 'prepare_checkout',
+          ...diagnostics,
+        },
+      },
     );
   }
 
@@ -415,6 +491,7 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
       'store_product_id_missing' => 'store_product_id_missing',
       'purchase_in_progress' => 'purchase_in_progress',
       'unsupported_product_type' => 'unsupported_product_type',
+      'store_price_changed' => 'store_price_changed',
       _ => null,
     };
   }

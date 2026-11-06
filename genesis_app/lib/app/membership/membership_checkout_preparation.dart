@@ -56,7 +56,8 @@ class _CheckoutIdentity {
 }
 
 class _CheckoutPreparationFailure implements Exception {
-  const _CheckoutPreparationFailure(this.stage, this.error);
+  const _CheckoutPreparationFailure(this.stage, this.error, [this.durationMs]);
+  final int? durationMs;
   final String stage;
   final Object error;
 }
@@ -70,7 +71,11 @@ extension _MembershipCheckoutPreparation on MembershipPurchaseService {
     try {
       return await run();
     } catch (error) {
-      throw _CheckoutPreparationFailure(stage, error);
+      throw _CheckoutPreparationFailure(
+        stage,
+        error,
+        clock.elapsedMilliseconds,
+      );
     } finally {
       if (kDebugMode) {
         debugPrint(
@@ -83,14 +88,17 @@ extension _MembershipCheckoutPreparation on MembershipPurchaseService {
   Future<_CheckoutIdentity> _prepareCheckoutIdentity(
     String? uid,
     MembershipProductList products,
+    MembershipType type,
   ) async {
     final guest = uid == null
-        ? products.lastAccountUuid == null
+        ? products.accountUuidFor(type) == null
               ? await _timedCheckoutPreparation('prepare_guest', prepareGuest)
-              : MembershipGuestIdentity(accountUuid: products.lastAccountUuid!)
+              : MembershipGuestIdentity(
+                  accountUuid: products.accountUuidFor(type)!,
+                )
         : null;
     final uuid =
-        products.lastAccountUuid ??
+        products.accountUuidFor(type) ??
         guest?.accountUuid ??
         await _timedCheckoutPreparation<String>(
           'load_account_uuid',
@@ -142,10 +150,6 @@ extension _MembershipCheckoutPreparation on MembershipPurchaseService {
         ready.product.basePlanId != product.basePlanId ||
         ready.product.offerId != product.offerId) {
       return null;
-    }
-    // A refresh may have replaced the catalog while native preparation waited.
-    if (!identical(await readCheckoutProducts(), products)) {
-      throw const MembershipPurchaseBlocked('eligibility_unavailable');
     }
     if (!preparation._usable ||
         preparation._session != _session ||

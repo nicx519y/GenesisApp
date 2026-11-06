@@ -14,6 +14,16 @@ class _Client extends Fake implements BillingClient {
   );
   int launches = 0;
   @override
+  Future<ProductDetailsResponseWrapper> loadProductDetails(
+    ProductWrapper product, {
+    bool forceRefresh = false,
+  }) async => ProductDetailsResponseWrapper(
+    billingResult: const BillingResultWrapper(responseCode: BillingResponse.ok),
+    productDetailsList: [
+      fixture.details([fixture.offer()]).first as GooglePlayProductDetails,
+    ].map((p) => p.productDetails).toList(),
+  );
+  @override
   Future<BillingResultWrapper> launchBillingFlow({
     required String product,
     String? offerToken,

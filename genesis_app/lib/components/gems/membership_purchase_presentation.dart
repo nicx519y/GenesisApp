@@ -27,7 +27,12 @@ Future<void> showMembershipPurchaseFailure(
       title: GenesisL10n.current.premiumNotification,
       titleHeight: null,
       titleContent: Text(
-        GenesisL10n.current.premiumWorldoActiveSubscription,
+        product?.membershipType == MembershipType.deluxe
+            ? GenesisL10n.current.premiumWorldoActiveSubscription.replaceAll(
+                'Premium',
+                'Deluxe',
+              )
+            : GenesisL10n.current.premiumWorldoActiveSubscription,
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 14, height: 1.4),
       ),
@@ -101,6 +106,7 @@ class MembershipPurchasePresentation {
       barrierDismissible: false,
       pageBuilder: (_, _, _) => Center(
         child: GemBillingPurchaseDialog.membership(
+          deluxe: product.membershipType == MembershipType.deluxe,
           state: state,
           onConfirm: () => _close(true),
         ),

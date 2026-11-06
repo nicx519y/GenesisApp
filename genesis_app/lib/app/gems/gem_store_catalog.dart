@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/google_play_billing_platform.dart';
 import '../../platform/billing/billing_models.dart';
-import '../../platform/billing/store_query_cache.dart';
+import '../../platform/billing/store_product_access.dart';
 
 /// Display snapshots only; native products and offer tokens are never persisted.
 class GemStoreCatalog {
@@ -28,6 +28,7 @@ class GemStoreCatalog {
   Future<List<GemProduct>>? _loading;
   Future<List<GemProduct>>? _entryRefresh;
   final ValueNotifier<bool> queryingStore = ValueNotifier(false);
+  final ValueNotifier<int> displayRevision = ValueNotifier(0);
   bool _ignorePersistedCache = false;
   DateTime? _loadedAt;
   Future<void> _writes = Future.value();
@@ -112,7 +113,7 @@ class GemStoreCatalog {
     if (pending != null) return pending;
     if (_storeReady &&
         cached != null &&
-        _storeRevision == StoreQueryCache.revision) {
+        _storeRevision == StoreProductAccess.revision) {
       return Future.value(cached!);
     }
     final generation = ++_generation;
@@ -128,7 +129,7 @@ class GemStoreCatalog {
     final pending = _entryRefresh;
     if (pending != null) return pending;
     final generation = ++_generation;
-    final future = _fetch(generation, refresh: true);
+    final future = _fetch(generation, refresh: true, allowCachedFallback: true);
     _entryRefresh = _loading = future;
     try {
       return await future;
@@ -175,33 +176,71 @@ class GemStoreCatalog {
     int generation, {
     String? productId,
     bool refresh = false,
+    bool allowCachedFallback = false,
   }) async {
     final owner = await readOwner();
     if (owner == null) {
       throw StateError('Gem products require an authenticated session');
     }
-    final products = refresh
-        ? await loadProducts()
-        : _serverProducts ?? await loadProducts();
+    final refreshStore = refresh || _serverProducts == null;
+    final List<GemProduct> products;
+    try {
+      products = refresh
+          ? await loadProducts()
+          : _serverProducts ?? await loadProducts();
+    } catch (error) {
+      if (allowCachedFallback &&
+          await readOwner() == owner &&
+          generation == _generation &&
+          cached != null) {
+        debugPrint('[Gems] entry refresh failed: ${error.runtimeType}');
+        return cached!;
+      }
+      rethrow;
+    }
     if (generation != _generation || await readOwner() != owner) {
       throw StateError('Gem catalog session changed');
     }
     _serverProducts = products;
+    if (cached == null) {
+      cached = List.unmodifiable(products.map((p) => p.withStorePrice()));
+      displayRevision.value++;
+    }
     if (refresh) queryingStore.value = true;
-    final storeRevision = StoreQueryCache.revision;
+    final storeRevision = StoreProductAccess.revision;
     var available = false;
     try {
       available = await platform.isAvailable();
     } catch (_) {}
+    GemProduct fallbackPrice(GemProduct product) {
+      final previous = (cached ?? const <GemProduct>[]).where(
+        (p) =>
+            p.productId == product.productId &&
+            p.appleProductId == product.appleProductId &&
+            p.googleProductId == product.googleProductId &&
+            p.googlePurchaseOptionId == product.googlePurchaseOptionId &&
+            p.googleOfferId == product.googleOfferId,
+      );
+      if (previous.length == 1 && previous.single.storeFormattedPrice != null) {
+        final old = previous.single;
+        return product.withStorePrice(
+          formatted: old.storeFormattedPrice,
+          micros: old.storeAmountMicros,
+          currency: old.storeCurrencyCode,
+        );
+      }
+      return product.withStorePrice();
+    }
+
     Future<List<GemProduct>> query() => Future.wait(
       products.map((product) async {
         if (productId != null && product.productId != productId) {
           for (final previous in cached ?? const <GemProduct>[]) {
             if (previous.productId == product.productId) return previous;
           }
-          return product.withStorePrice();
+          return fallbackPrice(product);
         }
-        if (!available) return product.withStorePrice();
+        if (!available) return fallbackPrice(product);
         try {
           final google = platform.provider == BillingProvider.googlePlay;
           final discount =
@@ -219,7 +258,7 @@ class GemStoreCatalog {
               price.priceAmountMicros <= 0 ||
               price.formattedPrice.isEmpty ||
               !RegExp(r'^[A-Z]{3}$').hasMatch(price.priceCurrencyCode)) {
-            return product.withStorePrice();
+            return fallbackPrice(product);
           }
           return product.withStorePrice(
             formatted: price.formattedPrice,
@@ -227,13 +266,16 @@ class GemStoreCatalog {
             currency: price.priceCurrencyCode,
           );
         } catch (_) {
-          return product.withStorePrice();
+          return fallbackPrice(product);
         }
       }),
     );
-    final result = await (refresh ? StoreQueryCache.refresh(query) : query());
+    final result = await (refreshStore
+        ? StoreProductAccess.refresh(query)
+        : query());
     if (generation == _generation && await readOwner() == owner) {
       cached = List.unmodifiable(result);
+      displayRevision.value++;
       if (_storeRevision != storeRevision) _storeReadyIds.clear();
       for (final p in result) {
         if (productId != null && p.productId != productId) continue;
@@ -276,18 +318,33 @@ class GemStoreCatalog {
 
   Future<GemProduct?> confirm(GemProduct displayed) async {
     final owner = await readOwner();
-    final ready =
-        _storeRevision == StoreQueryCache.revision &&
+    bool isReady() =>
+        _storeRevision == StoreProductAccess.revision &&
         _storeReadyIds.contains(displayed.productId);
-    if (!ready) await _loading;
-    final loading = ready && cached != null
-        ? Future.value(cached!)
-        : _serverProducts == null
-        ? load()
-        : _fetch(++_generation, productId: displayed.productId);
+    while (!isReady()) {
+      final pending = _loading;
+      if (pending == null) break;
+      await pending;
+      if (await readOwner() != owner) return null;
+    }
+    // A page preload may have prepared this SKU while the click was waiting.
+    // Recheck before starting another store lookup.
+    final ready = isReady();
+    late final Future<List<GemProduct>> loading;
+    if (ready && cached != null) {
+      loading = Future.value(cached!);
+    } else if (_serverProducts == null) {
+      loading = load();
+    } else {
+      final future = _fetch(++_generation, productId: displayed.productId);
+      _loading = future;
+      loading = future.whenComplete(() {
+        if (identical(_loading, future)) _loading = null;
+      });
+    }
     final generation = _generation;
     final products = await loading;
-    if (_generation != generation || await readOwner() != owner) {
+    if ((!ready && _generation != generation) || await readOwner() != owner) {
       return null;
     }
     for (final p in products) {

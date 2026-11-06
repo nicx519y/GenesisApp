@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
@@ -5,7 +6,7 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 
 import 'billing_models.dart';
-import 'store_query_cache.dart';
+import 'store_product_access.dart';
 
 abstract interface class BillingPlatform {
   BillingProvider get provider;
@@ -94,17 +95,18 @@ class GooglePlayBillingPlatform implements BillingPlatform {
     BillingStoreProductType expectedType, {
     String? purchaseOptionId,
     String? offerId,
-  }) => StoreQueryCache.load(
-    _inAppPurchase,
-    'gems.google.$storeProductId.${expectedType.name}.$purchaseOptionId.$offerId',
-    () => _queryProduct(
+  }) async {
+    await StoreProductAccess.ready();
+    return StoreProductAccess.lookup(
       storeProductId,
-      expectedType,
-      purchaseOptionId: purchaseOptionId,
-      offerId: offerId,
-    ),
-    usable: (result) => result.product != null,
-  );
+      () => _queryProduct(
+        storeProductId,
+        expectedType,
+        purchaseOptionId: purchaseOptionId,
+        offerId: offerId,
+      ),
+    );
+  }
 
   Future<BillingProductQueryResult> _queryProduct(
     String storeProductId,
@@ -122,10 +124,12 @@ class GooglePlayBillingPlatform implements BillingPlatform {
       };
       final addition = _inAppPurchase
           .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-      final response = await addition.queryProductDetails(
+      final response = await addition.loadProductDetails(
+        forceRefresh: StoreProductAccess.forceRefresh,
         productId: storeProductId,
         productType: productType,
       );
+
       if (response.billingResult.responseCode != BillingResponse.ok) {
         final errorCode = googlePlayBillingQueryErrorCode(
           response.billingResult.responseCode,
@@ -137,10 +141,12 @@ class GooglePlayBillingPlatform implements BillingPlatform {
         );
         return BillingProductQueryResult.failure(
           errorCode,
+          errorMessage: response.billingResult.debugMessage,
           errorSource: 'google_play',
           errorDetails: {
             'responseCode': response.billingResult.responseCode.name,
             'subResponseCode': response.billingResult.subResponseCode,
+            'debugMessage': response.billingResult.debugMessage,
           },
         );
       }
@@ -215,6 +221,8 @@ class GooglePlayBillingPlatform implements BillingPlatform {
         );
       }
       return const BillingProductQueryResult.failure('unknown');
+    } on PlatformException {
+      rethrow;
     } on Object catch (error) {
       throw BillingPlatformException('unknown', '$error');
     }
@@ -225,7 +233,7 @@ class GooglePlayBillingPlatform implements BillingPlatform {
     required BillingStoreProduct product,
     required String billingAccountId,
     bool Function()? onStoreHandoff,
-  }) => StoreQueryCache.launch(
+  }) => StoreProductAccess.launch(
     () => _buyConsumable(
       product: product,
       billingAccountId: billingAccountId,
@@ -260,6 +268,8 @@ class GooglePlayBillingPlatform implements BillingPlatform {
       );
       final result = await platform.launchBillingFlow(
         product: nativeProduct.id,
+        expectedProductDetails: nativeProduct.productDetails,
+        beforeLaunch: StoreProductAccess.canLaunch,
         offerToken: product.offerToken,
         accountId: billingAccountId,
       );
@@ -270,6 +280,7 @@ class GooglePlayBillingPlatform implements BillingPlatform {
           {
             'responseCode': result.responseCode.name,
             'subResponseCode': result.subResponseCode,
+            'debugMessage': result.debugMessage,
           },
         );
       }

@@ -12,6 +12,7 @@ import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_inte
 import '../billing_client_wrappers.dart';
 import '../in_app_purchase_android.dart';
 import 'billing_client_wrappers/billing_config_wrapper.dart';
+import 'product_cache_recovery.dart';
 
 /// [IAPError.code] code for failed purchases.
 const String kPurchaseErrorCode = 'purchase_error';
@@ -188,13 +189,32 @@ class InAppPurchaseAndroidPlatform extends InAppPurchasePlatform {
               .serverVerificationData,
           replacementMode: changeSubscriptionParam?.replacementMode,
         );
+    final details = purchaseParam.productDetails;
+    Future<BillingResultWrapper> launchWithRecovery(BillingClient client) =>
+        launchWithProductCacheRecovery(
+          expected: details is GooglePlayProductDetails
+              ? details.productDetails
+              : null,
+          diagnostic: purchaseParam is GooglePlayPurchaseParam
+              ? purchaseParam.onProductDiagnostic
+              : null,
+          load: (product) => client.loadProductDetails(product),
+          beforeLaunch: purchaseParam is GooglePlayPurchaseParam
+              ? purchaseParam.beforeLaunch
+              : null,
+          launch: () => launch(client),
+          query: (product) =>
+              client.queryProductDetails(productList: [product]),
+        );
     // VIP callers need the actual first launch result; never silently relaunch
     // a checkout after a disconnected response. Other callers keep retries.
     final BillingResultWrapper billingResultWrapper =
         purchaseParam is GooglePlayPurchaseParam &&
             purchaseParam.throwOnBillingFailure
-        ? await billingClientManager.runWithClientNonRetryable(launch)
-        : await billingClientManager.runWithClient(launch);
+        ? await billingClientManager.runWithClientNonRetryable(
+            launchWithRecovery,
+          )
+        : await billingClientManager.runWithClient(launchWithRecovery);
     if (kDebugMode) {
       final diagnostics = jsonEncode({
         'responseCode': billingResultWrapper.responseCode.name,
@@ -227,12 +247,24 @@ class InAppPurchaseAndroidPlatform extends InAppPurchasePlatform {
     required String product,
     String? offerToken,
     String? accountId,
+    ProductDetailsWrapper? expectedProductDetails,
+    bool Function()? beforeLaunch,
+    void Function(String, String?)? onProductDiagnostic,
   }) {
-    return billingClientManager.runWithClient(
-      (BillingClient client) => client.launchBillingFlow(
-        product: product,
-        offerToken: offerToken,
-        accountId: accountId,
+    return billingClientManager.runWithClientNonRetryable(
+      (BillingClient client) => launchWithProductCacheRecovery(
+        expected: expectedProductDetails?.productId == product
+            ? expectedProductDetails
+            : null,
+        load: (product) => client.loadProductDetails(product),
+        beforeLaunch: beforeLaunch,
+        diagnostic: onProductDiagnostic,
+        launch: () => client.launchBillingFlow(
+          product: product,
+          offerToken: offerToken,
+          accountId: accountId,
+        ),
+        query: (product) => client.queryProductDetails(productList: [product]),
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/privacy/privacy_choices_store.dart';
 import '../../app/privacy/privacy_consent_controller.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../l10n/genesis_localizations.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_action_box.dart';
@@ -95,6 +96,20 @@ class _DmaPreviewState extends State<_DmaPreview> {
     _customize = widget.openChoicesDirectly;
     _restoreChoices();
     _privacyTap = TapGestureRecognizer()..onTap = _openPrivacyPolicy;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !widget.persistChoices ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'privacy_choices',
+        object1: widget.openChoicesDirectly ? 'settings' : 'startup',
+        object2: WidgetsBinding.instance.platformDispatcher.locale
+            .toLanguageTag(),
+      );
+    });
   }
 
   @override

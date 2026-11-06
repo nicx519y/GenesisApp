@@ -1,6 +1,11 @@
+import '../../components/gems/memory_membership_style.dart';
+import '../../network/models/membership_order_product.dart';
+import '../../platform/session/app_background_resume.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
+import '../../platform/billing/checkout_preparation_budget.dart';
+import '../../platform/billing/store_product_access.dart';
 import '../../components/gems/gem_daily_reset_countdown.dart';
 
 import 'package:flutter/foundation.dart';
@@ -17,6 +22,7 @@ import '../../app/debug_page_tracker.dart';
 import '../../app/gems/gem_task_analytics.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../app/membership/membership_catalog.dart';
+import '../../app/membership/membership_purchase_service.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
@@ -60,6 +66,7 @@ typedef DiscordLauncher = Future<bool> Function(Uri uri);
 class GemWalletPage extends StatefulWidget {
   const GemWalletPage({
     super.key,
+    this.initialMembershipType,
     this.showSubscriptionInitially = false,
     this.showBuyGems = true,
     this.subscriptionSource = SubscriptionSource.unknown,
@@ -77,6 +84,7 @@ class GemWalletPage extends StatefulWidget {
   });
 
   final GemProductsLoader? productsLoader;
+  final MembershipType? initialMembershipType;
   final MembershipCatalogLoader? membershipProductsLoader;
   final bool showSubscriptionInitially;
   final bool showBuyGems;
@@ -95,39 +103,13 @@ class GemWalletPage extends StatefulWidget {
   State<GemWalletPage> createState() => _GemWalletPageState();
 }
 
-Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
-  final state = ValueNotifier<GemBillingPurchaseDialogState>(
-    GemBillingPurchaseDialogState.processing(attemptId: 'developer_preview'),
-  );
-  Timer? successTimer;
-  successTimer = Timer(const Duration(milliseconds: 1200), () {
-    state.value = GemBillingPurchaseDialogState.success(
-      attemptId: 'developer_preview',
-      grantedText: '550',
-    );
-  });
-  await showGenesisGeneralDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      return Center(
-        child: GemBillingPurchaseDialog(
-          state: state,
-          onConfirm: () => Navigator.of(dialogContext).pop(),
-        ),
-      );
-    },
-  );
-  successTimer.cancel();
-  state.dispose();
-}
-
 class _GemWalletPageState extends State<GemWalletPage>
     with
         TickerProviderStateMixin,
         WidgetsBindingObserver,
         RouteAware,
         LanguageDataRefresh<GemWalletPage> {
+  final _backgroundResume = AppBackgroundResume();
   @override
   Future<void> refreshLanguageData() => _refreshAll(silent: true);
   @override
@@ -158,6 +140,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   bool _primaryLoading = true;
   BillingService? _billingService;
   StreamSubscription<BillingUiEvent>? _billingEvents;
+  StreamSubscription<MembershipCheckoutEvent>? _membershipPurchaseEvents;
   PageRoute<dynamic>? _subscribedRoute;
   bool _checkingStorePrice = false;
   int _productsRequestGeneration = 0;
@@ -172,7 +155,6 @@ class _GemWalletPageState extends State<GemWalletPage>
   bool _billingPurchaseDialogShowing = false;
   RawDialogRoute<void>? _billingPurchaseDialogRoute;
   bool _billingPurchaseDialogDismissing = false;
-  bool _storeRecoveryStarted = false;
   late TabController _purchaseTabs;
   late bool _subscriptionVisited;
   late bool _gemsVisited;
@@ -193,8 +175,15 @@ class _GemWalletPageState extends State<GemWalletPage>
           surface: SubscriptionSurface.page,
           source: _subscriptionVisited
               ? widget.subscriptionSource
-              : SubscriptionSource.buyGemsTab,
+              : SubscriptionSource.fromGemsEntry(
+                  BillingPurchaseSource.fromEntry(widget.gemsSource),
+                ),
         );
+    _gemsPurchaseSource = _subscriptionVisited
+        ? BillingPurchaseSource.fromSubscriptionEntry(
+            _subscriptionTracking.source.value,
+          )
+        : BillingPurchaseSource.fromEntry(widget.gemsSource);
     _gemsVisited = !_subscriptionVisited;
     _purchaseTabs = TabController(
       length: widget.showBuyGems ? 2 : 1,
@@ -262,6 +251,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     WidgetsBinding.instance.removeObserver(this);
     genesisPageRouteObserver.unsubscribe(this);
     _billingEvents?.cancel();
+    _membershipPurchaseEvents?.cancel();
     _disposeBillingPurchaseDialogState();
     _idleBillingState.dispose();
     _purchaseTabs.removeListener(_visitCurrentTab);
@@ -274,8 +264,18 @@ class _GemWalletPageState extends State<GemWalletPage>
     super.didChangeDependencies();
     final services = AppServicesScope.maybeOf(context);
     if (!identical(services, _membershipServices)) {
+      _membershipPurchaseEvents?.cancel();
       _membershipServices = services;
       if (services != null) unawaited(services.membership.refresh());
+      _membershipPurchaseEvents = services?.membershipPurchases?.checkoutEvents
+          .listen((event) {
+            if (mounted &&
+                _gemsVisited &&
+                identical(services, _membershipServices) &&
+                event.state == MembershipCheckoutState.completed) {
+              unawaited(_refreshTasks(silent: true));
+            }
+          });
     }
     final route = ModalRoute.of(context);
     if (route is PageRoute<dynamic> && !identical(route, _subscribedRoute)) {
@@ -292,7 +292,8 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
+    final resumedFromBackground = _backgroundResume.update(state);
+    if (!resumedFromBackground) return;
     if (_purchaseTabs.index == 0) {
       final membership = _membershipServices?.membership;
       if (membership != null) unawaited(membership.refresh());
@@ -308,14 +309,15 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   bool get _hasPageData => _products != null || _taskGroups != null;
 
+  late final BillingPurchaseSource _gemsPurchaseSource;
+
   void _trackBuyGemsPageView() {
+    if (_gemsPurchaseSource == BillingPurchaseSource.unknown) return;
     GenesisTelemetry.collectLog(
       actionType: 'pay_event',
       action: 'buy_page_show',
-      object1: BillingPurchaseSource.buyGemsPage.value,
-      object3: widget.showSubscriptionInitially || !widget.showBuyGems
-          ? 'subscription_tab'
-          : widget.gemsSource,
+      object1: _gemsPurchaseSource.value,
+      object3: 'buy_gems_page',
     );
   }
 
@@ -327,19 +329,17 @@ class _GemWalletPageState extends State<GemWalletPage>
         ? AppServicesScope.maybeOf(context)?.gemStoreCatalog
         : null;
     return AnimatedBuilder(
-      animation: Listenable.merge([if (catalog != null) catalog.queryingStore]),
+      animation: Listenable.merge([
+        if (catalog != null) catalog.queryingStore,
+        if (catalog != null) catalog.displayRevision,
+      ]),
       builder: (_, _) => _buildPurchasePage(context),
     );
   }
 
-  bool get _isProductRefreshBlocking =>
-      _blockingProductRefresh ||
-      (widget.productsLoader == null &&
-          _products != null &&
-          AppServicesScope.maybeRead(
-                context,
-              )?.gemStoreCatalog.queryingStore.value ==
-              true);
+  bool get _isProductRefreshBlocking => _blockingProductRefresh;
+
+  Color? _membershipColor;
 
   Widget _buildPurchasePage(BuildContext context) {
     return GenesisDarkTheme(
@@ -349,7 +349,12 @@ class _GemWalletPageState extends State<GemWalletPage>
           backgroundColor: GenesisColors.darkBackground,
           appBar: GenesisBackAppBar(
             pageName: GenesisL10n.current.gemsBuy,
-            titleWidget: WalletPurchaseTabs(controller: _purchaseTabs),
+            titleWidget: WalletPurchaseTabs(
+              controller: _purchaseTabs,
+              membershipColor: _membershipColor,
+              membershipCatalog: _membershipServices?.membershipCatalog,
+              initialMembershipType: widget.initialMembershipType,
+            ),
             titleSideInset: 56,
             actions: [
               if (widget.showBuyGems)
@@ -377,8 +382,8 @@ class _GemWalletPageState extends State<GemWalletPage>
             ],
           ),
           body: SafeArea(
-            child: TabBarView(
-              key: const ValueKey('wallet-purchase-pages'),
+            child: WalletPurchaseTabView(
+              pageKey: const ValueKey('wallet-purchase-pages'),
               controller: _purchaseTabs,
               children: [
                 _WalletTabPage(
@@ -388,21 +393,33 @@ class _GemWalletPageState extends State<GemWalletPage>
                           child: PurchaseCatalogEntry(
                             revision: _subscriptionEntryRevision,
                             child: ProSubscriptionContent(
+                              onMembershipTypeChanged: (type) {
+                                if (mounted &&
+                                    _membershipColor != type.accent) {
+                                  setState(
+                                    () => _membershipColor = type.accent,
+                                  );
+                                }
+                              },
+                              initialMembershipType:
+                                  widget.initialMembershipType,
                               refreshMembershipOnOpen: false,
                               closeOnPurchaseSuccess: true,
                               horizontalInset: 16,
                               headingTopSpacing: 10,
+                              loadingPlaceholder:
+                                  const GemPurchaseTabPlaceholder.subscription(),
                               productsLoader: widget.membershipProductsLoader,
                             ),
                           ),
                         )
-                      : const SizedBox.expand(),
+                      : const GemPurchaseTabPlaceholder.subscription(),
                 ),
                 if (widget.showBuyGems)
                   _WalletTabPage(
                     child: _gemsVisited
                         ? _buildBody(_walletStateListenable)
-                        : const SizedBox.expand(),
+                        : const GemPurchaseTabPlaceholder.gems(),
                   ),
               ],
             ),
@@ -413,8 +430,13 @@ class _GemWalletPageState extends State<GemWalletPage>
   }
 
   Widget _buildBody(ValueListenable<GemWalletState> walletStateListenable) {
-    if (_primaryLoading) {
-      return const GemPurchaseLoading();
+    final displayProducts =
+        _products ??
+        (widget.productsLoader == null
+            ? AppServicesScope.maybeRead(context)?.gemStoreCatalog.cached
+            : null);
+    if (_primaryLoading && displayProducts == null) {
+      return const GemPurchaseTabPlaceholder.gems();
     }
     if (!_hasPageData && _productsError != null && _tasksError != null) {
       return Center(
@@ -425,13 +447,14 @@ class _GemWalletPageState extends State<GemWalletPage>
       );
     }
     return GenesisRefreshIndicator(
-      onRefresh: () => _refreshAll(silent: true),
+      onRefresh: () =>
+          StoreProductAccess.refresh(() => _refreshAll(silent: true)),
       child: _GemWalletContent(
-        products: _products,
+        products: displayProducts,
         taskGroups: _taskGroups,
         dailyResetClock: _dailyResetClock,
         onDailyReset: _onDailyReset,
-        productsLoading: _products == null
+        productsLoading: displayProducts == null
             ? _productsLoading
             : _isProductRefreshBlocking,
         tasksLoading: _tasksLoading,
@@ -440,7 +463,8 @@ class _GemWalletPageState extends State<GemWalletPage>
         walletStateListenable: walletStateListenable,
         billingStateListenable: _billingStateListenable,
         onPurchase: _purchaseProduct,
-        onRetryProducts: () => unawaited(_refreshProducts()),
+        onRetryProducts: () =>
+            unawaited(StoreProductAccess.refresh(() => _refreshProducts())),
         onRetryTasks: () => unawaited(_refreshTasks()),
         taskStatusFor: _taskStatus,
         isTaskLoading: _loadingTaskCodes.contains,

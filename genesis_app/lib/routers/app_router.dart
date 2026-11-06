@@ -1,9 +1,11 @@
 import '../network/mini_phone/mini_phone_camera_models.dart';
+import '../network/models/membership_order_product.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/genesis_l10n.dart';
+import '../components/auth/startup_login_gate.dart';
 import '../components/gems/subscription_tracking_scope.dart';
 import '../app/membership/subscription_analytics.dart';
 import '../app/bootstrap/app_services_scope.dart';
@@ -28,6 +30,7 @@ import '../pages/chat/chat_page.dart';
 import '../pages/chat/location_chat_page.dart';
 import '../pages/messages/message_category_list_page.dart';
 import '../pages/me/follows_page.dart';
+import '../pages/me/force_login_page.dart';
 import '../pages/me/language_page.dart';
 import '../pages/me/user_info_page.dart';
 import '../network/chatroom/chatroom_connection_controller.dart';
@@ -41,18 +44,23 @@ import '../components/gems/purchase_session_builder.dart';
 export '../app/membership/subscription_analytics.dart' show SubscriptionSource;
 
 class GemWalletRouteArgs {
-  const GemWalletRouteArgs.subscription(this.subscriptionSource)
-    : showSubscription = true,
-      gemsSource = null;
+  const GemWalletRouteArgs.subscription(
+    this.subscriptionSource, {
+    this.membershipType,
+  }) : showSubscription = true,
+       gemsSource = null;
   const GemWalletRouteArgs.gems(this.gemsSource)
-    : showSubscription = false,
+    : membershipType = null,
+      showSubscription = false,
       subscriptionSource = SubscriptionSource.unknown;
+  final MembershipType? membershipType;
   final bool showSubscription;
   final SubscriptionSource subscriptionSource;
   final String? gemsSource;
 }
 
 sealed class RouteNames {
+  static const forceLogin = '/force_login';
   static const language = '/language';
   static const shell = '/';
   static const home = '/home';
@@ -513,6 +521,7 @@ class _FollowsRouteArgs {
 sealed class AppRouter {
   static String pageClassNameForRouteName(String? routeName) {
     return switch (routeName) {
+      RouteNames.forceLogin => 'ForceLoginPage',
       RouteNames.home => 'AppShellPage',
       RouteNames.origin => 'AppShellPage',
       RouteNames.originWorld => 'OriginWorldPage',
@@ -541,8 +550,13 @@ sealed class AppRouter {
     };
   }
 
-  static Route<dynamic> onGenerateRoute(RouteSettings settings) {
+  static Route<dynamic> onGenerateRoute(
+    RouteSettings settings, {
+    bool checkStartupLogin = false,
+  }) {
     switch (settings.name) {
+      case RouteNames.forceLogin:
+        return createForceLoginRoute(settings: settings);
       case RouteNames.language:
         return GenesisDarkPageRoute<void>(
           settings: settings,
@@ -554,7 +568,18 @@ sealed class AppRouter {
             : 0;
         return GenesisDarkPageRoute<void>(
           settings: settings,
-          builder: (_) => AppShellPage(initialIndex: initialIndex),
+          builder: (context) {
+            if (!checkStartupLogin) {
+              return AppShellPage(initialIndex: initialIndex);
+            }
+            final services = AppServicesScope.of(context);
+            return StartupLoginGate(
+              config: services.appGlobalConfig,
+              sessionStore: services.sessionStore,
+              sessionRevision: services.sessionRevision,
+              builder: (_) => AppShellPage(initialIndex: initialIndex),
+            );
+          },
         );
       case RouteNames.origin:
         return GenesisDarkPageRoute<void>(
@@ -760,6 +785,7 @@ sealed class AppRouter {
                 showSubscriptionInitially: showSubscription,
                 subscriptionTracking: tracking,
                 gemsSource: purchaseArgs?.gemsSource,
+                initialMembershipType: purchaseArgs?.membershipType,
               );
             },
           ),

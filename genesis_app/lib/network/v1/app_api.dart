@@ -6,6 +6,7 @@ class AppV1Api extends V1ApiResource {
   const AppV1Api(super.client);
 
   /// GET /api/v1/app/config
+  /// Includes the optional boolean `force_login` startup configuration.
   Future<Map<String, dynamic>> config({String? uid}) => getMapWithTracePolicy(
     'app/config',
     query: v1Query({'uid': uid}),

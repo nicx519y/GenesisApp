@@ -494,7 +494,7 @@ void main() {
           final requestsBeforePurchase = walletRequests;
           await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
           await tester.pumpAndSettle();
-          expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+          expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
           final catalogReadsBeforeClick = h.eligibilityQueries;
           await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
           await tester.pumpAndSettle();
@@ -525,7 +525,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(Dialog), findsNothing);
           expect(find.byType(ProSubscriptionContent), findsOneWidget);
-          expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+          expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
         } finally {
           membership.dispose();
           wallet.dispose();

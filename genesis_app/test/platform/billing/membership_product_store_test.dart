@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
@@ -56,7 +57,7 @@ List<ProductDetails> details(List<SubscriptionOfferDetailsWrapper> offers) =>
 
 void main() {
   test(
-    'display preload supplies native checkout without another store query',
+    'each preparation reads native product lookup without a Dart cache',
     () async {
       final store = _MembershipStore(details([offer(), offer(yearly: true)]));
       final catalog = MembershipProductStore(inAppPurchase: store);
@@ -73,7 +74,7 @@ void main() {
         membershipProduct(),
         membershipProduct(yearly: true),
       ]);
-      expect(store.queries, queries);
+      expect(store.queries, greaterThan(queries));
     },
   );
   test(
@@ -184,6 +185,10 @@ class _MembershipStore extends Fake implements InAppPurchase {
   int queries = 0;
 
   @override
+  T getPlatformAddition<T extends InAppPurchasePlatformAddition?>() =>
+      _Addition(this) as T;
+
+  @override
   Future<bool> isAvailable() async => true;
 
   @override
@@ -193,5 +198,29 @@ class _MembershipStore extends Fake implements InAppPurchase {
     queriedIds = identifiers;
     queries++;
     return ProductDetailsResponse(productDetails: products, notFoundIDs: []);
+  }
+}
+
+class _Addition extends Fake implements InAppPurchaseAndroidPlatformAddition {
+  _Addition(this.store);
+  final _MembershipStore store;
+  @override
+  Future<ProductDetailsResponseWrapper> loadProductDetails({
+    required String productId,
+    required ProductType productType,
+    bool forceRefresh = false,
+  }) async {
+    store.queries++;
+    store.queriedIds = {productId};
+    return ProductDetailsResponseWrapper(
+      billingResult: const BillingResultWrapper(
+        responseCode: BillingResponse.ok,
+      ),
+      productDetailsList: store.products
+          .whereType<GooglePlayProductDetails>()
+          .map((p) => p.productDetails)
+          .toSet()
+          .toList(),
+    );
   }
 }

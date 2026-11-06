@@ -59,3 +59,7 @@ const String proCrownFlatIconAsset =
     'assets/custom-icons/svg/pro_crown_flat.svg';
 const String upgradeIconAsset = 'assets/custom-icons/svg/upgrade.svg';
 const String recordsIconAsset = 'assets/custom-icons/svg/records.svg';
+
+/// Local Deluxe membership crown shared by names, cards and purchase success.
+const String proCrownDeluxeIconAsset =
+    'assets/custom-icons/svg/memory_crown_deluxe.svg';

@@ -113,6 +113,8 @@ Future<void> runDailyCheckInFlow(
       context,
       status: DailyCheckInDialogStatus.checkIn,
       rewardGemsCent: task.rewardGemsCent,
+      rewardGemsCentPremium: task.rewardGemsCentPremium,
+      rewardGemsCentDeluxe: task.rewardGemsCentDeluxe,
     );
     if (!shouldAct || !context.mounted) return;
 
@@ -124,7 +126,7 @@ Future<void> runDailyCheckInFlow(
         _DailyTaskStatus.claimed => null,
       };
       if (action == null) return;
-      final result = await action;
+      var result = await action;
       status = _taskStatusForValue(result.status);
       if (actionStatus == _DailyTaskStatus.claimable) {
         trackGemTaskClaimedIfNeeded(
@@ -134,18 +136,18 @@ Future<void> runDailyCheckInFlow(
       }
       if (actionStatus == _DailyTaskStatus.inProgress &&
           status == _DailyTaskStatus.claimable) {
-        final claimResult = await claimTask();
-        status = _taskStatusForValue(claimResult.status);
+        result = await claimTask();
+        status = _taskStatusForValue(result.status);
         trackGemTaskClaimedIfNeeded(
           taskCode: dailyCheckInTaskCode,
-          status: claimResult.status,
+          status: result.status,
         );
       }
       if (!context.mounted) return;
       if (status == _DailyTaskStatus.claimed) {
         final successDialog = showDailyCheckInSuccessDialog(
           context,
-          rewardGemsCent: task.rewardGemsCent,
+          rewardGemsCent: result.rewardGemsCent ?? task.rewardGemsCent,
         );
         unawaited(refreshWallet());
         await successDialog;
@@ -156,12 +158,8 @@ Future<void> runDailyCheckInFlow(
       showGenesisToast(
         context,
         status == _DailyTaskStatus.claimable
-            ? GenesisL10n
-                  .current
-                  .gemsClaimFailed
-            : GenesisL10n
-                  .current
-                  .gemsCheckFailed,
+            ? GenesisL10n.current.gemsClaimFailed
+            : GenesisL10n.current.gemsCheckFailed,
       );
       return;
     }

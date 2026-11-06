@@ -1032,7 +1032,7 @@ class _OriginFeedState extends State<_OriginFeed>
   static const _forYouPageSize = 10;
   static const _loadMoreThreshold = 700.0;
   static const _minimumExposureRatio = 0.3;
-  static const _minimumExposureDuration = Duration(milliseconds: 1500);
+  static const _minimumExposureDuration = Duration(milliseconds: 500);
   static const _exposureVisibilityUpdateInterval = Duration(milliseconds: 100);
   static const _exposureBatchCoalescingDuration = Duration(milliseconds: 16);
   static const _maxExposureBatchSize = 100;

@@ -43,6 +43,9 @@ class _Store extends Fake implements InAppPurchase {
   @override
   Future<bool> buyNonConsumable({required PurchaseParam purchaseParam}) async {
     param = purchaseParam;
+    if (purchaseParam is GooglePlayPurchaseParam) {
+      purchaseParam.beforeLaunch?.call();
+    }
     return buyHandler == null ? true : await buyHandler!();
   }
 
@@ -61,9 +64,10 @@ class _GoogleAddition extends Fake
   _GoogleAddition(this.store);
   final _Store store;
   @override
-  Future<ProductDetailsResponseWrapper> queryProductDetails({
+  Future<ProductDetailsResponseWrapper> loadProductDetails({
     required String productId,
     required ProductType productType,
+    bool forceRefresh = false,
   }) async {
     expect(productType, ProductType.subs);
     store.ids = {productId};

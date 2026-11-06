@@ -2,6 +2,7 @@ import '../auth/login_submission_state.dart';
 import '../auth/login_route_completion.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,7 +10,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/membership/subscription_analytics.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../gems/subscription_tracking_scope.dart';
-import '../../icons/custom_icon_assets.dart';
 import '../../network/models/personalization.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../platform/auth/auth_cancelled_exception.dart';
@@ -18,7 +18,9 @@ import '../../ui/genesis_ui.dart';
 import '../../l10n/genesis_localizations.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
+import '../gems/memory_membership_style.dart';
 import '../gems/pro_subscription_content.dart';
+import '../gems/purchase_options_sheet.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_modal_routes.dart';
 import '../login_provider_button.dart';
@@ -91,6 +93,7 @@ class PersonalizationSheet extends StatefulWidget {
 class _PersonalizationSheetState extends State<PersonalizationSheet>
     with WidgetsBindingObserver, LoginSubmissionState<PersonalizationSheet> {
   late PersonalizationStep _step;
+  MemoryMembershipTier _subscriptionTier = MemoryMembershipTier.premium;
   final _formExposureKey = GlobalKey();
   bool _formShowReported = false;
   bool _skippingSubscription = false;
@@ -105,6 +108,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
   bool _saving = false;
   bool _signedIn = false;
   bool _requiresSignIn = false;
+  double? _previousFormHeight;
 
   bool get _loginRequired => _requiresSignIn && !_signedIn;
 
@@ -159,7 +163,11 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
 
   void _openSignIn() {
     if (_saving) return;
-    setState(() => _step = PersonalizationStep.signIn);
+    final formHeight = context.size?.height;
+    setState(() {
+      _previousFormHeight = formHeight;
+      _step = PersonalizationStep.signIn;
+    });
   }
 
   void _skipSubscription() {
@@ -227,10 +235,15 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
       if (!mounted) return;
       switch (next) {
         case PersonalizationNextStep.subscription:
+          final formHeight =
+              !_loginRequired && _step == PersonalizationStep.form
+              ? context.size?.height
+              : null;
           setState(() {
             _step = _loginRequired
                 ? PersonalizationStep.signIn
                 : PersonalizationStep.subscription;
+            _previousFormHeight = formHeight;
           });
         case PersonalizationNextStep.requiredSignIn:
           setState(() {
@@ -294,15 +307,95 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    final subscribing = _step == PersonalizationStep.subscription;
+    final fillingForm = _step == PersonalizationStep.form;
+    final purchaseHeight = media.size.height * PurchaseSheetPanel.heightFactor;
     // Modal routes remove top MediaQuery padding. Read the window safe inset
     // so this offset also includes the status bar / camera area on each device.
     final view = View.of(context);
     final safeTop = view.viewPadding.top / view.devicePixelRatio;
-    final totalHeight = math.min(
-      PersonalizationSheet.sheetHeight,
-      math.max(0.0, media.size.height - safeTop - 18),
-    );
+    final availableHeight = math.max(0.0, media.size.height - safeTop - 18);
+    final formHeight = _loginRequired ? null : _previousFormHeight;
+    final totalHeight = fillingForm
+        ? availableHeight
+        : math.min(
+            formHeight ?? PersonalizationSheet.sheetHeight,
+            availableHeight,
+          );
     final height = math.max(0.0, totalHeight - media.padding.bottom);
+    final header = _PersonalizationHeader(
+      step: _step,
+      subscriptionTier: _subscriptionTier,
+      onBack: !_loginRequired && _signingIn == null ? _backToForm : null,
+      onSkip: _skipSubscription,
+    );
+    final Widget panel;
+    if (subscribing) {
+      final purchasePanel = SizedBox(
+        height: purchaseHeight,
+        child: PurchaseSheetPanel(
+          height: purchaseHeight,
+          header: header,
+          child: SizedBox(
+            key: const ValueKey('personalization-body'),
+            child: _subscription(),
+          ),
+        ),
+      );
+      panel = formHeight == null
+          ? purchasePanel
+          : TweenAnimationBuilder<double>(
+              tween: Tween(begin: media.disableAnimations ? 1 : 0, end: 1),
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+              child: purchasePanel,
+              builder: (context, progress, child) => ClipRect(
+                child: SizedBox(
+                  height: media.disableAnimations
+                      ? purchaseHeight
+                      : lerpDouble(formHeight, purchaseHeight, progress),
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: GenesisColors.darkRaisedBackground,
+                      borderRadius: GenesisBottomSheetPanel.borderRadius,
+                    ),
+                    // Keep the purchase layout at its final size so its
+                    // responsive card and footer layout stays stable.
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minHeight: purchaseHeight,
+                      maxHeight: purchaseHeight,
+                      child: child,
+                    ),
+                  ),
+                ),
+              ),
+            );
+    } else {
+      panel = SizedBox(
+        height: fillingForm ? null : height + media.padding.bottom,
+        child: GenesisBottomSheetPanel(
+          title: '',
+          height: height,
+          shrinkWrap: fillingForm,
+          padding: EdgeInsets.zero,
+          insetBody: false,
+          header: header,
+          child: SizedBox(
+            key: const ValueKey('personalization-body'),
+            child: GenesisActionSheetBody(
+              child: fillingForm
+                  ? SubscriptionExposure(
+                      key: _formExposureKey,
+                      onVisible: _reportFormShow,
+                      child: _form(),
+                    )
+                  : _login(),
+            ),
+          ),
+        ),
+      );
+    }
 
     return PopScope(
       // System back must not bypass the form or dismiss its subscription step.
@@ -316,144 +409,106 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
           style: const GenesisBottomSystemBarStyle(
             color: GenesisColors.darkRaisedBackground,
           ),
-          child: SizedBox(
-            height: height + media.padding.bottom,
-            child: GenesisBottomSheetPanel(
-              title: '',
-              height: height,
-              padding: EdgeInsets.zero,
-              insetBody: false,
-              header: _PersonalizationHeader(
-                step: _step,
-                onBack: !_loginRequired && _signingIn == null
-                    ? _backToForm
-                    : null,
-                onSkip: _skipSubscription,
-              ),
-              child: SizedBox(
-                key: const ValueKey('personalization-body'),
-                child: GenesisActionSheetBody(
-                  bottom: _step == PersonalizationStep.form ? 14 : 0,
-                  child: _step == PersonalizationStep.subscription
-                      ? _subscription()
-                      : _step == PersonalizationStep.form
-                      ? SubscriptionExposure(
-                          key: _formExposureKey,
-                          onVisible: _reportFormShow,
-                          child: _form(),
-                        )
-                      : _login(),
-                ),
-              ),
-            ),
-          ),
+          child: panel,
         ),
       ),
     );
   }
 
-  Widget _subscription() => LayoutBuilder(
-    builder: (context, constraints) {
-      final minimumHeight =
-          520 * MediaQuery.textScalerOf(context).scale(16) / 16;
-      return SingleChildScrollView(
-        key: const ValueKey('personalization-subscription-scroll'),
-        child: SizedBox(
-          height: math.max(constraints.maxHeight, minimumHeight),
-          child: SubscriptionTrackingScope(
-            page: _subscriptionTracking,
-            child: widget.subscriptionBuilder(context),
-          ),
-        ),
-      );
+  Widget _subscription() => NotificationListener<SubscriptionTierChanged>(
+    onNotification: (notification) {
+      if (_subscriptionTier != notification.tier) {
+        setState(() => _subscriptionTier = notification.tier);
+      }
+      return true;
     },
+    child: SubscriptionTrackingScope(
+      page: _subscriptionTracking,
+      child: Builder(builder: widget.subscriptionBuilder),
+    ),
   );
 
   Widget _form() => LayoutBuilder(
     builder: (context, constraints) => SingleChildScrollView(
       key: const ValueKey('personalization-form-scroll'),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: constraints.maxHeight),
-        child: IntrinsicHeight(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_signedIn) ...[
-                Text(
-                  GenesisL10n.current.meCompleteProfileContinue,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: GenesisColors.darkTextSecondary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              for (var i = 0; i < widget.form.length; i++) ...[
-                if (i > 0) const SizedBox(height: 24),
-                _choices(
-                  widget.form[i],
-                  widget.form[i].name == 'gender' ? _gender : _age,
-                  (v) => setState(() {
-                    if (widget.form[i].name == 'gender') {
-                      _gender = v;
-                    } else {
-                      _age = v;
-                    }
-                  }),
-                  columns: widget.form[i].name == 'gender' ? 3 : 2,
-                  maxWidth: constraints.maxWidth,
-                ),
-              ],
-              const SizedBox(height: 40),
-              GenesisPrimaryButton(
-                key: const ValueKey('personalization-continue'),
-                isLoading: _saving,
-                label: GenesisL10n.current.createOpeningContinue,
-                height: 48,
-                onDisabledPressed: _saving
-                    ? null
-                    : () => showGenesisToast(
-                        context,
-                        _gender == null && _age == null
-                            ? GenesisL10n.current.meSelectGenderAge
-                            : _gender == null
-                            ? GenesisL10n.current.meSelectGender
-                            : GenesisL10n.current.meSelectAge,
-                        brightness: Brightness.dark,
-                      ),
-                onPressed: _profile.isComplete && !_saving ? _submit : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_signedIn) ...[
+            Text(
+              GenesisL10n.current.meCompleteProfileContinue,
+              style: TextStyle(
+                fontSize: 14,
+                color: GenesisColors.darkTextSecondary,
               ),
-              if (!_signedIn)
-                Center(
-                  child: TextButton(
-                    key: const ValueKey('personalization-sign-in'),
-                    onPressed: _saving ? null : _openSignIn,
-                    child: GenesisLocalizedRichText(
-                      template: context.l10n.existingAccountSignIn(
-                        signIn: GenesisLocalizedRichText.placeholder('signIn'),
-                      ),
-                      placeholders: {
-                        'signIn': TextSpan(
-                          text: context.l10n.signInAction,
-                          style: const TextStyle(
-                            color: GenesisColors.redSecondary,
-                            decoration: TextDecoration.underline,
-                            decorationColor: GenesisColors.redSecondary,
-                          ),
-                        ),
-                      },
-                      textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+          ],
+          for (var i = 0; i < widget.form.length; i++) ...[
+            if (i > 0) const SizedBox(height: 24),
+            _choices(
+              widget.form[i],
+              widget.form[i].name == 'gender' ? _gender : _age,
+              (v) => setState(() {
+                if (widget.form[i].name == 'gender') {
+                  _gender = v;
+                } else {
+                  _age = v;
+                }
+              }),
+              columns: widget.form[i].name == 'gender' ? 3 : 2,
+              maxWidth: constraints.maxWidth,
+            ),
+          ],
+          const SizedBox(height: 40),
+          GenesisPrimaryButton(
+            key: const ValueKey('personalization-continue'),
+            isLoading: _saving,
+            label: GenesisL10n.current.createOpeningContinue,
+            height: 48,
+            onDisabledPressed: _saving
+                ? null
+                : () => showGenesisToast(
+                    context,
+                    _gender == null && _age == null
+                        ? GenesisL10n.current.meSelectGenderAge
+                        : _gender == null
+                        ? GenesisL10n.current.meSelectGender
+                        : GenesisL10n.current.meSelectAge,
+                    brightness: Brightness.dark,
+                  ),
+            onPressed: _profile.isComplete && !_saving ? _submit : null,
+          ),
+          if (!_signedIn)
+            Center(
+              child: TextButton(
+                key: const ValueKey('personalization-sign-in'),
+                onPressed: _saving ? null : _openSignIn,
+                child: GenesisLocalizedRichText(
+                  template: context.l10n.existingAccountSignIn(
+                    signIn: GenesisLocalizedRichText.placeholder('signIn'),
+                  ),
+                  placeholders: {
+                    'signIn': TextSpan(
+                      text: context.l10n.signInAction,
                       style: const TextStyle(
-                        color: GenesisColors.darkTextSecondary,
-                        fontSize: 14,
-                        height: 1.4,
+                        color: GenesisColors.redSecondary,
+                        decoration: TextDecoration.underline,
+                        decorationColor: GenesisColors.redSecondary,
                       ),
                     ),
+                  },
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: GenesisColors.darkTextSecondary,
+                    fontSize: 14,
+                    height: 1.4,
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     ),
   );
@@ -589,11 +644,13 @@ class _PersonalizationSheetState extends State<PersonalizationSheet>
 class _PersonalizationHeader extends StatelessWidget {
   const _PersonalizationHeader({
     required this.step,
+    required this.subscriptionTier,
     required this.onBack,
     required this.onSkip,
   });
 
   final PersonalizationStep step;
+  final MemoryMembershipTier subscriptionTier;
   final VoidCallback? onBack;
   final VoidCallback onSkip;
   static String get formTitle =>
@@ -613,12 +670,18 @@ class _PersonalizationHeader extends StatelessWidget {
     // slot: that slot is 28 wide with an 8 gap, which would set the wordmark
     // 4.5px right of the benefit copy below it. 26 + 5 lands on the same column.
     titleWidget: step == PersonalizationStep.subscription
-        ? const Row(
+        ? Row(
             children: [
-              SizedBox(width: 26, child: _SubscriptionCrown()),
-              SizedBox(width: 5),
+              SvgPicture.asset(
+                subscriptionTier.crownAsset,
+                key: const ValueKey('personalization-subscription-icon'),
+                width: 26,
+                height: 18,
+              ),
+              const SizedBox(width: 5),
               Flexible(
-                child: PremiumWordmark(
+                child: MembershipWordmark(
+                  tier: subscriptionTier,
                   textStyle: GenesisActionSheetHeader.titleStyle,
                 ),
               ),
@@ -650,17 +713,5 @@ class _PersonalizationHeader extends StatelessWidget {
             child: Text(GenesisL10n.current.meSkip),
           )
         : null,
-  );
-}
-
-class _SubscriptionCrown extends StatelessWidget {
-  const _SubscriptionCrown();
-
-  @override
-  Widget build(BuildContext context) => SvgPicture.asset(
-    proCrownGoldIconAsset,
-    key: const ValueKey('personalization-subscription-icon'),
-    width: 26,
-    height: 18,
   );
 }

@@ -5158,7 +5158,7 @@ void main() {
           expect(calls, 2);
           if (!preloadReady) completeProducts();
           await tester.pumpAndSettle();
-          expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+          expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
           expect(calls, 2);
         } finally {
           if (!response.isCompleted) completeProducts();
@@ -22955,7 +22955,7 @@ void main() {
     expect(transport.requestsFor(exposurePath), isEmpty);
     // pumpAndSettle has already advanced the visibility clock. Leave margin
     // for that frame instead of assuming the exposure timer starts here.
-    await tester.pump(const Duration(milliseconds: 1300));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(
       transport.requestsFor(exposurePath),
       isEmpty,
@@ -41874,6 +41874,8 @@ class _FailingChatroomClient implements ChatroomClient {
     String? senderId,
     String? senderName,
     bool? autoHeartbeat,
+    void Function(Map<String, Object?> details)? onConnectionDiagnostics,
+    NetworkCancellationToken? cancellationToken,
   }) async {
     throw StateError('test connection failed');
   }
@@ -41967,6 +41969,8 @@ class _FakeChatroomClient implements ChatroomClient {
     String? senderId,
     String? senderName,
     bool? autoHeartbeat,
+    void Function(Map<String, Object?> details)? onConnectionDiagnostics,
+    NetworkCancellationToken? cancellationToken,
   }) async {
     connectCount += 1;
     final resolvedWorldId = worldId;

@@ -600,7 +600,9 @@ data class PlatformProductDetails (
 data class PlatformProductDetailsResponse (
   val billingResult: PlatformBillingResult,
   val productDetails: List<PlatformProductDetails>,
-  val unfetchedProductList: List<PlatformUnfetchedProduct>
+  val unfetchedProductList: List<PlatformUnfetchedProduct>,
+  val cacheHit: Boolean? = null,
+  val cacheAgeMs: Long? = null
 )
  {
   companion object {
@@ -608,7 +610,9 @@ data class PlatformProductDetailsResponse (
       val billingResult = pigeonVar_list[0] as PlatformBillingResult
       val productDetails = pigeonVar_list[1] as List<PlatformProductDetails>
       val unfetchedProductList = pigeonVar_list[2] as List<PlatformUnfetchedProduct>
-      return PlatformProductDetailsResponse(billingResult, productDetails, unfetchedProductList)
+      val cacheHit = pigeonVar_list[3] as Boolean?
+      val cacheAgeMs = pigeonVar_list[4] as Long?
+      return PlatformProductDetailsResponse(billingResult, productDetails, unfetchedProductList, cacheHit, cacheAgeMs)
     }
   }
   fun toList(): List<Any?> {
@@ -616,6 +620,8 @@ data class PlatformProductDetailsResponse (
       billingResult,
       productDetails,
       unfetchedProductList,
+      cacheHit,
+      cacheAgeMs,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -626,7 +632,7 @@ data class PlatformProductDetailsResponse (
       return true
     }
     val other = other as PlatformProductDetailsResponse
-    return MessagesPigeonUtils.deepEquals(this.billingResult, other.billingResult) && MessagesPigeonUtils.deepEquals(this.productDetails, other.productDetails) && MessagesPigeonUtils.deepEquals(this.unfetchedProductList, other.unfetchedProductList)
+    return MessagesPigeonUtils.deepEquals(this.billingResult, other.billingResult) && MessagesPigeonUtils.deepEquals(this.productDetails, other.productDetails) && MessagesPigeonUtils.deepEquals(this.unfetchedProductList, other.unfetchedProductList) && MessagesPigeonUtils.deepEquals(this.cacheHit, other.cacheHit) && MessagesPigeonUtils.deepEquals(this.cacheAgeMs, other.cacheAgeMs)
   }
 
   override fun hashCode(): Int {
@@ -634,6 +640,8 @@ data class PlatformProductDetailsResponse (
     result = 31 * result + MessagesPigeonUtils.deepHash(this.billingResult)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.productDetails)
     result = 31 * result + MessagesPigeonUtils.deepHash(this.unfetchedProductList)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.cacheHit)
+    result = 31 * result + MessagesPigeonUtils.deepHash(this.cacheAgeMs)
     return result
   }
 }
@@ -1751,6 +1759,10 @@ interface InAppPurchaseApi {
   fun queryPurchasesAsync(productType: PlatformProductType, callback: (Result<PlatformPurchasesResponse>) -> Unit)
   /** Wraps BillingClient#queryProductDetailsAsync(QueryProductDetailsParams, ProductDetailsResponseListener). */
   fun queryProductDetailsAsync(products: List<PlatformQueryProduct>, callback: (Result<PlatformProductDetailsResponse>) -> Unit)
+  fun loadProductDetailsAsync(product: PlatformQueryProduct, forceRefresh: Boolean, callback: (Result<PlatformProductDetailsResponse>) -> Unit)
+  fun invalidateProductDetails(productIds: List<String>?)
+  /** Reads only the current native plugin cache; null means query is needed. */
+  fun getCachedProductDetails(product: PlatformQueryProduct): PlatformProductDetails?
   /** Wraps BillingClient#isFeatureSupported(String). */
   fun isFeatureSupported(feature: PlatformBillingClientFeature): Boolean
   /** Wraps BillingClient#isAlternativeBillingOnlyAvailableAsync(). */
@@ -1934,6 +1946,62 @@ interface InAppPurchaseApi {
                 reply.reply(MessagesPigeonUtils.wrapResult(data))
               }
             }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.in_app_purchase_android.InAppPurchaseApi.loadProductDetailsAsync$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val productArg = args[0] as PlatformQueryProduct
+            val forceRefreshArg = args[1] as Boolean
+            api.loadProductDetailsAsync(productArg, forceRefreshArg) { result: Result<PlatformProductDetailsResponse> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(MessagesPigeonUtils.wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(MessagesPigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.in_app_purchase_android.InAppPurchaseApi.invalidateProductDetails$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val productIdsArg = args[0] as List<String>?
+            val wrapped: List<Any?> = try {
+              api.invalidateProductDetails(productIdsArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.in_app_purchase_android.InAppPurchaseApi.getCachedProductDetails$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val productArg = args[0] as PlatformQueryProduct
+            val wrapped: List<Any?> = try {
+              listOf(api.getCachedProductDetails(productArg))
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
           }
         } else {
           channel.setMessageHandler(null)

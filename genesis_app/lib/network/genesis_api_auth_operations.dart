@@ -68,6 +68,9 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
         gender: asString(profile['gender']),
         age: asString(profile['age']),
         membershipStatus: asUserMembershipStatus(profile['membership_status']),
+        membershipDeluxeStatus: asUserMembershipStatus(
+          profile['membership_deluxe_status'],
+        ),
         createdAt: null,
       );
       await _sessionStore.saveUid(user.uid);
@@ -129,6 +132,9 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       gender: asString(profile['gender']),
       age: asString(profile['age']),
       membershipStatus: asUserMembershipStatus(profile['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        profile['membership_deluxe_status'],
+      ),
       createdAt: null,
     );
   }
@@ -270,6 +276,9 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       gender: asString(userMap['gender']),
       age: asString(userMap['age']),
       membershipStatus: asUserMembershipStatus(userMap['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        userMap['membership_deluxe_status'],
+      ),
       createdAt: null,
     );
     final cachedUserInfo = Map<String, dynamic>.from(userMap);
@@ -349,6 +358,9 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       gender: asString(cached?['gender']),
       age: asString(cached?['age']),
       membershipStatus: asUserMembershipStatus(cached?['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        cached?['membership_deluxe_status'],
+      ),
       createdAt: null,
     );
   }

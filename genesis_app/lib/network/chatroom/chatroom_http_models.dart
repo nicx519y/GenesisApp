@@ -239,6 +239,7 @@ class ChatroomLocationUser {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     required this.userName,
     required this.avatar,
   });
@@ -247,6 +248,7 @@ class ChatroomLocationUser {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final String userName;
   final String avatar;
 
@@ -255,6 +257,9 @@ class ChatroomLocationUser {
       gender: asString(json['gender']),
       age: asString(json['age']),
       membershipStatus: asUserMembershipStatus(json['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        json['membership_deluxe_status'],
+      ),
       userId: asString(json['user_id']),
       userName: asString(json['user_name']),
       avatar: asString(json['avatar']),

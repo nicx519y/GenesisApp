@@ -59,6 +59,7 @@ class GenesisApp extends StatelessWidget {
               return <Route<dynamic>>[
                 AppRouter.onGenerateRoute(
                   RouteSettings(name: RouteNames.home, arguments: initialIndex),
+                  checkStartupLogin: true,
                 ),
               ];
             },
@@ -69,6 +70,7 @@ class GenesisApp extends StatelessWidget {
                 initialRoutePending = false;
                 return AppRouter.onGenerateRoute(
                   RouteSettings(name: RouteNames.home, arguments: initialIndex),
+                  checkStartupLogin: true,
                 );
               }
               return AppRouter.onGenerateRoute(settings);

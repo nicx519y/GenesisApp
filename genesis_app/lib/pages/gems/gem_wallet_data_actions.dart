@@ -59,7 +59,6 @@ extension _GemWalletDataActions on _GemWalletPageState {
         _productsLoading = false;
         _blockingProductRefresh = false;
       });
-      _startStoreRecovery(products);
     } catch (error) {
       if (!mounted || generation != _productsRequestGeneration) return;
       _updateState(() {
@@ -188,6 +187,8 @@ extension _GemWalletDataActions on _GemWalletPageState {
         context,
         status: DailyCheckInDialogStatus.checkIn,
         rewardGemsCent: task.rewardGemsCent,
+        rewardGemsCentPremium: task.rewardGemsCentPremium,
+        rewardGemsCentDeluxe: task.rewardGemsCentDeluxe,
       );
     } finally {
       _endTaskAction(taskCode);
@@ -274,7 +275,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
       if (isDailyCheckIn && mounted) {
         final successDialog = showDailyCheckInSuccessDialog(
           context,
-          rewardGemsCent: rewardGemsCent,
+          rewardGemsCent: result.rewardGemsCent ?? rewardGemsCent,
         );
         unawaited(_refreshTasksAndWallet());
         await successDialog;
@@ -314,7 +315,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
       final successDialog = taskCode == dailyCheckInTaskCode
           ? showDailyCheckInSuccessDialog(
               context,
-              rewardGemsCent: rewardGemsCent,
+              rewardGemsCent: result.rewardGemsCent ?? rewardGemsCent,
             )
           : showGemTaskSuccessDialog(
               context,

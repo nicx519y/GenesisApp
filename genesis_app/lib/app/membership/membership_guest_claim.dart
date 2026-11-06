@@ -10,6 +10,33 @@ class _MembershipClaimRetry {
 }
 
 extension _MembershipGuestClaim on MembershipPurchaseService {
+  MembershipType? _guestLoginMembershipType() {
+    final requestId = guestLoginRequestId.value;
+    if (requestId == null) return null;
+    for (final claim in _guestClaims.values) {
+      if ((claim.purchaseRequestId ?? claim.guest.accountUuid) != requestId) {
+        continue;
+      }
+      final purchase = _claimPurchase(claim);
+      if (purchase != null) return purchase.product.membershipType;
+      final proof = claim.recoveredProof;
+      return switch ((proof?.provider, proof?.storeProductId)) {
+        (MembershipProvider.google, 'deluxe') ||
+        (
+          MembershipProvider.apple,
+          'deluxe_monthly' || 'deluxe_yearly',
+        ) => MembershipType.deluxe,
+        (MembershipProvider.google, 'premium') ||
+        (
+          MembershipProvider.apple,
+          'premium_monthly' || 'premium_yearly',
+        ) => MembershipType.premium,
+        _ => null,
+      };
+    }
+    return null;
+  }
+
   Future<void> _discardUnpurchasedGuestIdentity(String uuid) async {
     final claim = _guestClaims[uuid];
     if (claim == null ||

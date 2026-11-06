@@ -129,6 +129,9 @@ class _UserInfoPageState extends State<UserInfoPage>
       gender: asString(user['gender']),
       age: asString(user['age']),
       membershipStatus: asUserMembershipStatus(user['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        user['membership_deluxe_status'],
+      ),
       displayName: displayName,
       uid: profileUid.trim().isEmpty
           ? GenesisL10n.current.meUnknown

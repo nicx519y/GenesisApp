@@ -111,11 +111,15 @@ class PlatformProductDetailsResponse {
     required this.billingResult,
     required this.productDetails,
     required this.unfetchedProductList,
+    this.cacheHit,
+    this.cacheAgeMs,
   });
 
   final PlatformBillingResult billingResult;
   final List<PlatformProductDetails> productDetails;
   final List<PlatformUnfetchedProduct> unfetchedProductList;
+  final bool? cacheHit;
+  final int? cacheAgeMs;
 }
 
 /// Pigeon version of AlternativeBillingOnlyReportingDetailsWrapper, which
@@ -472,6 +476,16 @@ abstract class InAppPurchaseApi {
   PlatformProductDetailsResponse queryProductDetailsAsync(
     List<PlatformQueryProduct> products,
   );
+
+  @async
+  PlatformProductDetailsResponse loadProductDetailsAsync(
+    PlatformQueryProduct product,
+    bool forceRefresh,
+  );
+  void invalidateProductDetails(List<String>? productIds);
+
+  /// Reads only the current native plugin cache; null means query is needed.
+  PlatformProductDetails? getCachedProductDetails(PlatformQueryProduct product);
 
   /// Wraps BillingClient#isFeatureSupported(String).
   bool isFeatureSupported(PlatformBillingClientFeature feature);

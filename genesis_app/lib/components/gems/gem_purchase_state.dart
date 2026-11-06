@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import 'gem_purchase_catalog.dart';
+import 'memory_membership_style.dart';
 
 /// A committed tab entry refreshes its catalog without recreating purchase state.
 class PurchaseCatalogEntry extends InheritedWidget {
@@ -35,6 +36,73 @@ class GemPurchaseLoading extends StatelessWidget {
     child: SizedBox.square(
       dimension: size,
       child: const GenesisLoadingIndicator(),
+    ),
+  );
+}
+
+/// A visual preview for tabs whose purchase content has not been mounted yet.
+class GemPurchaseTabPlaceholder extends StatelessWidget {
+  const GemPurchaseTabPlaceholder.subscription({
+    super.key,
+    this.horizontalInset = 16,
+    this.topSpacing = purchaseTabContentTopSpacing,
+  }) : _subscription = true;
+
+  const GemPurchaseTabPlaceholder.gems({
+    super.key,
+    this.horizontalInset = 16,
+    this.topSpacing = purchaseTabContentTopSpacing,
+  }) : _subscription = false;
+
+  final double horizontalInset;
+  final double topSpacing;
+  final bool _subscription;
+
+  Widget _bone(double height, {double? width, double radius = 4}) => Container(
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: GenesisColors.darkFaintFill,
+      borderRadius: BorderRadius.circular(radius),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        horizontalInset,
+        topSpacing,
+        horizontalInset,
+        0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _subscription
+            ? [
+                _bone(
+                  (constraints.maxHeight * .65).clamp(180, 520),
+                  width: memoryMembershipCardWidth(constraints.maxWidth),
+                  radius: 18,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(child: _bone(72, radius: 14)),
+                    const SizedBox(width: 12),
+                    Expanded(child: _bone(72, radius: 14)),
+                  ],
+                ),
+              ]
+            : [
+                _bone(18, width: 82),
+                const SizedBox(height: 8),
+                _bone(40, width: 120),
+                const SizedBox(height: 24),
+                const GemProductGridSkeleton(),
+              ],
+      ),
     ),
   );
 }

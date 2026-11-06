@@ -8,8 +8,19 @@ final startupPromptSequence = StartupPromptSequence();
 class StartupPromptSequence extends ValueNotifier<StartupPromptStage> {
   StartupPromptSequence() : super(StartupPromptStage.ready);
 
+  final Set<Object> _loginOwners = {};
+  bool get loginBlocked => _loginOwners.isNotEmpty;
   bool get waitingForPrivacy => value == StartupPromptStage.privacy;
-  bool get blocksOtherPrompts => value != StartupPromptStage.ready;
+  bool get blocksOtherPrompts =>
+      loginBlocked || value != StartupPromptStage.ready;
+
+  void blockForLogin(Object owner) {
+    if (_loginOwners.add(owner)) notifyListeners();
+  }
+
+  void releaseLogin(Object owner) {
+    if (_loginOwners.remove(owner)) notifyListeners();
+  }
 
   void begin() => value = StartupPromptStage.privacy;
 
@@ -22,5 +33,9 @@ class StartupPromptSequence extends ValueNotifier<StartupPromptStage> {
   }
 
   @visibleForTesting
-  void resetForTesting() => value = StartupPromptStage.ready;
+  void resetForTesting() {
+    _loginOwners.clear();
+    value = StartupPromptStage.ready;
+    notifyListeners();
+  }
 }

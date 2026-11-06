@@ -264,86 +264,46 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     );
   }
 
-  Future<void> _showGemPurchaseSheetPreview() async {
+  Future<void> _showGemPurchaseSheet() async {
+    if (!await ensureGenesisLogin(context) || !mounted) return;
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {
       await widget.onDismissBeforePreview?.call();
     }
     if (!navigator.mounted) return;
-    final preview = _DeveloperGemPurchasePreview();
-    try {
-      await showGemPurchaseBottomSheet(
-        navigator.context,
-        productsLoader: () async => preview.products,
-        walletStore: preview.walletStore,
-        billingService: preview.billing,
-      );
-    } finally {
-      preview.dispose();
-    }
+    await showGemPurchaseBottomSheet(navigator.context);
   }
 
-  Future<void> _showGemPurchaseOverlayPreview() async {
+  Future<void> _showSubscriptionPurchaseSheet() async {
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {
       await widget.onDismissBeforePreview?.call();
     }
     if (!navigator.mounted) return;
-    await showGemBillingPurchaseOverlayPreview(navigator.context);
+    await showSubscriptionPurchaseBottomSheet(navigator.context);
   }
 
-  Future<void> _showMembershipPurchaseOverlayPreview() async {
+  Future<void> _showDailyCheckInPreview({
+    required bool premium,
+    required bool deluxe,
+  }) async {
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {
       await widget.onDismissBeforePreview?.call();
     }
     if (!navigator.mounted) return;
-    const attemptId = 'developer_membership_preview';
-    final state = ValueNotifier(
-      GemBillingPurchaseDialogState.processing(attemptId: attemptId),
-    );
-    final route = RawDialogRoute<void>(
-      barrierColor: kGenesisModalBarrierColor,
-      barrierDismissible: false,
-      pageBuilder: (dialogContext, _, _) => Center(
-        child: GemBillingPurchaseDialog.membership(
-          state: state,
-          onConfirm: () => Navigator.of(dialogContext).pop(),
-        ),
-      ),
-    );
-    final timer = Timer(const Duration(seconds: 3), () {
-      state.value = GemBillingPurchaseDialogState.success(
-        attemptId: attemptId,
-        grantedText: '',
-      );
-    });
-    try {
-      await navigator.push(route);
-    } finally {
-      timer.cancel();
-      await route.completed;
-      state.dispose();
-    }
-  }
-
-  Future<void> _showDailyCheckInPreview() async {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    if (widget.dismissBeforePreview) {
-      await widget.onDismissBeforePreview?.call();
-    }
-    if (!navigator.mounted) return;
-    final checkedIn = await showDailyCheckInDialog(
+    const premiumBonus = 5000;
+    const deluxeBonus = 25000;
+    await showDailyCheckInPreview(
       navigator.context,
-      status: _dailyCheckInPreviewClaimed
-          ? DailyCheckInDialogStatus.claimed
-          : DailyCheckInDialogStatus.checkIn,
+      rewardGemsCent:
+          dailyCheckInPreviewRewardCent +
+          (premium ? premiumBonus : 0) +
+          (deluxe ? deluxeBonus : 0),
+      rewardGemsCentPremium: premiumBonus,
+      rewardGemsCentDeluxe: deluxeBonus,
+      activeTiers: (premium: premium, deluxe: deluxe),
     );
-    if (!checkedIn || !navigator.mounted) return;
-    if (mounted) {
-      _updateState(() => _dailyCheckInPreviewClaimed = true);
-    }
-    await showDailyCheckInSuccessDialog(navigator.context);
   }
 
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {

@@ -32,8 +32,25 @@ void main() {
     expect(const AppGlobalConfig().apiTraceSamplingRate, 0);
     expect(AppGlobalConfig.fromJson(const {}).showOpeningSheet, isFalse);
     expect(AppGlobalConfig.fromJson(const {}).apiTraceSamplingRate, 0);
+    expect(const AppGlobalConfig().forceLogin, isFalse);
+    expect(AppGlobalConfig.fromJson(const {}).forceLogin, isFalse);
     expect(const AppGlobalConfig().showPersonalizationForm, isFalse);
     expect(AppGlobalConfig.fromJson(const {}).showPersonalizationForm, isFalse);
+  });
+
+  test('AppGlobalConfig only enables force login for boolean true', () {
+    for (final enabled in [false, true]) {
+      expect(
+        AppGlobalConfig.fromJson({'force_login': enabled}).forceLogin,
+        enabled,
+      );
+    }
+    for (final invalid in [null, 0, 1, 'true', 'false', '1', {}, []]) {
+      expect(
+        AppGlobalConfig.fromJson({'force_login': invalid}).forceLogin,
+        isFalse,
+      );
+    }
   });
 
   test('AppGlobalConfig parses the personalization form flag', () {
@@ -109,6 +126,7 @@ void main() {
       loadConfig: ({String? uid}) async => {
         'show_opening_sheet': true,
         'show_personalization_form': true,
+        'force_login': true,
         'api_trace_sampling_rate': 0.5,
       },
     );
@@ -118,6 +136,7 @@ void main() {
 
     expect(store.value.showOpeningSheet, isTrue);
     expect(store.value.showPersonalizationForm, isTrue);
+    expect(store.value.forceLogin, isTrue);
     expect(store.value.apiTraceSamplingRate, 0.5);
   });
 

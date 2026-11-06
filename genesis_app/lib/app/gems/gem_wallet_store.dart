@@ -11,6 +11,7 @@ class GemWalletState {
     this.ownerUid,
     this.balanceCent,
     this.membership,
+    this.membershipDeluxe,
     this.isRefreshing = false,
     this.updatedAt,
     this.lastError,
@@ -19,6 +20,10 @@ class GemWalletState {
   final String? ownerUid;
   final int? balanceCent;
   final GemWalletMembership? membership;
+  final GemWalletMembership? membershipDeluxe;
+  int? get blueGemsCent => membership == null && membershipDeluxe == null
+      ? null
+      : (membership?.blueGemsCent ?? 0) + (membershipDeluxe?.blueGemsCent ?? 0);
   final bool isRefreshing;
   final DateTime? updatedAt;
   final Object? lastError;
@@ -83,6 +88,9 @@ class GemWalletStore {
       ownerUid: uid,
       balanceCent: retainedBalanceCent,
       membership: retainedMembership,
+      membershipDeluxe: current.ownerUid == uid
+          ? current.membershipDeluxe
+          : null,
       isRefreshing: true,
       updatedAt: retainedUpdatedAt,
     );
@@ -101,6 +109,7 @@ class GemWalletStore {
         ownerUid: uid,
         balanceCent: wallet.balanceCent,
         membership: wallet.membership,
+        membershipDeluxe: wallet.membershipDeluxe,
         updatedAt: DateTime.now(),
       );
     } catch (error) {
@@ -117,6 +126,9 @@ class GemWalletStore {
         ownerUid: uid,
         balanceCent: retainedBalanceCent,
         membership: retainedMembership,
+        membershipDeluxe: current.ownerUid == uid
+            ? current.membershipDeluxe
+            : null,
         updatedAt: retainedUpdatedAt,
         lastError: error,
       );

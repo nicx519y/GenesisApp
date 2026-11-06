@@ -7,16 +7,22 @@
 | 场景 | JSON 字段 | Dart 字段 |
 |---|---|---|
 | 钱包 | `wallet.balance_cent` | `GemWallet.balanceCent` |
+| Premium 粉钻 | `membership.blue_gems_cent` | `membership.blueGemsCent` |
+| Deluxe 粉钻 | `membership_deluxe.blue_gems_cent` | `membershipDeluxe.blueGemsCent` |
+| Me 粉钻合计 | 上述两项 cent 相加后格式化 | `GemWalletState.blueGemsCent` |
 | 流水普通宝石（红钻） | `list[].regular_amount_cent` | `GemRecordItem.regularAmountCent` |
 | 流水会员宝石（粉钻） | `list[].membership_amount_cent` | `GemRecordItem.membershipAmountCent` |
 | 商品 | `base_gems_cent`、`bonus_gems_cent` | `baseGemsCent`、`bonusGemsCent` |
 | 购买完成 | `granted_gems_cent` | `GemPurchaseReport.grantedGemsCent` |
 | 任务 | `reward_gems_cent` | `GemTask.rewardGemsCent` |
+| 每日签到的订阅按钮 | `reward_gems_cent_premium`、`reward_gems_cent_deluxe` | `GemTask.rewardGemsCentPremium`、`GemTask.rewardGemsCentDeluxe` |
 | 模型预估 | `estimated_next_message_gems_cent`、`estimated_next_tick_gems_cent` | `estimatedNextMessageGemsCent`、`estimatedNextTickGemsCent` |
 | 模型消息区间 | `min_gems_cent`、`max_gems_cent` | `minGemsCent`、`maxGemsCent` |
 | WebSocket 低余额 | `balance_cent` | `ChatroomBalanceLow.balanceCent` |
 
 流水两个金额字段必返，允许 `null` 表示历史来源未知，不能转为 0；其他上述 cent 字段必须是 JSON 整数。字段缺失，或值为浮点数、字符串等其他类型时，客户端按协议错误处理，不使用其他字段回退。购买结果只有 `status=completed` 时要求并解析 `granted_gems_cent`；其他状态不承载发放金额。
+
+每日签到的两个订阅按钮字段是可选的非负整数 cent。缺失或格式错误时视为无可用金额。
 
 ## 展示规则
 
@@ -40,15 +46,20 @@
 
 ## 边界
 
+- 已打开过 Buy Gems 任务列表时，消耗品或订阅购买经服务端确认完成后静默刷新 `GET /api/v1/gem/tasks`。购买弹层覆盖完整页时也适用，刷新期间或失败时继续显示已有任务。
+
+- Gems 完整页进入、绑定购买服务或商品加载完成时，不主动查询商店历史／未完成交易，不由入页恢复发起购买 report。正常购买监听及其交易上报不变。
+
 - 完整支付页和购买 Sheet 切回已访问的 Gems／Subscription Tab，同样触发该 Tab 的商品刷新；取消的半途滑动不算进入。保留选中套餐、滚动位置及原购买状态，不重复触发钱包／任务加载、购买服务启动或页面曝光。
 
 - Gems 完整页和购买 Sheet 每次重新打开都请求 `GET /api/v1/gem/products`，用新列表重新查询商店并更新缓存。后台启动预加载仍复用缓存。服务端返回前展示旧缓存，存在有效商店缓存时可直接购买，不等待本次入页刷新；服务端返回后查询商店期间，已有商品仅禁止购买，不显示全局 loading 或遮罩，不阻止切换 Tab、返回或关闭页面。完成后替换展示与缓存。首次无数据时保留原加载占位。
+- 入页刷新商品接口失败时，完整支付页和购买 Sheet 继续使用当前账号已有的商品缓存，购买仍走原有商店校验。没有缓存时沿用原有失败状态。
 
 - Gems 购买上报被服务端确认为 `completed` 后，购买服务后台强制刷新服务端列表和商店商品缓存，使 `activity_text`、`can_purchase`、赠送数量与优惠信息以最新服务端结果为准。购买后旧内存/磁盘商品快照立即失效，旧的在途响应不得覆盖新结果；刷新失败不恢复旧优惠缓存。完整购买页与购买 Sheet 都更新商品展示，不在本地硬编码隐藏 `New User`。刷新不显示全局 loading，不阻塞到账成功提示；失败清除旧展示并提供重试。有效缓存下点击购买不刷新目录、不向商店重新查询商品；缺有效商店缓存时保留立即显示购买进度、仅补查缺失缓存的兜底。
 
 - `price_amount` 是法币最小单位，继续使用现有法币格式化和支付逻辑，不属于 Gems cent 展示转换。
 - 支付请求、任务请求、订单恢复和订单持久化不修改金额语义。
-- 任务领取成功后继续刷新钱包；不从领取响应建立第二条本地余额更新链路。
+- 每日签到成功弹窗优先展示领取响应的 `reward_gems_cent`，兼容旧响应缺少金额时沿用任务列表的预览值。任务领取成功后继续从钱包接口刷新余额。
 
 ## Gem Records 分项金额（2026-09-16）
 
@@ -58,3 +69,9 @@
 - 流水标题默认 14px，根据金额区域占用后剩余的宽度按 0.5px 递减，最小 8px；最小字号仍放不下时单行省略。测量与显示共用字体、系统文字缩放和字重。
 - `null` 不是零，不显示该未知分项；仍展示已知的非零分项。如果没有可展示的非零分项且不满足两项都为 0，则显示 `--`，不使用总额或虚构零消费。
 - 查询参数、分页、服务端标题、世界 ID 展示和复制行为不变。Mock 与测试使用分项字段，不代表实际计费。
+
+## 商店商品原生缓存
+
+Gems 商品详情由 Android／iOS 原生支付插件统一缓存，Dart 层不再保存可跨页面复用的平台商品对象或查询 Future。缓存有效期、失效、查询合并和购买条件校验见 [购买准备](membership-checkout-preparation.md)。磁盘价格和页面展示仍可复用，但不用于构造购买凭据；价格／优惠变化时结束本次购买并刷新展示，用户重新确认。
+
+Gems 点击后的商品确认等待计入同一次 30 秒购买准备期限；超时后迟到查询不调起支付。商品查询与支付调起共用一次服务端→平台商品恢复，保留同一业务商品及购买身份，规则见上述购买准备文档。商店接管后停止准备计时。

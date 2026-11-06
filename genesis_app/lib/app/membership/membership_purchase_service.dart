@@ -1,8 +1,13 @@
+import '../../platform/billing/payment_failure_diagnostics.dart';
+import '../../network/api_exception.dart';
 import 'dart:async';
+import '../../platform/billing/checkout_preparation_budget.dart';
+import '../../platform/billing/store_product_access.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 
 import '../../l10n/genesis_l10n.dart';
 import '../../network/models/membership_product.dart';
@@ -16,7 +21,6 @@ import '../../platform/billing/membership_store_purchase.dart';
 import '../../platform/billing/membership_guest_claim_record.dart';
 import '../../platform/billing/membership_guest_claim_proof.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
-import '../telemetry/purchase_event_reporting.dart';
 import 'membership_purchase_eligibility.dart';
 import 'membership_access_store.dart';
 import 'membership_store_failure.dart';
@@ -77,6 +81,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     required this.readCheckoutProducts,
     SubscriptionAnalytics? analytics,
     this.ensureStoreListening,
+    this.refreshCheckoutProducts,
     this.otherPurchaseBusy,
     this.readMembershipAccess,
     this.refreshWallet,
@@ -86,13 +91,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     this.checkGuestPurchase,
     this.discoverGuestPurchases,
     this.retryDelay = const Duration(seconds: 15),
-    this.attemptTimeout = const Duration(seconds: 90),
+    this.attemptTimeout = CheckoutPreparationBudget.timeout,
     this.guestRecoveryTimeout = const Duration(seconds: 15),
-    this.purchaseEventReporting,
   }) : analytics = analytics ?? SubscriptionAnalytics();
 
   final SubscriptionAnalytics analytics;
-  final PurchaseEventRecorder? purchaseEventReporting;
   final Map<String, SubscriptionTracking> _attemptTracking = {};
 
   final MembershipCheckoutPlatform platform;
@@ -106,6 +109,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   final MembershipProvider provider;
   final Future<MembershipProductList> Function() readCheckoutProducts;
   final Future<void> Function()? ensureStoreListening;
+  final Future<MembershipProductList> Function()? refreshCheckoutProducts;
 
   final ValueNotifier<int> catalogRevision = ValueNotifier(0);
   final _debugStoreOrderId = ValueNotifier<String?>(null);
@@ -147,6 +151,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   // This stays in memory across login and is not a report retry queue.
   final Map<String, MembershipPurchaseRequest> _guestPurchaseRequests = {};
   final ValueNotifier<String?> guestLoginRequestId = ValueNotifier(null);
+  MembershipType? get guestLoginMembershipType => _guestLoginMembershipType();
   final Set<String> _presentedAttempts = {};
   final Map<String, MembershipGuestClaimRecord> _guestClaims = {};
   final Set<String> _pendingGuestClaimWrites = {};
@@ -357,7 +362,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         final uid = results[2] as String?;
         final products = results[3] as MembershipProductList;
-        final matches = products.products.where(
+        final matches = products.allProducts.where(
           (p) =>
               p.provider == provider &&
               p.planCode == product.planCode &&
@@ -393,14 +398,32 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     SubscriptionTracking? tracking,
     MembershipCheckoutPreparation? preparation,
   }) async {
-    final startedAt = DateTime.now();
+    final startedAt =
+        CheckoutPreparationBudget.current?.startedAt ?? DateTime.now();
     attemptId ??= newBillingAttemptId();
     if (_disposed) return;
     _attemptTracking[attemptId] =
         tracking ??
         SubscriptionTracking.recovery('${provider.name}:attempt:$attemptId');
+    _attemptTracking[attemptId] = _attemptTracking[attemptId]!.copyWith(
+      storeProductId: product.storeProductId,
+      basePlanId: provider == MembershipProvider.google
+          ? product.basePlanId
+          : '',
+    );
     if (_busy || (otherPurchaseBusy?.call() ?? false)) {
-      _trackPreparationFailure(attemptId, 'precheck', 'purchase_in_progress');
+      _trackPreparationFailure(
+        attemptId,
+        'precheck',
+        'purchase_in_progress',
+        context: {
+          'plan_code': product.planCode,
+          'store_product_id': product.storeProductId,
+          'base_plan_id': product.basePlanId,
+          'offer_id': product.offerId,
+          'step': 'check_purchase_busy',
+        },
+      );
       _emitCheckout(
         MembershipCheckoutState.failed,
         attemptId,
@@ -417,7 +440,14 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     final session = _session;
     final wait = _MembershipCheckoutWait();
     var stage = 'precheck';
+    var stageStartedAt = DateTime.now();
+    void enterStage(String next) {
+      stage = next;
+      stageStartedAt = DateTime.now();
+    }
+
     Object? preparationError;
+    int? preparationFailureDurationMs;
     _checkoutWaits[id] = wait;
     bool isCurrent() =>
         !_disposed &&
@@ -427,7 +457,22 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         !wait.storeCallbackReceived;
     void onTimeout() {
       if (!isCurrent() || wait.storeHandedOff) return;
-      analytics.timeout(_attemptTracking[id]!, 'prepare');
+      analytics.timeout(
+        _attemptTracking[id]!,
+        'prepare',
+        diagnostics: {
+          'provider': provider.name,
+          'attempt_id': id,
+          'step': stage,
+          'stage_duration_ms': DateTime.now()
+              .difference(stageStartedAt)
+              .inMilliseconds,
+          'total_duration_ms': DateTime.now()
+              .difference(startedAt)
+              .inMilliseconds,
+          'store_handoff_started': wait.storeHandedOff,
+        },
+      );
       _release(id);
       _setState(
         MembershipCheckoutState.deferred,
@@ -476,10 +521,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         if (product.provider != provider) {
           throw StateError('membership_provider_mismatch');
         }
-        stage = 'read_session';
+        enterStage('read_session');
         final uid = await readLoginUid();
         if (!canContinue()) return;
-        stage = 'check_membership';
+        enterStage('check_membership');
         final access = product.isYearly
             ? null
             : await readMembershipAccess?.call();
@@ -489,8 +534,47 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             membershipIsDowngrade(product, access)) {
           throw const MembershipPurchaseBlocked('downgrade_not_allowed');
         }
-        final MembershipProductList products;
-        stage = 'read_catalog';
+        MembershipProductList products;
+        late PreparedMembershipCheckout preparedProduct;
+        late final MembershipGuestIdentity? guest;
+        late final String uuid;
+        final recovery = StoreProductRecovery(canContinue: canContinue);
+        PreparedMembershipCheckout? refreshedProduct;
+        Future<void> refreshProduct() async {
+          wait.storeHandedOff = false;
+          if (!canContinue()) {
+            throw const BillingPlatformException('checkout_aborted');
+          }
+          wait.timer ??= Timer(
+            attemptTimeout - DateTime.now().difference(startedAt),
+            onTimeout,
+          );
+          final reload = refreshCheckoutProducts;
+          if (reload == null) {
+            throw const BillingPlatformException('catalog_unavailable');
+          }
+          final fresh = await reload();
+          if (!await canContinueForOwner(uid)) {
+            throw const BillingPlatformException('checkout_aborted');
+          }
+          final matching = fresh.allProducts.where(
+            (p) => p.provider == provider && p.planCode == product.planCode,
+          );
+          if (matching.length != 1 ||
+              (uid == null && fresh.hasSubscriptionOrder)) {
+            throw const MembershipPurchaseBlocked('eligibility_unavailable');
+          }
+          products = fresh;
+          product = matching.single;
+          refreshedProduct = await StoreProductAccess.refresh(
+            () => platform.prepare(product),
+          );
+          if (!await canContinueForOwner(uid)) {
+            throw const BillingPlatformException('checkout_aborted');
+          }
+        }
+
+        enterStage('read_catalog');
         try {
           products = await readCheckoutProducts();
         } catch (error) {
@@ -503,48 +587,72 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           _setState(MembershipCheckoutState.loginRequired, attemptId: id);
           return;
         }
-        final matches = products.products.where(
-          (p) => p.provider == provider && p.planCode == product.planCode,
+        await recovery.run<void>(
+          action: () async {
+            final matches = products.allProducts.where(
+              (p) => p.provider == provider && p.planCode == product.planCode,
+            );
+            if (matches.length != 1) {
+              throw const BillingPlatformException(
+                'membership_product_not_found',
+              );
+            }
+            final current = matches.single;
+            if (current.storeProductId != product.storeProductId ||
+                current.basePlanId != product.basePlanId ||
+                current.offerId != product.offerId) {
+              throw const BillingPlatformException('product_details_changed');
+            }
+            product = current;
+          },
+          refresh: refreshProduct,
         );
-        if (matches.length != 1) {
-          throw const MembershipPurchaseBlocked('eligibility_unavailable');
-        }
-        final current = matches.single;
-        if (current.storeProductId != product.storeProductId ||
-            current.basePlanId != product.basePlanId ||
-            current.offerId != product.offerId) {
-          throw const MembershipPurchaseBlocked('eligibility_unavailable');
-        }
-        product = current;
+        if (!await canContinueForOwner(uid)) return;
         _setState(MembershipCheckoutState.preparing, attemptId: id);
         // Login-only clicks never depend on billing initialization. Purchases
         // still start the shared listener before launching the platform.
-        stage = 'start_store_listener';
+        enterStage('start_store_listener');
         await ensureStoreListening?.call();
         if (!canContinue()) return;
-        stage = 'load_local_orders';
+        enterStage('load_local_orders');
         await _load();
         if (!canContinue()) return;
-        late final PreparedMembershipCheckout preparedProduct;
-        late final MembershipGuestIdentity? guest;
-        late final String uuid;
-        stage = 'prepare_store_checkout';
+        enterStage('prepare_store_checkout');
         try {
           // Product prewarming must never create guest identities. Only this
           // purchase click fetches the UUID, in parallel with the store query.
           final results = await Future.wait<Object?>([
             () async {
-              final reusable = await _takeCheckoutPreparation(
-                preparation,
-                uid,
-                products,
-                product,
+              return recovery.run<_PreparedMembershipProduct?>(
+                action: () async {
+                  if (refreshedProduct != null) {
+                    return _PreparedMembershipProduct(
+                      uid,
+                      products,
+                      product,
+                      refreshedProduct!,
+                    );
+                  }
+                  try {
+                    final reusable = await _takeCheckoutPreparation(
+                      preparation,
+                      uid,
+                      products,
+                      product,
+                    );
+                    if (!await canContinueForOwner(uid)) return null;
+                    return reusable ??
+                        await _prepareStoreProduct(uid, products, product);
+                  } on _CheckoutPreparationFailure catch (failure, stack) {
+                    stage = failure.stage;
+                    preparationFailureDurationMs = failure.durationMs;
+                    Error.throwWithStackTrace(failure.error, stack);
+                  }
+                },
+                refresh: refreshProduct,
               );
-              if (!await canContinueForOwner(uid)) return null;
-              return reusable ??
-                  await _prepareStoreProduct(uid, products, product);
             }(),
-            _prepareCheckoutIdentity(uid, products),
+            _prepareCheckoutIdentity(uid, products, product.membershipType),
           ], eagerError: true);
           if (!await canContinueForOwner(uid)) return;
           final prepared = results[0] as _PreparedMembershipProduct?;
@@ -555,26 +663,12 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           uuid = identity.uuid;
         } on _CheckoutPreparationFailure catch (failure) {
           stage = failure.stage;
+          preparationFailureDurationMs = failure.durationMs;
           throw failure.error;
         }
         if (!await canContinueForOwner(uid)) return;
-        // A page refresh can finish while store or identity preparation waits.
-        // Re-read the in-memory catalog, never a new products API request.
-        stage = 'read_catalog';
-        final latestProducts = await readCheckoutProducts();
-        if (!await canContinueForOwner(uid)) return;
-        if (!latestProducts.products.any(
-          (p) =>
-              p.provider == product.provider &&
-              p.planCode == product.planCode &&
-              p.storeProductId == product.storeProductId &&
-              p.basePlanId == product.basePlanId &&
-              p.offerId == product.offerId &&
-              p.priceAmount == product.priceAmount &&
-              p.priceCurrencyCode == product.priceCurrencyCode,
-        )) {
-          throw const MembershipPurchaseBlocked('eligibility_unavailable');
-        }
+        // The click owns its validated snapshot. Background catalog replacement
+        // must not invalidate this attempt; account/session checks remain above.
         final record = MembershipPurchaseRecord(
           requestId: id,
           tracking: _attemptTracking[id],
@@ -586,12 +680,12 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           priceCurrencyCode: preparedProduct.priceCurrencyCode,
         );
         // Retain the selected plan in memory until the store callback arrives.
-        stage = 'prepare_order';
+        enterStage('prepare_order');
         await _save(record);
         if (!await canContinueForOwner(uid)) return;
         final purchaseGuest = guest;
         if (purchaseGuest != null) {
-          stage = 'persist_guest_identity';
+          enterStage('persist_guest_identity');
           await _serialize(() async {
             if (!await canContinueForOwner(uid)) return;
             final previous = _guestClaims[purchaseGuest.accountUuid];
@@ -611,16 +705,32 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         _setState(MembershipCheckoutState.store, attemptId: id);
         wait.launchRequested = true;
-        stage = 'launch_store';
+        enterStage('launch_store');
         final launchClock = Stopwatch()..start();
-        final launched = await platform
-            .launch(
-              preparedProduct,
-              uuid,
-              onStoreHandoff: onStoreHandoff,
-              checkoutAttemptId: id,
-            )
-            .whenComplete(() {
+        final launched =
+            await StoreProductAccess.withCheckoutGuard(
+              canContinue,
+              () => recovery.run(
+                action: () => platform.launch(
+                  preparedProduct,
+                  uuid,
+                  onStoreHandoff: onStoreHandoff,
+                  checkoutAttemptId: id,
+                ),
+                refresh: () async {
+                  await refreshProduct();
+                  preparedProduct = refreshedProduct!;
+                  await _save(
+                    record.copyWith(
+                      product: product,
+                      priceAmountMicros: preparedProduct.priceAmountMicros,
+                      priceCurrencyCode: preparedProduct.priceCurrencyCode,
+                    ),
+                  );
+                },
+              ),
+              attemptId: id,
+            ).whenComplete(() {
               if (kDebugMode) {
                 debugPrint(
                   '[Membership][checkout_timing] stage=launch_store elapsed_ms=${launchClock.elapsedMilliseconds} click_elapsed_ms=${DateTime.now().difference(startedAt).inMilliseconds}',
@@ -639,7 +749,19 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           wait.timer?.cancel();
           wait.timer = Timer(_appleResultCallbackTimeout, () {
             if (!isCurrent()) return;
-            analytics.timeout(_attemptTracking[id]!, 'store_callback');
+            analytics.timeout(
+              _attemptTracking[id]!,
+              'store_callback',
+              diagnostics: {
+                'provider': provider.name,
+                'attempt_id': id,
+                'store_handoff_started': wait.storeHandedOff,
+                'store_callback_received': wait.storeCallbackReceived,
+                'total_duration_ms': DateTime.now()
+                    .difference(startedAt)
+                    .inMilliseconds,
+              },
+            );
             _release(id);
             _setState(
               MembershipCheckoutState.deferred,
@@ -653,13 +775,30 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             // This is an unconfirmed result, not a new purchase or a failure.
           });
         }
-      } catch (error) {
+      } catch (error, stackTrace) {
         // Expired operations and completed callbacks cannot overwrite a newer UI.
         if (!canContinue()) return;
         _trackPreparationFailure(
           id,
           stage,
           _preparationFailure(preparationError ?? error, stage),
+          error: preparationError ?? error,
+          stackTrace: stackTrace,
+          context: {
+            'attempt_id': id,
+            'plan_code': product.planCode,
+            'store_product_id': product.storeProductId,
+            'base_plan_id': product.basePlanId,
+            'offer_id': product.offerId,
+            'total_duration_ms': DateTime.now()
+                .difference(startedAt)
+                .inMilliseconds,
+            'stage_duration_ms':
+                preparationFailureDurationMs ??
+                DateTime.now().difference(stageStartedAt).inMilliseconds,
+            'store_handoff_started': wait.storeHandedOff,
+            'store_callback_received': wait.storeCallbackReceived,
+          },
         );
         final record = _records[attemptId];
         if (record != null && record.state == 'prepared') {
@@ -690,7 +829,12 @@ class MembershipPurchaseService with WidgetsBindingObserver {
               : MembershipCheckoutState.failed,
           attemptId: id,
           storeFailure: storeFailure,
-          reason: error is MembershipPurchaseBlocked ? error.reason : null,
+          reason: error is MembershipPurchaseBlocked
+              ? error.reason
+              : error is PlatformException &&
+                    error.code == 'product_details_changed'
+              ? 'eligibility_unavailable'
+              : null,
           debugInfo: purchaseDebugInfo(
             'vip.$stage',
             status: 'failed',
@@ -882,9 +1026,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         if (pending.length == 1) record = pending.single;
       }
     }
-    if (record == null && purchase.status == BillingPurchaseStatus.purchased) {
-      record = await _recordForCurrentAccountPurchase(purchase);
-    }
     if (record == null) {
       // An unmatched purchased callback must not report, track, or initiate
       // guest recovery for another account. Restore history has its own path.
@@ -924,6 +1065,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           (isCurrentGoogleCheckout && storeAccountUuid.isNotEmpty);
       if ((!hasCheckoutIdentity && !hasMatchingStoreAccount) ||
           (record.guest == null && await readLoginUid() != record.ownerUid)) {
+        if (purchase.status == BillingPurchaseStatus.purchased) {
+          analytics.successSkipped(
+            _trackingFor(record),
+            'account_mismatch',
+            transactionIdentity: purchase.transactionId,
+          );
+        }
         debugPrint(
           '[Membership] ignored store callback without matching account ownership',
         );
@@ -948,76 +1096,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
   }
 
-  Future<MembershipPurchaseRecord?> _recordForCurrentAccountPurchase(
-    BillingPurchase purchase,
-  ) async {
-    final callbackUuid =
-        purchase.obfuscatedAccountId?.trim().toLowerCase() ?? '';
-    final credential = provider == MembershipProvider.google
-        ? purchase.purchaseToken.trim()
-        : purchase.transactionId.trim();
-    if (!isMembershipAccountUuid(callbackUuid) ||
-        credential.isEmpty ||
-        purchase.productId.trim().isEmpty) {
-      return null;
-    }
-    final session = _session;
-    try {
-      final uid = await readLoginUid();
-      MembershipProductList? products;
-      String currentUuid;
-      if (uid == null) {
-        products = await readCheckoutProducts();
-        currentUuid = products.lastAccountUuid ?? '';
-      } else {
-        currentUuid = await loadAccountUuid();
-      }
-      currentUuid = currentUuid.trim().toLowerCase();
-      if (_disposed ||
-          session != _session ||
-          await readLoginUid() != uid ||
-          currentUuid != callbackUuid) {
-        return null;
-      }
-      // A live catalog is not needed to report a verified store product. Guest
-      // checkouts already read it to resolve their current account UUID.
-      final matches = products?.products.where(
-        (product) =>
-            product.provider == provider &&
-            product.storeProductId == purchase.productId,
-      );
-      final product = matches?.isNotEmpty == true
-          ? matches!.first
-          : MembershipOrderProduct(
-              planCode: 'unknown',
-              provider: provider,
-              storeProductId: purchase.productId,
-            );
-      if (_disposed || session != _session || await readLoginUid() != uid) {
-        return null;
-      }
-      final identity = purchase.transactionId.trim().isNotEmpty
-          ? purchase.transactionId.trim()
-          : credential;
-      final tracking = SubscriptionTracking.recovery(
-        '${provider.name}:purchase:$identity',
-      );
-      return MembershipPurchaseRecord(
-        requestId: tracking.id,
-        tracking: tracking,
-        product: product,
-        accountUuid: callbackUuid,
-        ownerUid: uid,
-        guest: uid == null
-            ? MembershipGuestIdentity(accountUuid: callbackUuid)
-            : null,
-      );
-    } catch (error) {
-      _log('purchase ownership check deferred', error);
-      return null;
-    }
-  }
-
   Future<void> _handleCheckoutRecord(
     MembershipPurchaseRecord record,
     BillingPurchase purchase,
@@ -1029,11 +1107,14 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       _signedTransactions['${record.accountUuid}:${purchase.transactionId}'] =
           purchase.signedTransaction;
     }
-    if (_reportedRequestIds.contains(record.requestId) &&
-        (provider == MembershipProvider.apple ||
-            record.paid &&
-                (purchase.transactionId.isEmpty ||
-                    purchase.transactionId == record.transactionId))) {
+    // A completed/report-attempted checkout cannot accept a later renewal or
+    // replay as another user purchase. Unmatched history is ignored in _handle.
+    if (_reportedRequestIds.contains(record.requestId)) {
+      final tracking = _trackingFor(record);
+      if (purchase.status == BillingPurchaseStatus.purchased &&
+          tracking.successEventId != null) {
+        analytics.success(tracking, provider.name, purchase.transactionId);
+      }
       return;
     }
     if (provider == MembershipProvider.apple &&
@@ -1065,6 +1146,27 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           status: purchase.status.name,
         )!,
         fromStoreCallback: true,
+        diagnostics: paymentFailureDiagnostics(
+          provider: provider.name,
+          stage: 'callback',
+          message: purchase.errorMessage,
+          code: purchase.rawErrorCode ?? purchase.errorCode,
+          source: purchase.errorSource,
+          details: purchase.errorDetails,
+          status: purchase.status.name,
+          context: {
+            'attempt_id': record.requestId,
+            'store_callback_received': true,
+            'success_callback_received': false,
+            'plan_code': record.product.planCode,
+            'store_product_id': record.product.storeProductId,
+            'callback_product_id': purchase.productId,
+            'association': purchase.productId.isEmpty
+                ? 'client_inferred'
+                : 'store_product',
+            'purchase_token_present': purchase.purchaseToken.isNotEmpty,
+          },
+        ),
       );
       final failure = purchase.status == BillingPurchaseStatus.error
           ? membershipStoreError(
@@ -1132,7 +1234,27 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     await _save(record);
     _release(record.requestId);
     if (record.needsReceiptRecovery) {
-      _checkoutFailure(record.requestId, 'receipt_missing');
+      if (purchase.status == BillingPurchaseStatus.purchased) {
+        analytics.successSkipped(
+          _trackingFor(record),
+          _successIdentitySkipReason(record, purchase) ?? 'receipt_missing',
+          transactionIdentity: purchase.transactionId,
+        );
+      }
+
+      _checkoutFailure(
+        record.requestId,
+        'receipt_missing',
+        fromStoreCallback: true,
+        diagnostics: {
+          'stage': 'callback',
+          'step': 'validate_receipt',
+          'provider': provider.name,
+          'attempt_id': record.requestId,
+          'store_product_id': record.product.storeProductId,
+          'success_callback_received': true,
+        },
+      );
       _setState(
         MembershipCheckoutState.deferred,
         attemptId: record.requestId,
@@ -1167,33 +1289,37 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       );
       return;
     }
-    if (record.guest == null && await readLoginUid() != record.ownerUid) return;
-    final tracking = analytics.success(
-      _trackingFor(record),
-      provider.name,
-      purchase.transactionId,
-    );
+    if (record.guest == null && await readLoginUid() != record.ownerUid) {
+      analytics.successSkipped(
+        _trackingFor(record),
+        'account_mismatch',
+        transactionIdentity: purchase.transactionId,
+      );
+      return;
+    }
+    final returnedUuid = purchase.obfuscatedAccountId?.trim().toLowerCase();
+    final matchesPurchaseIdentity =
+        provider != MembershipProvider.apple ||
+        (returnedUuid != null &&
+            isMembershipAccountUuid(returnedUuid) &&
+            returnedUuid == record.accountUuid.trim().toLowerCase());
+    if (!matchesPurchaseIdentity) {
+      analytics.successSkipped(
+        _trackingFor(record),
+        _successIdentitySkipReason(record, purchase)!,
+        transactionIdentity: purchase.transactionId,
+      );
+    }
+    final tracking = matchesPurchaseIdentity
+        ? analytics.success(
+            _trackingFor(record),
+            provider.name,
+            purchase.transactionId,
+          )
+        : _trackingFor(record);
     _attemptTracking[record.requestId] = tracking;
     record = record.copyWith(tracking: tracking);
     await _save(record);
-    final eventReporter = purchaseEventReporting;
-    if (eventReporter != null) {
-      unawaited(
-        eventReporter.recordPurchase(
-          provider: provider.name,
-          productId: record.product.storeProductId,
-          kind: PurchaseEventKind.subscription,
-          purchaseIdentity: provider == MembershipProvider.google
-              ? record.purchaseToken
-              : record.transactionId,
-          transactionIdentity: record.transactionId.trim().isNotEmpty
-              ? record.transactionId
-              : record.purchaseToken,
-          priceAmountMicros: record.priceAmountMicros,
-          priceCurrencyCode: record.priceCurrencyCode,
-        ),
-      );
-    }
     await _prepareGuestClaimFromStore(record, purchase.purchaseTime);
     await _report(record);
     await _claimPendingGuests();
@@ -1254,6 +1380,20 @@ class MembershipPurchaseService with WidgetsBindingObserver {
                         stage: 'query',
                       ) ??
                       'unknown_error',
+            fromStoreCallback:
+                error is BillingPlatformException &&
+                error.code == 'membership_signed_transaction_missing',
+            diagnostics: paymentFailureDiagnostics(
+              provider: provider.name,
+              stage: 'callback',
+              error: error,
+              context: {
+                'step': 'validate_signed_transaction',
+                'attempt_id': record.requestId,
+                'store_product_id': record.product.storeProductId,
+                'success_callback_received': true,
+              },
+            ),
           );
           rethrow;
         }
@@ -1316,6 +1456,20 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         _catalogChanged();
       }
     }
+  }
+
+  String? _successIdentitySkipReason(
+    MembershipPurchaseRecord record,
+    BillingPurchase purchase,
+  ) {
+    if (provider != MembershipProvider.apple) return null;
+    final uuid = purchase.obfuscatedAccountId?.trim().toLowerCase() ?? '';
+    if (uuid.isEmpty) return 'account_uuid_missing';
+    if (!isMembershipAccountUuid(uuid)) return 'account_uuid_invalid';
+    if (uuid != record.accountUuid.trim().toLowerCase()) {
+      return 'account_uuid_mismatch';
+    }
+    return null;
   }
 
   String? _reportFailureMessage(MembershipPurchaseRecord? record) {
@@ -1488,7 +1642,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     if (_guestHomeSeen) unawaited(checkGuestPurchasesOnHome());
   }
 
-  void handleStreamError([Object? error]) {
+  void handleStreamError([Object? error, StackTrace? stackTrace]) {
     final reason =
         subscriptionStoreFailureReason(
           provider,
@@ -1499,7 +1653,18 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         'store_failure[stage=stream;status=error]';
     for (final entry in _checkoutWaits.entries) {
       if (!entry.value.storeCallbackReceived) {
-        _checkoutFailure(entry.key, reason, fromStoreStream: true);
+        _checkoutFailure(
+          entry.key,
+          reason,
+          fromStoreStream: true,
+          diagnostics: paymentFailureDiagnostics(
+            provider: provider.name,
+            stage: 'stream',
+            status: 'error',
+            stackTrace: stackTrace,
+            error: error,
+          ),
+        );
       }
     }
     _endCheckoutWaits(

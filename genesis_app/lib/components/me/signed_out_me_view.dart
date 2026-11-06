@@ -23,6 +23,7 @@ class SignedOutMeView extends StatefulWidget {
     this.descriptionFontSize = 12,
     this.titleLetterSpacing = 9,
     this.topSafeArea = true,
+    this.loginActionsBottomSpacing = 0,
   });
 
   final bool showLogo;
@@ -32,6 +33,7 @@ class SignedOutMeView extends StatefulWidget {
   final double descriptionFontSize;
   final double titleLetterSpacing;
   final bool topSafeArea;
+  final double loginActionsBottomSpacing;
   final IdentityProvider? loggingInProvider;
   final ValueChanged<IdentityProvider> onLogin;
   final ValueListenable<int>? reselectionListenable;
@@ -178,9 +180,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                     Column(
                       children: [
                         Text(
-                          GenesisL10n
-                              .current
-                              .meSignUpReward,
+                          GenesisL10n.current.meSignUpReward,
                           key: const ValueKey<String>('signed-out-gems-promo'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -199,7 +199,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                           loggingInProvider: widget.loggingInProvider,
                           onLogin: widget.onLogin,
                         ),
-                        const SizedBox(height: 38),
+                        SizedBox(height: 38 + widget.loginActionsBottomSpacing),
                         const LoginLegalText(),
                         const SizedBox(height: 28),
                       ],

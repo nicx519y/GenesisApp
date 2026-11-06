@@ -34,7 +34,11 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
 
   void _handlePurchaseStreamError(Object error, StackTrace stackTrace) {
     if (_disposed) return;
-    _onPurchaseStreamError?.call(error);
+    if (_onPurchaseStreamErrorWithStack != null) {
+      _onPurchaseStreamErrorWithStack(error, stackTrace);
+    } else {
+      _onPurchaseStreamError?.call(error);
+    }
     debugPrint('[Billing] purchase stream failed: $error');
     debugPrintStack(stackTrace: stackTrace);
     final activeAttempts = Map<String, BillingPurchaseAttempt>.of(
@@ -63,6 +67,12 @@ extension _GooglePlayBillingCheckout on GooglePlayBillingService {
               status: 'error',
             ) ??
             'store_failure[stage=stream;status=error]',
+        failureDiagnostics: _storeFailureDiagnostics(
+          error: error,
+          stackTrace: stackTrace,
+          stage: 'stream',
+          status: 'error',
+        ),
       );
       _clearActiveAttempt(entry.key, attempt);
       // The stream may deliver a purchased callback after its error event.

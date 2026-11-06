@@ -4,6 +4,7 @@ import 'package:adjust_sdk/adjust.dart';
 
 import '../channels/genesis_method_channels.dart';
 import 'device_id_service.dart';
+import 'gaid_reader.dart';
 
 class NativeDeviceIdService
     implements
@@ -51,16 +52,18 @@ class NativeDeviceIdService
           const Duration(seconds: 5).inMilliseconds,
         ),
       ),
-      _readAdjustIdentifier(Adjust.getGoogleAdId),
+      readGaid(),
     ]);
     final details = results[0] as Map<String, String>?;
     final adjustAdid = results[1] as String?;
-    final gaid = results[2] as String?;
+    final gaidResult = results[2] as GaidResult;
+    final gaid = gaidResult.id.isEmpty ? null : gaidResult.id;
     if (details == null) {
       return DeviceIdDiagnostics(
         deviceId: await getDeviceId(),
         adjustAdid: adjustAdid,
         gaid: gaid,
+        gaidSource: gaidResult.source,
       );
     }
 
@@ -68,6 +71,7 @@ class NativeDeviceIdService
       androidId: _displayValue(details['android_id']),
       adjustAdid: adjustAdid,
       gaid: gaid,
+      gaidSource: gaidResult.source,
       deviceId: _displayValue(details['device_id']) ?? 'unknown',
     );
   }

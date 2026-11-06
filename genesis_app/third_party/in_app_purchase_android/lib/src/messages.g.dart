@@ -502,6 +502,8 @@ class PlatformProductDetailsResponse {
     required this.billingResult,
     required this.productDetails,
     required this.unfetchedProductList,
+    this.cacheHit,
+    this.cacheAgeMs,
   });
 
   PlatformBillingResult billingResult;
@@ -510,8 +512,18 @@ class PlatformProductDetailsResponse {
 
   List<PlatformUnfetchedProduct> unfetchedProductList;
 
+  bool? cacheHit;
+
+  int? cacheAgeMs;
+
   List<Object?> _toList() {
-    return <Object?>[billingResult, productDetails, unfetchedProductList];
+    return <Object?>[
+      billingResult,
+      productDetails,
+      unfetchedProductList,
+      cacheHit,
+      cacheAgeMs,
+    ];
   }
 
   Object encode() {
@@ -526,6 +538,8 @@ class PlatformProductDetailsResponse {
           .cast<PlatformProductDetails>(),
       unfetchedProductList: (result[2]! as List<Object?>)
           .cast<PlatformUnfetchedProduct>(),
+      cacheHit: result[3] as bool?,
+      cacheAgeMs: result[4] as int?,
     );
   }
 
@@ -541,7 +555,9 @@ class PlatformProductDetailsResponse {
     }
     return _deepEquals(billingResult, other.billingResult) &&
         _deepEquals(productDetails, other.productDetails) &&
-        _deepEquals(unfetchedProductList, other.unfetchedProductList);
+        _deepEquals(unfetchedProductList, other.unfetchedProductList) &&
+        _deepEquals(cacheHit, other.cacheHit) &&
+        _deepEquals(cacheAgeMs, other.cacheAgeMs);
   }
 
   @override
@@ -1912,6 +1928,74 @@ class InAppPurchaseApi {
       isNullValid: false,
     );
     return pigeonVar_replyValue! as PlatformProductDetailsResponse;
+  }
+
+  Future<PlatformProductDetailsResponse> loadProductDetailsAsync(
+    PlatformQueryProduct product,
+    bool forceRefresh,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.in_app_purchase_android.InAppPurchaseApi.loadProductDetailsAsync$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[product, forceRefresh],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as PlatformProductDetailsResponse;
+  }
+
+  Future<void> invalidateProductDetails(List<String>? productIds) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.in_app_purchase_android.InAppPurchaseApi.invalidateProductDetails$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[productIds],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+  }
+
+  /// Reads only the current native plugin cache; null means query is needed.
+  Future<PlatformProductDetails?> getCachedProductDetails(
+    PlatformQueryProduct product,
+  ) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.in_app_purchase_android.InAppPurchaseApi.getCachedProductDetails$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[product],
+    );
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
+    return pigeonVar_replyValue as PlatformProductDetails?;
   }
 
   /// Wraps BillingClient#isFeatureSupported(String).

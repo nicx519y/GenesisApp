@@ -21,7 +21,7 @@ extension InAppPurchasePlugin: InAppPurchase2API {
   ) {
     Task {
       do {
-        let products = try await Product.products(for: identifiers)
+        let products = try await WorldoProductCache.shared.load(identifiers, force: true)
         let productMessages = products.map {
           $0.convertToPigeon
         }
@@ -37,6 +37,35 @@ extension InAppPurchasePlugin: InAppPurchase2API {
     }
   }
 
+  func loadProducts(
+    identifiers: [String], forceRefresh: Bool,
+    completion: @escaping (Result<[SK2ProductMessage], Error>) -> Void
+  ) {
+    Task { @MainActor in
+      do {
+        let products = try await WorldoProductCache.shared.load(identifiers, force: forceRefresh)
+        completion(
+          .success(
+            products.map {
+              var message = $0.convertToPigeon
+              let state = WorldoProductCache.shared.diagnostics[$0.id]
+              message.cacheHit = state?.0
+              message.cacheAgeMs = state?.1
+              return message
+            }))
+      } catch { completion(.failure(error)) }
+    }
+  }
+
+  func invalidateProducts(
+    identifiers: [String]?, completion: @escaping (Result<Void, Error>) -> Void
+  ) {
+    Task { @MainActor in
+      WorldoProductCache.shared.invalidate(identifiers)
+      completion(.success(()))
+    }
+  }
+
   /// Gets the appropriate product, then calls purchase on it.
   /// https://developer.apple.com/documentation/storekit/product/3791971-purchase
   func purchase(
@@ -44,8 +73,20 @@ extension InAppPurchasePlugin: InAppPurchase2API {
     completion: @escaping (Result<SK2ProductPurchaseResultMessage, Error>) -> Void
   ) {
     Task { @MainActor in
+      let diagnosticId = options?.handoffId ?? UUID().uuidString
+      let started = ProcessInfo.processInfo.systemUptime
+      func trace(_ stage: String) {
+        #if DEBUG
+          let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+          NSLog("[StoreKit][purchase_trace] id=%@ product=%@ stage=%@ elapsed_ms=%d", diagnosticId, id, stage, elapsed)
+        #endif
+      }
+      trace("native_enter")
       do {
-        guard let product = try await Product.products(for: [id]).first else {
+        trace("product_lookup_start")
+        guard let product = try await WorldoProductCache.shared.load([id], force: false).first
+        else {
+          trace("product_lookup_empty")
           let error = PigeonError(
             code: "storekit2_failed_to_fetch_product",
             message: "Storekit has failed to fetch this product.",
@@ -53,6 +94,16 @@ extension InAppPurchasePlugin: InAppPurchase2API {
           return completion(.failure(error))
         }
 
+        trace("product_lookup_complete")
+        if let expected = options?.expectedSignature, expected != product.purchaseSignature {
+          trace("product_signature_changed")
+          WorldoProductCache.shared.invalidate([id])
+          return completion(
+            .failure(
+              PigeonError(
+                code: "product_details_changed", message: "Product pricing or offers changed",
+                details: nil)))
+        }
         var purchaseOptions: Set<Product.PurchaseOption> = []
 
         if let appAccountToken = options?.appAccountToken,
@@ -85,31 +136,14 @@ extension InAppPurchasePlugin: InAppPurchase2API {
           }
         }
 
-        if product.type != .autoRenewable {
-          for await verificationResult in Transaction.unfinished {
-            switch verificationResult {
-            case .verified(let transaction):
-              if storeKitUnfinishedTransactionBlocksPurchase(
-                transaction, productID: id, productType: product.type)
-              {
-                let error = PigeonError(
-                  code: "storekit_duplicate_product_object",
-                  message:
-                    "There is a pending transaction for the same product identifier. Please either wait for it to be finished or finish it manually using `completePurchase` to avoid edge cases.",
-                  details: id)
-                return completion(.failure(error))
-              }
-            case .unverified:
-              break
-            }
-          }
-        }
-
-        // Native product lookup and non-subscription transaction checks stay within
-        // the app's preparation deadline. Never launch an expired checkout.
+        // Settlement is server-owned. Do not scan unfinished transactions or
+        // block a new purchase here; StoreKit decides the purchase outcome.
+        // Native product validation remains within the preparation deadline.
         if let handoffId = options?.handoffId {
+          trace("handoff_request")
           let allowed: Bool = await withCheckedContinuation { continuation in
             guard let channel = self.purchaseHandoffChannel else {
+              trace("handoff_channel_missing")
               continuation.resume(returning: false)
               return
             }
@@ -117,16 +151,22 @@ extension InAppPurchasePlugin: InAppPurchase2API {
               continuation.resume(returning: result as? Bool ?? false)
             }
           }
+          trace(allowed ? "handoff_allowed" : "handoff_denied")
           guard allowed else {
-            return completion(.failure(PigeonError(
-              code: "purchase_preparation_expired",
-              message: "The purchase preparation is no longer active.", details: nil)))
+            return completion(
+              .failure(
+                PigeonError(
+                  code: "purchase_preparation_expired",
+                  message: "The purchase preparation is no longer active.", details: nil)))
           }
         }
+        trace("storekit_purchase_call")
         let result = try await product.purchase(options: purchaseOptions)
+        trace("storekit_purchase_return")
 
         switch result {
         case .success(let verification):
+          trace("result_success_dispatch")
           sendTransactionUpdate(
             productId: id,
             transaction: verification.unsafePayloadValue,
@@ -135,21 +175,31 @@ extension InAppPurchasePlugin: InAppPurchase2API {
             checkoutAttemptId: options?.checkoutAttemptId
           )
         case .pending:
+          trace("result_pending_dispatch")
           sendTransactionUpdate(
             productId: id, status: .pending, checkoutAttemptId: options?.checkoutAttemptId)
         case .userCancelled:
+          trace("result_cancelled_dispatch")
           sendTransactionUpdate(
             productId: id, status: .cancelled, checkoutAttemptId: options?.checkoutAttemptId)
         @unknown default:
-          return completion(.failure(PigeonError(
-            code: "storekit2_unknown_purchase_result",
-            message: "An unknown StoreKit PurchaseResult has been encountered.", details: nil)))
+          trace("result_unknown")
+          return completion(
+            .failure(
+              PigeonError(
+                code: "storekit2_unknown_purchase_result",
+                message: "An unknown StoreKit PurchaseResult has been encountered.", details: nil)))
         }
+        trace("bridge_completion_success")
         completion(.success(result.convertToPigeon()))
       } catch {
-        completion(.failure(PigeonError(
-          code: "\(error)", message: "\(type(of: error))",
-          details: storeKitPurchaseErrorDetails(error))))
+        let nativeError = error as NSError
+        trace("error domain=\(nativeError.domain) code=\(nativeError.code)")
+        completion(
+          .failure(
+            PigeonError(
+              code: "\(error)", message: "\(type(of: error))",
+              details: storeKitPurchaseErrorDetails(error))))
       }
     }
   }
@@ -556,5 +606,107 @@ extension InAppPurchasePlugin: InAppPurchase2API {
       }
     }
     return nil
+  }
+}
+
+@available(iOS 15.0, macOS 12.0, *)
+extension Product {
+  var purchaseSignature: String {
+    var parts = [id, type.rawValue, price.description, priceFormatStyle.currencyCode]
+    if let info = subscription {
+      parts += [info.subscriptionGroupID, String(describing: info.subscriptionPeriod)]
+      var offers = info.promotionalOffers
+      if let offer = info.introductoryOffer { offers.append(offer) }
+      if #available(iOS 18.0, macOS 15.0, *) { offers.append(contentsOf: info.winBackOffers) }
+      parts += offers.map {
+        "\($0.id ?? "")|\($0.price)|\($0.period)|\($0.periodCount)|\($0.paymentMode)"
+      }.sorted()
+    }
+    return parts.joined(separator: ";")
+  }
+}
+
+/// One owner for StoreKit 2 Product objects, shared by lookup and purchase.
+@available(iOS 15.0, macOS 12.0, *)
+@MainActor
+final class WorldoProductCache {
+  static let shared = WorldoProductCache()
+  private var values: [String: (Product, TimeInterval)] = [:]
+  private var pending: [String: (Int, Bool, Task<Product?, Error>)] = [:]
+  private var versions: [String: Int] = [:]
+  private var storefront = StoreKitStorefrontState()
+  private var storefrontUpdates: Task<Void, Never>?
+  private var initialStorefrontRead: Task<Void, Never>?
+  private(set) var diagnostics: [String: (Bool, Int64)] = [:]
+
+  func invalidate(_ ids: [String]?) {
+    for id in ids ?? Array(versions.keys) {
+      versions[id, default: 0] += 1
+      values.removeValue(forKey: id)
+      diagnostics.removeValue(forKey: id)
+      pending.removeValue(forKey: id)
+    }
+  }
+
+  /// Started before checkout. Cache reads never await Storefront.current.
+  func startObservingStorefront() {
+    guard storefrontUpdates == nil else { return }
+    let initialVersion = storefront.updateVersion
+    storefrontUpdates = Task { @MainActor [weak self] in
+      for await value in Storefront.updates {
+        guard let self else { return }
+        if self.storefront.receiveUpdate(value.id) {
+          self.invalidate(nil)
+        }
+      }
+    }
+    initialStorefrontRead = Task { @MainActor [weak self] in
+      let id = await Storefront.current?.id
+      guard let self else { return }
+      _ = self.storefront.receiveInitial(id, version: initialVersion)
+    }
+  }
+
+  func load(_ ids: [String], force: Bool) async throws -> [Product] {
+    startObservingStorefront()
+    var result: [Product] = []
+    for id in Set(ids).sorted() {
+      if force && pending[id]?.1 != true {
+        versions[id, default: 0] += 1
+        pending.removeValue(forKey: id)
+      }
+      let version = versions[id, default: 0]
+      if !force, let (product, time) = values[id] {
+        diagnostics[id] = (true, Int64((ProcessInfo.processInfo.systemUptime - time) * 1000))
+        result.append(product)
+        continue
+      }
+      let task: Task<Product?, Error>
+      if let (_, _, existing) = pending[id] {
+        task = existing
+      } else {
+        task = Task { try await Product.products(for: [id]).first }
+        versions[id] = version
+        pending[id] = (version, force, task)
+      }
+      do {
+        let product = try await task.value
+        guard versions[id] == version else {
+          throw PigeonError(
+            code: "product_query_invalidated", message: "Product query was superseded", details: nil
+          )
+        }
+        pending.removeValue(forKey: id)
+        if let product {
+          diagnostics[id] = (false, 0)
+          values[id] = (product, ProcessInfo.processInfo.systemUptime)
+          result.append(product)
+        }
+      } catch {
+        if pending[id]?.0 == version { pending.removeValue(forKey: id) }
+        throw error
+      }
+    }
+    return result
   }
 }

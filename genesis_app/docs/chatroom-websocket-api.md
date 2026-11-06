@@ -1123,37 +1123,40 @@ replay guarantee. Player peers do not emit AI reply-state events.
 
 ## 客户端持续断线监控（Collect）
 
-`WorldChatroomService` 通过独立 `ChatroomDisconnectMonitor` 观察仍被业务需要的连接，不改变重连、join 或历史恢复逻辑。首次实际发起握手后，前台连续 15 秒仍未成功，或已成功连接异常断开后连续 15 秒未恢复，记录一次 `monitor / websocket_disconnect`。握手成功即取消观察，不等待 join/历史；重试不重置起点，无失败回调的连接卡住也覆盖。首次上报后，每次连接失败继续补报详情；握手恢复后清理本轮。主动断开、退出/切换 World、切账号、释放取消；后台取消，回前台仍需连接时重新观察 15 秒。异步网络读取期间恢复或取消会丢弃旧观察，旧 session/attempt 回调不能影响新观察。
+`WorldChatroomService` 每轮首次实际发起建连或已有连接断开时开始恢复观察，生成 recovery_id。首次连接不算重试；首次失败或断开后，前5次重试失败等待间隔为2秒，第5次之后为5秒；成功清零。本次完整建连流程（会话读取、头准备、Gateway签名、WS握手）单次截止5秒，仅本截止器产生ChatroomConnectDeadlineExceeded并记为卡住；底层主动返回的TimeoutException保留原始错误，按明确失败计数和常规间隔重试，超时立即开始下一次尝试，不额外叠加重试等待。复用取消令牌，超时/主动取消/切换身份后，迟到准备工作不能发起握手，迟到socket立即关闭，生产IO握手通过独立HttpClient强制关闭实现取消，不中断其他连接。join、历史加载不纳入建连截止时间。
 
+打点不再用15秒时间门槛。前台明确失败的重试累计5次（不含首次建连失败）上报一次 monitor / websocket_disconnect，cause=retry_exhausted；前台建连尝试累计超时2次（含首次超时）上报 cause=connect_stalled。超时不同时计入明确重试失败。混合情况分别累计，首个达到门槛的原因获报，同轮永不补报；任一门槛前握手成功则两个事件都不报；报过异常后成功以同ID报一次 websocket_reconnect_success 并清空本轮。握手成功不等待join/历史。主动取消、切World/账号、释放清空本轮。后台发起或后台返回的失败不推进打点门槛；前台发起次数计入connect_attempts，恢复耗时仅累计前台。前后台切换保留计数和ID、不新开一轮。连接调度的尝试数独立于前台打点计数，不据此改变后台重试行为。
 | action_type | action | object1 | object2 | object3 | object4 | ext_data |
 | --- | --- | --- | --- | --- | --- | --- |
-| monitor | websocket_disconnect | World ID | initial_connect / reconnect | 详细诊断 JSON，见下文 | 上报时 network_type | 有界诊断 JSON |
+| monitor | websocket_disconnect | World ID | initial_connect / reconnect | 不设置 | 观察开始时 network_type | 有界诊断 JSON |
 
-`object3` 使用下文详细诊断 JSON，其中 cause 保留本轮起始原因（无失败回调时为 unknown），attempt_details 记录每次具体异常。关闭码仅取实际 socket 值，缺失不补造。心跳无 ACK 不作为断线依据，仅明确发送失败进入异常观察。`object4` 不上报耗时；类型为 `none / wifi / mobile / ethernet / bluetooth / vpn / satellite / unknown`，多类型去重后按上述具体类型顺序以英文逗号分隔，如 `wifi,vpn`；`none` 不与具体类型并存。只记录平台实际可检测信息：Android 读取 active NetworkCapabilities，iOS NWPath 仅明确提供 Wi-Fi/蜂窝/以太网，不推测 VPN、蓝牙或卫星；无法识别/读取失败为 `unknown`。这些类型不是互联网或服务端可达性证明。
+`object3` 不设置，诊断仅放在 `ext_data`，其中 cause 标识达到门槛的类型（retry_exhausted/connect_stalled），initial_cause保留本轮起始原因，attempt_details 记录每次具体异常。关闭码仅取实际 socket 值，缺失不补造。心跳无 ACK 不作为断线依据，仅明确发送失败进入异常观察。`object4` 为观察开始时获取的网络快照，不上报耗时；类型为 `none / wifi / mobile / ethernet / bluetooth / vpn / satellite / unknown`，多类型去重后按上述具体类型顺序以英文逗号分隔，如 `wifi,vpn`；`none` 不与具体类型并存。只记录平台实际可检测信息：Android 读取 active NetworkCapabilities，iOS NWPath 仅明确提供 Wi-Fi/蜂窝/以太网，不推测 VPN、蓝牙或卫星；无法识别/读取失败为 `unknown`。这些类型不是互联网或服务端可达性证明。
 
 通过 `GenesisTelemetry.collectLog` 进入既有 SQLite Collect 队列，沿用公共身份快照、event_id 和时间戳；离线重试不重建事件，不走 event/report、Firebase 或 Adjust，不套用 HTTP 采样。诊断不主动读取消息正文、Token 或请求头，底层异常与堆栈仅有界摘要。受控测试与本地编译不等于真机/Collect 服务端入库验收。
 
 
 ### websocket_disconnect 详细诊断（2026-10-27）
 
-`action_type=monitor`；object1=world_id，object2=initial_connect/reconnect，object4=采样网络类型。object3 改为 JSON，包含 cause、connect_attempts、可用的 close_code/last_error_code，以及最近最多 10 条 attempt_details（截断历史不代表未发生）。object3 最多2000字符，ext_data 最多4000字符；超限优先删除旧详情并标记 history_truncated，确保 JSON 不被 Collect 截成非法字符串。
+`action_type=monitor`；object1=world_id，object2=initial_connect/reconnect，object4=观察开始时采样网络类型。object3 不设置，ext_data 为 JSON，包含 recovery_id（本轮 UUID）、cause、initial_cause、retry_failure_count、timeout_count、retry_failure_threshold=5、timeout_threshold=2、connect_attempts（本轮前台累计尝试次数）、可用的 close_code/last_error_code，以及最近最多 10 条 attempt_details（截断历史不代表未发生）。ext_data 最多4000字符；超限优先删除旧详情并标记 history_truncated，确保 JSON 不被 Collect 截成非法字符串。
 
-每条详情记录 attempt、UTC time、cause、连接失败时实测 connect_duration_ms、底层 error_type/error_message、SocketException 的 os_error_code/os_error_message、最多 8 行堆栈摘要，以及可取得的 ws_close_code/ws_close_reason/local_close_requested/local_close_reason。单条异常消息最多400字符、堆栈最多600字符。无原生信息不伪造：WebSocket.connect 不暴露 DNS/TCP/TLS 分段耗时，不上传这些字段及不可用原因；总耗时覆盖连接调用，不能解释为 TCP 耗时。
+每条详情记录 attempt、UTC time、cause、foreground（异常回调时是否前台）、连接失败时实测 connect_duration_ms、底层 error_type/error_message、SocketException 的 os_error_code/os_error_message、最多 8 行堆栈摘要，以及可取得的 ws_close_code/ws_close_reason/local_close_requested/local_close_reason。单条异常消息最多400字符、堆栈最多600字符。建连失败详情额外包含 failure_stage（validation / session_read / request_headers / gateway_signing / websocket_connect / session_setup）、target_scheme/target_host/target_port/target_path（不包含 URL 用户信息、query 和请求头）。request_headers 提供器既有逻辑会吞掉读取异常并继续，不将其误标为最终失败。transport_duration_ms 仅为实际 transport.connect 调用失败的耗时，connect_duration_ms 仍为服务层尝试总耗时。WebSocketException 有 httpStatusCode 时记录 http_status_code；SocketException 有 address/port 时记录 socket_address/socket_port；TlsException 有 osError 时也提取 os_error_code/os_error_message。底层没有提供的字段省略，不根据错误文案猜测状态码或网络阶段。以上放在 ext_data.attempt_details，不增加事件或补报。
 
-前台需要连接且持续断连15秒后首次上报，包含该观察窗口的失败详情；超过门槛后的每次失败补报。后台、恢复连接、取消连接或切换账号/世界清理观察。正常主动退出不新增异常事件。local_close_requested 是采样时真实 socket.close 调用状态，不能用后续清理动作倒推断连原因。连接恢复成功事件见下文。
+无原生信息不伪造：WebSocket.connect 不暴露 DNS/TCP/TLS 分段耗时，不上传这些字段及不可用原因；总耗时覆盖连接调用，不能解释为 TCP 耗时。
+
+仅在次数门槛达到后首报一次，包含当时最近最多10条失败详情；后续失败不补报。connect_timeout代表单次5秒截止，failure_stage保留超时所在阶段。网络采样异步读取，不阻塞门槛上报，未完成使用unknown。正常主动退出不新增异常事件。local_close_requested取采样时真实状态，不用后续清理动作倒推断连原因。
 
 
 ### WebSocket 重试成功监控
 
-`action_type=monitor`、`action=websocket_reconnect_success`。在首次连接失败后重试成功，或已建立连接异常中断后重新连接成功时上报；无需先达到15秒异常上报门槛。首次直接成功不报，同一成功回调不重复报，旧 attempt 忽略。成功表示底层 WS 连接建立，不代表 join、历史恢复或业务请求成功。
+`action_type=monitor`、`action=websocket_reconnect_success`。仅当本轮已经上报 websocket_disconnect 后，连接握手成功时上报一次；未达到次数门槛就成功的轮次两个事件都不报。每轮最多一条异常和一条成功，或仅一条尚无对应成功的异常。同一成功回调不重复报，旧 attempt 忽略。成功表示底层 WS 连接建立，不代表 join、历史恢复或业务请求成功。
 
 - object1：World ID。
-- object2：retry_count。首次建联失败后的重试不含最初一次；已连接中断后的恢复，每次连接尝试均算重试，均包含最后成功的一次。
-- object3：duration_ms，从本轮初始连接尝试/已知断连起到连接成功的前台累计毫秒数，包含前台重试间隔，排除后台停留。
+- object2：retry_count。只统计前台发起的尝试。首次建联不计最初一次（仅当该次在前台发起才从前台计数中扣除）；已连接中断后，前台发起的每次尝试均算重试。成功一次仅在前台发起时计入，后台发起的成功不加次数，但仍为本轮已上报异常配对成功事件。
+- object3：duration_ms，从本轮首次发起建连/已知断连起到连接成功的前台累计毫秒数，包含前台重试等待间隔，排除后台停留。
 - object4：initial_connect / reconnect。
-- ext_data：connect_attempts（本轮连接尝试总数，含成功一次）、duration_unit=ms、duration_scope=foreground_recovery、success_stage=ws_connected。
+- ext_data：recovery_id（与本轮异常相同的 UUID）、connect_attempts（本轮前台连接尝试次数；按尝试发起时的前后台状态计数，后台发起的尝试不计入）、duration_unit=ms、duration_scope=foreground_recovery、attempts_scope=foreground、success_stage=ws_connected。
 
-前后台切换保留本轮恢复计数、暂停/恢复耗时累计；主动取消、切换账号/世界或释放清理恢复状态。打点异常不影响连接流程。
+前后台切换保留本轮状态；后台不累加尝试次数、暂停耗时累计，回前台恢复累计；主动取消、切换账号/世界或释放清理恢复状态。打点异常不影响连接流程。
 
 ### AI 自动重试的 attempt 隔离与本地撤回
 

@@ -385,6 +385,7 @@ class OriginUserInfo {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     this.followerCount = 0,
     this.followingCount = 0,
     this.friendCount = 0,
@@ -401,6 +402,7 @@ class OriginUserInfo {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final int followerCount;
   final int followingCount;
   final int friendCount;
@@ -416,6 +418,9 @@ class OriginUserInfo {
       gender: asString(json['gender']),
       age: asString(json['age']),
       membershipStatus: asUserMembershipStatus(json['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        json['membership_deluxe_status'],
+      ),
       uid: asString(json['uid']),
       name: asString(json['name']),
       avatar: avatarResource.displayUrl,

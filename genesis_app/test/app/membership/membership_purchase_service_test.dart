@@ -6,7 +6,6 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
-import 'package:genesis_flutter_android/app/telemetry/purchase_event_reporting.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
@@ -19,7 +18,6 @@ import 'package:genesis_flutter_android/platform/billing/membership_restore_reco
 import 'package:genesis_flutter_android/platform/billing/membership_store_purchase.dart';
 
 import '../../support/membership_fixtures.dart';
-import '../../support/recording_purchase_event_recorder.dart';
 
 const accountUuid = '4b74ec68-7abc-4cce-a223-e997e31dc811';
 const guest = MembershipGuestIdentity(
@@ -208,21 +206,21 @@ class Harness {
   Harness({
     this.provider = MembershipProvider.google,
     SubscriptionAnalytics? analytics,
-    PurchaseEventRecorder? purchaseEventReporting,
     Future<void> Function()? ensureStoreListening,
     Future<MembershipProductList> Function()? checkoutProducts,
+    Future<MembershipProductList> Function()? refreshCheckoutProducts,
     PendingStore? storage,
     bool restoreEnabled = false,
     bool claimEnabled = false,
     bool guestRecoveryEnabled = false,
     Duration retryDelay = const Duration(days: 1),
-    Duration attemptTimeout = const Duration(seconds: 90),
+    Duration attemptTimeout = const Duration(seconds: 30),
     Duration guestRecoveryTimeout = const Duration(seconds: 15),
   }) : store = storage ?? PendingStore() {
     service = MembershipPurchaseService(
       analytics: analytics,
-      purchaseEventReporting: purchaseEventReporting,
       ensureStoreListening: ensureStoreListening,
+      refreshCheckoutProducts: refreshCheckoutProducts,
       platform: platform,
       store: store,
       provider: provider,
@@ -412,16 +410,12 @@ void main() {
       '$provider prewarmed checkout deduplicates callbacks without Firebase purchase events',
       () async {
         final client = enableFirebaseAnalytics();
-        final purchaseEvents = RecordingPurchaseEventRecorder();
         final product = membershipProduct(provider: provider);
         final catalog = MembershipProductList(products: [product]);
         final h = Harness(
           provider: provider,
           checkoutProducts: () async => catalog,
-          purchaseEventReporting: purchaseEvents,
         );
-        h.platform.priceAmountMicros = 89990000;
-        h.platform.priceCurrencyCode = 'EUR';
         final preparation = h.service.prepareCheckout(product)!;
         addTearDown(preparation.invalidate);
         await _settleAnalytics();
@@ -433,15 +427,6 @@ void main() {
         await _settleAnalytics();
         expect(client.events, isEmpty);
         expect(h.reports, hasLength(1));
-        expect(purchaseEvents.calls, hasLength(1));
-        expect(
-          purchaseEvents.calls.single.kind,
-          PurchaseEventKind.subscription,
-        );
-        expect(purchaseEvents.calls.single.provider, provider.name);
-        expect(purchaseEvents.calls.single.productId, product.storeProductId);
-        expect(purchaseEvents.calls.single.priceAmountMicros, 89990000);
-        expect(purchaseEvents.calls.single.priceCurrencyCode, 'EUR');
         expect(h.service.state.value, MembershipCheckoutState.completed);
       },
     );
@@ -497,11 +482,7 @@ void main() {
       '$provider ignores an unlinked historical callback for another UUID',
       () async {
         final client = enableFirebaseAnalytics();
-        final purchaseEvents = RecordingPurchaseEventRecorder();
-        final h = Harness(
-          provider: provider,
-          purchaseEventReporting: purchaseEvents,
-        );
+        final h = Harness(provider: provider);
         await h.service.start();
         await h.service.interceptPurchase(
           h.purchase(uuid: 'other-account', directResult: false),
@@ -510,7 +491,6 @@ void main() {
 
         expect(h.reports, isEmpty);
         expect(client.events, isEmpty);
-        expect(purchaseEvents.calls, isEmpty);
       },
     );
 
@@ -916,11 +896,7 @@ void main() {
   test(
     'pending Apple payment is not completed or reported without a transaction',
     () async {
-      final purchaseEvents = RecordingPurchaseEventRecorder();
-      final h = Harness(
-        provider: MembershipProvider.apple,
-        purchaseEventReporting: purchaseEvents,
-      );
+      final h = Harness(provider: MembershipProvider.apple);
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(
         h.purchase(
@@ -931,10 +907,8 @@ void main() {
       );
       expect(h.reports, isEmpty);
       expect(h.store.records, isEmpty);
-      expect(purchaseEvents.calls, isEmpty);
       await h.service.interceptPurchase(h.purchase());
       expect(h.reports, hasLength(1));
-      expect(purchaseEvents.calls, hasLength(1));
       expect(h.store.records, isEmpty);
       expect(h.service.state.value, MembershipCheckoutState.completed);
     },
@@ -956,7 +930,7 @@ void main() {
   });
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider guest pending purchase reports after a matching restart',
+      '$provider guest pending purchase ignores purchased history after restart',
       () async {
         final storage = PendingStore();
         final first = Harness(provider: provider, storage: storage)..uid = null;
@@ -974,15 +948,14 @@ void main() {
         await restarted.service.interceptPurchase(
           restarted.purchase(directResult: false),
         );
-        expect(restarted.reports, hasLength(1));
-        expect(restarted.reports.single.guest?.accountUuid, guest.accountUuid);
-        expect(storage.confirmed, hasLength(1));
+        expect(restarted.reports, isEmpty);
+        expect(storage.confirmed, isEmpty);
       },
     );
   }
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider pending purchase reports a matching purchased callback after restart',
+      '$provider pending purchase ignores a matching purchased callback after restart',
       () async {
         final storage = PendingStore();
         final first = Harness(provider: provider, storage: storage);
@@ -1009,15 +982,15 @@ void main() {
         await restarted.service.interceptPurchase(
           restarted.purchase(directResult: false),
         );
-        expect(restarted.reports, hasLength(1));
-        expect(events.map((event) => event.action), ['subscription_success']);
+        expect(restarted.reports, isEmpty);
+        expect(events, isEmpty);
         expect(storage.records, isEmpty);
         await restarted.service.interceptPurchase(
           restarted.purchase(directResult: false),
         );
         await restarted.service.recover();
-        expect(restarted.reports, hasLength(1));
-        expect(events.map((event) => event.action), ['subscription_success']);
+        expect(restarted.reports, isEmpty);
+        expect(events, isEmpty);
       },
     );
     test(
@@ -1030,10 +1003,7 @@ void main() {
         );
         await h.service.start();
         await h.service.interceptPurchase(
-          h.purchase(
-            uuid: 'f66ced12-80d3-4f1e-9cf6-bec56dbaf453',
-            directResult: false,
-          ),
+          h.purchase(uuid: accountUuid, directResult: false),
         );
         expect(h.reports, isEmpty);
         expect(h.store.records, isEmpty);
@@ -1056,46 +1026,30 @@ void main() {
         expect(events, isEmpty);
       },
     );
-    test(
-      '$provider reports a matching callback when catalog lookup fails',
-      () async {
-        final h = Harness(provider: provider);
-        h.productsHandler = () async => throw StateError('catalog unavailable');
-        await h.service.start();
-        await h.service.interceptPurchase(h.purchase(directResult: false));
-        expect(h.reports, hasLength(1));
-        expect(h.reports.single.product.planCode, 'unknown');
-      },
-    );
-    test(
-      '$provider reports a matching callback when local cache read fails',
-      () async {
-        final h = Harness(provider: provider);
-        h.store.onLoad = () async => throw StateError('cache unavailable');
-        await h.service.interceptPurchase(h.purchase(directResult: false));
-        expect(h.reports, hasLength(1));
-      },
-    );
-  }
-  test(
-    'guest callback without a listed product keeps recoverable claim proof',
-    () async {
-      final storage = PendingStore();
-      final h = Harness(storage: storage)
-        ..uid = null
-        ..lastAccountUuid = guest.accountUuid
-        ..productsHandler = (() async => <MembershipProduct>[]);
+    test('$provider ignores history when catalog lookup fails', () async {
+      final h = Harness(provider: provider);
+      h.productsHandler = () async => throw StateError('catalog unavailable');
+      await h.service.start();
       await h.service.interceptPurchase(h.purchase(directResult: false));
-      expect(h.reports, hasLength(1));
-      expect(storage.confirmed.values.single.product.planCode, 'unknown');
-      expect(
-        MembershipPurchaseRecord.fromJson(
-          storage.confirmed.values.single.toJson(),
-        ).product.planCode,
-        'unknown',
-      );
-    },
-  );
+      expect(h.reports, isEmpty);
+    });
+    test('$provider ignores history when local cache read fails', () async {
+      final h = Harness(provider: provider);
+      h.store.onLoad = () async => throw StateError('cache unavailable');
+      await h.service.interceptPurchase(h.purchase(directResult: false));
+      expect(h.reports, isEmpty);
+    });
+  }
+  test('guest history without a listed product is ignored', () async {
+    final storage = PendingStore();
+    final h = Harness(storage: storage)
+      ..uid = null
+      ..lastAccountUuid = guest.accountUuid
+      ..productsHandler = (() async => <MembershipProduct>[]);
+    await h.service.interceptPurchase(h.purchase(directResult: false));
+    expect(h.reports, isEmpty);
+    expect(storage.confirmed, isEmpty);
+  });
   test(
     'session changes during preparation cannot launch for the new user',
     () async {
@@ -1123,11 +1077,11 @@ void main() {
     },
   );
   test(
-    'matching subscription callback reports without a local attempt; Gems stays separate',
+    'matching subscription history is ignored without a local attempt; Gems stays separate',
     () async {
       final h = Harness();
       expect(await h.service.interceptPurchase(h.purchase()), isTrue);
-      expect(h.reports, hasLength(1));
+      expect(h.reports, isEmpty);
       final gem = BillingPurchase(
         provider: BillingProvider.googlePlay,
         productId: 'gem-test',
@@ -1141,23 +1095,20 @@ void main() {
       expect(await h.service.interceptPurchase(gem), isFalse);
     },
   );
-  test(
-    'new Google renewal using same token reports once per transaction',
-    () async {
-      final h = Harness();
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase(transaction: 'order-1'));
-      await h.service.interceptPurchase(h.purchase(transaction: 'order-2'));
-      expect(h.reports, hasLength(2));
-      expect(h.reports.map((r) => r.transactionId), ['order-1', 'order-2']);
-      expect(h.reports.last.toJson(), h.reports.first.toJson());
-      await h.service.interceptPurchase(h.purchase(transaction: 'order-1'));
-      await h.service.interceptPurchase(h.purchase(transaction: 'order-2'));
-      expect(h.reports, hasLength(2));
-      expect(h.store.records, isEmpty);
-      expect(h.store.confirmed, isEmpty);
-    },
-  );
+  test('Google renewal without a new click does not report again', () async {
+    final h = Harness();
+    await h.service.purchase(h.product());
+    await h.service.interceptPurchase(h.purchase(transaction: 'order-1'));
+    await h.service.interceptPurchase(h.purchase(transaction: 'order-2'));
+    expect(h.reports, hasLength(1));
+    expect(h.reports.map((r) => r.transactionId), ['order-1']);
+    expect(h.reports.last.toJson(), h.reports.first.toJson());
+    await h.service.interceptPurchase(h.purchase(transaction: 'order-1'));
+    await h.service.interceptPurchase(h.purchase(transaction: 'order-2'));
+    expect(h.reports, hasLength(1));
+    expect(h.store.records, isEmpty);
+    expect(h.store.confirmed, isEmpty);
+  });
   test(
     'callback and foreground retry cannot double-report a receipt',
     () async {

@@ -149,7 +149,9 @@ class _PersonalizationGateState extends State<PersonalizationGate>
   }
 
   Future<void> _update() async {
-    if (!_foreground || _preparing) return;
+    if (!_foreground || _preparing || startupPromptSequence.loginBlocked) {
+      return;
+    }
     final store = widget.store;
     final snapshot = store.state.value;
     if (!_showing && snapshot.data != null && snapshot.uid != _preparedUid) {
@@ -314,13 +316,9 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                 },
                 subscriptionBuilder:
                     widget.subscriptionBuilder ??
-                    (context) => ProSubscriptionContent(
-                      topSpacing: 0,
-                      horizontalInset: 0,
-                      closeOnPurchaseSuccess: true,
+                    (context) => ProSubscriptionContent.purchaseSheet(
                       onCloseAfterPurchaseSuccess: () =>
                           Navigator.of(context).pop(),
-                      showHeading: false,
                     ),
               );
             },

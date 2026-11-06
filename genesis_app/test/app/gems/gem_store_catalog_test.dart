@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:genesis_flutter_android/platform/billing/store_product_access.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/gems/gem_store_catalog.dart';
@@ -11,6 +12,7 @@ class Store implements BillingPlatform {
   @override
   final BillingProvider provider;
   int calls = 0;
+  final List<bool> forcedQueries = [];
   int amount = 12000000000;
   String currency = 'KRW';
   String formatted = '₩12,000';
@@ -29,6 +31,7 @@ class Store implements BillingPlatform {
     String? offerId,
   }) async {
     calls++;
+    forcedQueries.add(StoreProductAccess.forceRefresh);
     await queryGate?.future;
     option = purchaseOptionId;
     offer = offerId;
@@ -66,6 +69,28 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test(
+    'first server snapshot is available before the platform query completes',
+    () async {
+      final store = Store(BillingProvider.appStore)
+        ..queryGate = Completer<void>();
+      final catalog = GemStoreCatalog(
+        loadProducts: () async => [product()],
+        platform: store,
+        namespace: 'first-display',
+        readOwner: () async => 'a',
+      );
+      final refresh = catalog.loadForEntry();
+      await pumpEventQueue();
+      expect(store.calls, 1);
+      expect(catalog.cached, hasLength(1));
+      expect(catalog.cached!.single.storeFormattedPrice, isNull);
+      expect(catalog.cached!.single.requiresStorePrice, true);
+      store.queryGate!.complete();
+      await refresh;
+      expect(catalog.cached!.single.storeFormattedPrice, isNotNull);
+    },
+  );
+  test(
     'entry keeps checkout cache during API then refreshes the store',
     () async {
       final response = Completer<List<GemProduct>>();
@@ -101,6 +126,54 @@ void main() {
       expect(store.calls, 2);
     },
   );
+
+  test(
+    'failed entry refresh keeps the cached products usable for checkout',
+    () async {
+      final response = Completer<List<GemProduct>>();
+      final store = Store(BillingProvider.appStore);
+      var calls = 0;
+      final catalog = GemStoreCatalog(
+        loadProducts: () async => ++calls == 1 ? [product()] : response.future,
+        platform: store,
+        namespace: 'entry-offline',
+        readOwner: () async => 'a',
+      );
+      await catalog.loadForEntry();
+      final initial = catalog.cached!;
+      final refresh = catalog.loadForEntry();
+      final secondEntry = catalog.loadForEntry();
+      await pumpEventQueue();
+      response.completeError(StateError('offline'));
+
+      expect(await refresh, same(initial));
+      expect(await secondEntry, same(initial));
+      expect(await catalog.confirm(initial.single), same(initial.single));
+      expect(catalog.queryingStore.value, isFalse);
+      expect(calls, 2);
+      expect(store.calls, 1);
+    },
+  );
+
+  test('failed entry refresh cannot use a previous account snapshot', () async {
+    final response = Completer<List<GemProduct>>();
+    var owner = 'a';
+    var calls = 0;
+    final catalog = GemStoreCatalog(
+      loadProducts: () async => ++calls == 1 ? [product()] : response.future,
+      platform: Store(BillingProvider.appStore),
+      namespace: 'entry-owner-change',
+      readOwner: () async => owner,
+    );
+    await catalog.loadForEntry();
+    final refresh = catalog.loadForEntry();
+    await pumpEventQueue();
+    owner = 'b';
+    final rejected = expectLater(refresh, throwsStateError);
+    response.completeError(StateError('offline'));
+    await rejected;
+  });
+
   GemProduct tagged(String tag) => GemProduct.fromJson({
     ...product().toJson(),
     'activity_text': tag,
@@ -113,17 +186,19 @@ void main() {
       var calls = 0;
       final fresh = Completer<List<GemProduct>>();
       final requested = Completer<void>();
+      final store = Store(BillingProvider.googlePlay);
       final catalog = GemStoreCatalog(
         loadProducts: () async {
           if (++calls == 1) return [tagged('New User')];
           if (!requested.isCompleted) requested.complete();
           return fresh.future;
         },
-        platform: Store(BillingProvider.googlePlay),
+        platform: store,
         namespace: 'test',
         readOwner: () async => 'a',
       );
       expect((await catalog.loadForEntry()).single.tagText, 'New User');
+      expect(store.forcedQueries.last, isTrue);
       final refresh = catalog.refreshAfterPurchase();
       final entry = catalog.loadForEntry();
       await requested.future;
@@ -137,6 +212,7 @@ void main() {
       expect(calls, 2);
       await catalog.loadForEntry();
       expect(calls, 3);
+      expect(store.forcedQueries, [true, true, true]);
       final restored = GemStoreCatalog(
         loadProducts: () async => [],
         platform: Store(BillingProvider.googlePlay),
@@ -303,6 +379,114 @@ void main() {
       expect(await source.confirm(displayed), isNull);
     },
   );
+  test(
+    'iOS confirmation reuses a product prepared by an in-flight load',
+    () async {
+      final store = Store(BillingProvider.appStore)
+        ..queryGate = Completer<void>();
+      final source = GemStoreCatalog(
+        loadProducts: () async => [product()],
+        platform: store,
+        namespace: 'test',
+        readOwner: () async => 'a',
+      );
+      final loading = source.load();
+      await pumpEventQueue();
+      final displayed = product().withStorePrice(
+        formatted: store.formatted,
+        micros: store.amount,
+        currency: store.currency,
+      );
+      final confirmation = source.confirm(displayed);
+      await pumpEventQueue();
+      expect(store.calls, 1);
+      store.queryGate!.complete();
+      await loading;
+      expect(await confirmation, isNotNull);
+      expect(store.calls, 1);
+    },
+  );
+
+  test('concurrent iOS confirmations share a missing product lookup', () async {
+    final store = Store(BillingProvider.appStore)..available = false;
+    final source = GemStoreCatalog(
+      loadProducts: () async => [product()],
+      platform: store,
+      namespace: 'test',
+      readOwner: () async => 'a',
+    );
+    final displayed = (await source.load()).single;
+    store.available = true;
+    store.queryGate = Completer<void>();
+    final first = source.confirm(displayed);
+    final second = source.confirm(displayed);
+    await pumpEventQueue();
+    expect(store.calls, 1);
+    store.queryGate!.complete();
+    expect(await first, isNotNull);
+    expect(await second, isNotNull);
+    expect(store.calls, 1);
+  });
+
+  test('concurrent A and B confirmations retain their own iOS SKU', () async {
+    final a = GemProduct.fromJson({
+      ...product().toJson(),
+      'product_id': 'pack-a',
+      'apple_product_id': 'apple-a',
+    });
+    final b = GemProduct.fromJson({
+      ...product().toJson(),
+      'product_id': 'pack-b',
+      'apple_product_id': 'apple-b',
+    });
+    final store = Store(BillingProvider.appStore)..available = false;
+    final source = GemStoreCatalog(
+      loadProducts: () async => [a, b],
+      platform: store,
+      namespace: 'test',
+      readOwner: () async => 'a',
+    );
+    final displayed = await source.load();
+    store.available = true;
+    store.queryGate = Completer<void>();
+    final first = source.confirm(displayed[0]);
+    final second = source.confirm(displayed[1]);
+    await pumpEventQueue();
+    expect(store.calls, 1);
+    store.queryGate!.complete();
+    final confirmedA = await first;
+    final confirmedB = await second;
+    expect(confirmedA?.productId, 'pack-a');
+    expect(confirmedA?.appleProductId, 'apple-a');
+    expect(confirmedB?.productId, 'pack-b');
+    expect(confirmedB?.appleProductId, 'apple-b');
+    expect(store.calls, 2);
+  });
+
+  test(
+    'account change while awaiting iOS prewarming rejects checkout',
+    () async {
+      var owner = 'a';
+      final store = Store(BillingProvider.appStore)
+        ..queryGate = Completer<void>();
+      final source = GemStoreCatalog(
+        loadProducts: () async => [product()],
+        platform: store,
+        namespace: 'test',
+        readOwner: () async => owner,
+      );
+      final loading = source.load();
+      await pumpEventQueue();
+      final confirmation = source.confirm(product());
+      await pumpEventQueue();
+      owner = 'b';
+      store.queryGate!.complete();
+      await loading;
+      expect(await confirmation, isNull);
+      expect(store.calls, 1);
+    },
+  );
+
   test(
     'missing store result retries store without reloading server products',
     () async {

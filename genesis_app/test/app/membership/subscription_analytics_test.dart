@@ -1,3 +1,5 @@
+import '../../support/membership_fixtures.dart' as fixtures;
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
@@ -22,10 +24,245 @@ void main() {
     id: 'checkout_page_click',
     source: SubscriptionSource.meMembership,
   );
+  test(
+    'skipped success deduplicates reasons without consuming normal success',
+    () {
+      analytics.successSkipped(
+        tracking,
+        'account_uuid_missing',
+        transactionIdentity: 'tx',
+      );
+      analytics.successSkipped(
+        tracking,
+        'account_uuid_missing',
+        transactionIdentity: 'tx',
+      );
+      expect(events.single.object3, 'account_uuid_missing');
+      final done = analytics.success(tracking, 'apple', 'tx');
+      analytics.success(done, 'apple', 'tx');
+      analytics.success(done, 'apple', 'tx');
+      expect(
+        events.where((e) => e.action == 'subscription_success'),
+        hasLength(1),
+      );
+      expect(
+        events
+            .where((e) => e.action == 'subscription_success_skipped')
+            .map((e) => e.object3),
+        ['account_uuid_missing', 'duplicate_transaction'],
+      );
+      analytics.success(done.copyWith(), 'apple', 'other-tx');
+      expect(events.last.object3, 'duplicate_tracking');
+    },
+  );
+  test(
+    'Android subscription carries base plan through all event types and persistence',
+    () {
+      final clicked = analytics.click(
+        'page',
+        SubscriptionSurface.page,
+        SubscriptionSource.meMembership,
+        isYearly: false,
+        storeProductId: 'premium',
+        basePlanId: 'premium-monthly',
+      );
+      final restored = SubscriptionTracking.fromJson(clicked.toJson())!;
+      analytics.pending(restored, 'store_callback_pending');
+      analytics.failed(restored, 'canceled');
+      analytics.timeout(restored, 'prepare');
+      analytics.success(restored, 'google', 'tx');
+      analytics.successSkipped(restored, 'duplicate_transaction');
+      analytics.claim(restored, 'completed');
+      expect(events, hasLength(7));
+      expect(events.map((e) => e.object2), everyElement('premium-monthly'));
+      expect(restored.storeProductId, 'premium');
+    },
+  );
+  test(
+    'Gems origins form validated non-nested subscription sources and survive persistence',
+    () {
+      for (final source in [
+        BillingPurchaseSource.meGems,
+        BillingPurchaseSource.tickNoBalance,
+        BillingPurchaseSource.msgLowBalance,
+        BillingPurchaseSource.msgNoBalance,
+      ]) {
+        final sub = SubscriptionSource.fromGemsEntry(source);
+        expect(sub.value, 'from_buy_gems_tab[${source.value}]');
+        final tracking = SubscriptionTracking(id: source.value, source: sub);
+        final restored = SubscriptionTracking.fromJson(tracking.toJson())!;
+        analytics.pending(restored, 'store_callback_pending');
+        analytics.success(restored, 'google', source.value);
+        expect(events.last.object1, sub.value);
+      }
+      expect(
+        SubscriptionSource.parse('from_buy_gems_tab[from_unknown]'),
+        SubscriptionSource.unknown,
+      );
+      expect(
+        SubscriptionSource.parse('from_buy_gems_tab[from_home_membership]'),
+        SubscriptionSource.unknown,
+      );
+      expect(
+        SubscriptionSource.parse(
+          'from_buy_gems_tab[from_subscription_tab[from_home_membership]]',
+        ),
+        SubscriptionSource.unknown,
+      );
+    },
+  );
   setUp(() {
     events = [];
     analytics = SubscriptionAnalytics(sink: events.add);
   });
+
+  test('unknown and recovery sources never reach the subscription sink', () {
+    for (final sourceTracking in [
+      const SubscriptionTracking(id: 'unknown'),
+      SubscriptionTracking.recovery('apple:transaction'),
+      SubscriptionTracking.fromJson({'id': 'legacy', 'source': 'removed'})!,
+    ]) {
+      analytics.pageShow(
+        sourceTracking.id,
+        SubscriptionSurface.page,
+        sourceTracking.source,
+        MembershipType.premium,
+      );
+      analytics.click(
+        sourceTracking.id,
+        SubscriptionSurface.page,
+        sourceTracking.source,
+        isYearly: false,
+      );
+      analytics.failed(sourceTracking, 'canceled');
+      analytics.timeout(sourceTracking, 'prepare');
+      analytics.pending(sourceTracking, 'store_callback_pending');
+      analytics.success(sourceTracking, 'apple', sourceTracking.id);
+      analytics.claim(sourceTracking, 'completed');
+    }
+    expect(events, isEmpty);
+  });
+
+  test(
+    'store product follows click and results while object3 stays unchanged',
+    () {
+      final t = analytics.click(
+        'sku-page',
+        SubscriptionSurface.page,
+        SubscriptionSource.meMembership,
+        isYearly: false,
+        storeProductId: 'premium_monthly',
+      );
+      final restored = SubscriptionTracking.fromJson(t.toJson())!;
+      analytics.pending(restored, 'store_callback_pending');
+      analytics.timeout(restored, 'prepare');
+      analytics.failed(restored, 'canceled');
+      analytics.success(restored, 'apple', 'transaction-1');
+      analytics.claim(restored, 'completed');
+      expect(events.map((e) => e.object2), everyElement('premium_monthly'));
+      expect(events.map((e) => e.object3), [
+        'monthly',
+        'store_callback_pending',
+        'prepare_failed[reason=timeout]',
+        'unknown_failed[reason=canceled]',
+        'transaction-1',
+        'completed',
+      ]);
+    },
+  );
+
+  test('timeout deduplicates separately and preserves later store results', () {
+    const t = SubscriptionTracking(
+      id: 'timeout-result',
+      source: SubscriptionSource.meMembership,
+      storeProductId: 'sku',
+    );
+    analytics.timeout(t, 'store_callback');
+    analytics.timeout(t, 'store_callback');
+    analytics.failed(
+      t,
+      'canceled',
+      once: true,
+      diagnostics: {'stage': 'callback'},
+    );
+    analytics.success(t, 'apple', 'late-transaction');
+    expect(events.map((e) => e.action), [
+      'subscription_failed',
+      'subscription_failed',
+      'subscription_success',
+    ]);
+    expect(events.first.object3, 'callback_failed[reason=timeout]');
+    expect(events[1].object3, 'callback_failed[reason=canceled]');
+    expect(events.last.object3, 'late-transaction');
+  });
+
+  for (final provider in MembershipProvider.values) {
+    for (final phase in ['callback', 'stream', 'prepare', 'busy']) {
+      test(
+        '$provider $phase failure retains attempt, tracking and store identifiers',
+        () async {
+          final h = support.Harness(provider: provider, analytics: analytics);
+          addTearDown(h.service.dispose);
+          final product = fixtures.membershipProduct(
+            provider: provider,
+            offerId: provider == MembershipProvider.google ? 'test-offer' : '',
+          );
+          h.productsHandler = () async => [product];
+          if (phase == 'busy') h.gemsBusy = true;
+          const runtimeId = 'runtime-attempt-distinct-from-tracking';
+          if (phase == 'prepare') h.accountUuidHandler = () async => '';
+          await h.service.purchase(
+            product,
+            attemptId: runtimeId,
+            tracking: tracking,
+          );
+          if (phase == 'callback') {
+            await h.service.interceptPurchase(
+              h.purchase(status: BillingPurchaseStatus.canceled),
+            );
+          } else if (phase == 'stream') {
+            h.service.handleStreamError(
+              StateError('listener error'),
+              StackTrace.fromString('billing.dart:42'),
+            );
+          }
+          final event = events.singleWhere(
+            (e) => e.action == 'subscription_failed',
+          );
+          final d = jsonDecode(event.extData) as Map;
+          expect(d['attempt_id'], runtimeId);
+          expect(d['tracking_id'], tracking.id);
+          expect(
+            d['provider'],
+            provider == MembershipProvider.google ? 'google' : 'apple',
+          );
+          expect(d['plan_code'], h.product().planCode);
+          expect(d['store_product_id'], h.product().storeProductId);
+          expect(d.containsKey('product_id'), false);
+          if (product.basePlanId.isNotEmpty) {
+            expect(d['base_plan_id'], product.basePlanId);
+          } else {
+            expect(d.containsKey('base_plan_id'), false);
+          }
+          if (product.offerId.isNotEmpty) {
+            expect(d['offer_id'], product.offerId);
+          } else {
+            expect(d.containsKey('offer_id'), false);
+          }
+          if (phase == 'callback') {
+            expect(event.object3, 'callback_failed[reason=canceled]');
+            expect(d['purchase_status'], 'canceled');
+            expect(d['event_status'], 'canceled');
+            expect(d['callback_product_id'], h.product().storeProductId);
+          } else if (phase == 'stream') {
+            expect(d['event_status'], 'error');
+            expect(d.containsKey('purchase_status'), false);
+            expect(d['payment_outcome'], 'unknown');
+          }
+        },
+      );
+    }
+  }
 
   test(
     'edit quota sheet and purchase use a distinct source with existing surface',
@@ -34,6 +271,7 @@ void main() {
         'edit-page',
         SubscriptionSurface.sheet,
         SubscriptionSource.chatEditSaveQuota,
+        MembershipType.deluxe,
       );
       final click = analytics.click(
         'edit-page',
@@ -42,8 +280,11 @@ void main() {
         isYearly: true,
       );
       analytics.failed(click, 'query_failed');
-      expect(events.every((e) => e.object1 == 'from_chat_edit_save_quota'), isTrue);
-      expect(events.first.object2, isEmpty);
+      expect(
+        events.every((e) => e.object1 == 'from_chat_edit_save_quota'),
+        isTrue,
+      );
+      expect(events.first.object2, 'Deluxe');
       expect(events.first.object3, 'subscription_sheet');
       expect(
         SubscriptionSource.parse('from_chat_edit_save_quota'),
@@ -59,11 +300,13 @@ void main() {
         'page',
         SubscriptionSurface.sheet,
         SubscriptionSource.dailyCheckIn,
+        MembershipType.premium,
       );
       analytics.pageShow(
         'page',
         SubscriptionSurface.sheet,
         SubscriptionSource.dailyCheckIn,
+        MembershipType.deluxe,
       );
       final first = analytics.click(
         'page',
@@ -81,7 +324,8 @@ void main() {
       expect(first.id, isNot(second.id));
       expect(events.first.action, 'subscription_page_show');
       expect(events.first.object1, 'from_daily_check_in');
-      expect(events.every((event) => event.object2.isEmpty), isTrue);
+      expect(events.first.object2, 'Premium');
+      expect(events.skip(1).every((event) => event.object2.isEmpty), isTrue);
       expect(events.first.object3, 'subscription_sheet');
       expect(events[1].action, 'subscription_purchase_click');
       expect(events[1].object1, 'from_daily_check_in');
@@ -106,7 +350,7 @@ void main() {
 
     expect(events.map((event) => event.action), [
       'subscription_pending',
-      'subscription_timeout',
+      'subscription_failed',
       'subscription_failed',
       'subscription_success',
       'subscription_claim_result',
@@ -117,15 +361,15 @@ void main() {
     );
     expect(events.map((event) => event.object3), [
       'store_callback_pending',
-      'report',
-      'report_rejected',
+      'report_failed[reason=timeout]',
+      'unknown_failed[reason=unknown_error]',
       'GPA.result',
       'completed',
     ]);
 
     final recovered = SubscriptionTracking.recovery('missing-click');
     analytics.failed(recovered, 'report_rejected');
-    expect(events.last.object1, 'from_unknown');
+    expect(events, hasLength(5));
   });
 
   for (final stage in ['precheck', 'query', 'launch']) {
@@ -155,7 +399,12 @@ void main() {
       );
       expect(failed, hasLength(1));
       expect(failed.single.object1, 'from_me_membership');
-      expect(failed.single.object2, isEmpty);
+      expect(
+        failed.single.object2,
+        h.product().provider == MembershipProvider.google
+            ? h.product().basePlanId
+            : h.product().storeProductId,
+      );
       expect(failed.single.object3, startsWith('${stage}_failed['));
       expect(h.reports, isEmpty);
     });
@@ -229,7 +478,7 @@ void main() {
   );
 
   test(
-    'report technical failure emits store success only without business retry',
+    'report technical failure emits store success and report failure without retry',
     () async {
       final h = support.Harness(analytics: analytics);
       var requests = 0;
@@ -255,9 +504,24 @@ void main() {
       await h.service.recover();
       await h.service.interceptPurchase(h.purchase(transaction: 'GPA.actual'));
       expect(requests, 1);
-      expect(events.map((e) => e.action), ['subscription_success']);
-      expect(events.single.object3, 'GPA.actual');
-      expect(events.every((e) => e.object2.isEmpty), isTrue);
+      expect(events.map((e) => e.action), [
+        'subscription_success',
+        'subscription_failed',
+        'subscription_success_skipped',
+      ]);
+      expect(events.first.object3, 'GPA.actual');
+      expect(events[1].object3, 'report_failed[reason=network_error]');
+      expect(events.last.object3, 'duplicate_transaction');
+      expect(
+        events.every(
+          (e) =>
+              e.object2 ==
+              (h.product().provider == MembershipProvider.google
+                  ? h.product().basePlanId
+                  : h.product().storeProductId),
+        ),
+        isTrue,
+      );
       expect(events.last.object1, 'from_me_membership');
       expect(
         h.reports.every((r) => !r.toJson().containsKey('request_id')),
@@ -300,7 +564,12 @@ void main() {
         'subscription_pending',
         'subscription_success',
       ]);
-      expect(events.last.object2, isEmpty);
+      expect(
+        events.last.object2,
+        h.product().provider == MembershipProvider.google
+            ? h.product().basePlanId
+            : h.product().storeProductId,
+      );
       expect(events.last.object1, 'from_me_membership');
     },
   );
@@ -360,7 +629,12 @@ void main() {
         'subscription_success',
         'subscription_claim_result',
       ]);
-      expect(events.last.object2, isEmpty);
+      expect(
+        events.last.object2,
+        h.product().provider == MembershipProvider.google
+            ? h.product().basePlanId
+            : h.product().storeProductId,
+      );
       expect(events.last.object1, 'from_me_membership');
       expect(events.last.object3, 'completed');
     },
@@ -439,10 +713,7 @@ void main() {
         tracking: tracking,
       );
       expect(events, hasLength(1));
-      expect(
-        events.single.object3,
-        'google[response_code=5;sub_response_code=2]',
-      );
+      expect(events.single.object3, 'callback_failed[reason=store_error]');
     },
   );
 
@@ -465,13 +736,13 @@ void main() {
       await purchase;
       blocked.completeError(StateError('late error'));
       await tester.pump();
-      expect(events.single.action, 'subscription_timeout');
-      expect(events.single.object3, 'prepare');
+      expect(events.single.action, 'subscription_failed');
+      expect(events.single.object3, 'prepare_failed[reason=timeout]');
     },
   );
 
   test(
-    'purchase stream reports failure immediately and deduplicates its callback',
+    'stream diagnostic does not suppress the later explicit store failure',
     () async {
       final h = support.Harness(analytics: analytics);
       await h.service.purchase(
@@ -484,11 +755,19 @@ void main() {
       );
       expect(events, hasLength(1));
       expect(events.single.action, 'subscription_failed');
-      expect(events.single.object3, 'google[response_code=-1]');
+      expect(
+        events.single.object3,
+        'stream_failed[reason=unknown_stream_error]',
+      );
       await h.service.interceptPurchase(
         h.purchase(status: BillingPurchaseStatus.error),
       );
-      expect(events, hasLength(1));
+      expect(events, hasLength(2));
+      expect(events.last.object3, 'callback_failed[reason=store_error]');
+      await h.service.interceptPurchase(
+        h.purchase(status: BillingPurchaseStatus.error),
+      );
+      expect(events, hasLength(2));
     },
   );
 
@@ -503,7 +782,10 @@ void main() {
       );
       h.service.handleStreamError();
       expect(events.single.action, 'subscription_failed');
-      expect(events.single.object3, 'store_failure[stage=stream;status=error]');
+      expect(
+        events.single.object3,
+        'stream_failed[reason=unknown_stream_error]',
+      );
 
       await h.service.interceptPurchase(h.purchase());
 
@@ -529,7 +811,10 @@ void main() {
       expect(h.platform.launches, 0);
       expect(events, hasLength(1));
       expect(events.single.action, 'subscription_failed');
-      expect(events.single.object3, startsWith('precheck_failed['));
+      expect(
+        events.single.object3,
+        startsWith(stage == 'catalog' ? 'query_failed[' : 'prepare_failed['),
+      );
     });
   }
 
@@ -553,7 +838,10 @@ void main() {
       await h.service.purchase(h.product(), tracking: tracking);
       expect(h.platform.launches, 0);
       expect(events, hasLength(1));
-      expect(events.single.object3, 'precheck_failed[local_storage_failed]');
+      expect(
+        events.single.object3,
+        'prepare_failed[reason=local_storage_failed]',
+      );
       final failingAnalytics = SubscriptionAnalytics(
         sink: (_) => throw StateError('telemetry broken'),
       );
@@ -593,7 +881,10 @@ void main() {
         'google',
         'GPA.later',
       );
-      expect(events, hasLength(1));
+      expect(
+        events.where((e) => e.action == 'subscription_success'),
+        hasLength(1),
+      );
       expect(state.successEventId, isNotNull);
       final restarted = SubscriptionAnalytics(sink: events.add);
       restarted.success(
@@ -601,7 +892,10 @@ void main() {
         'google',
         'GPA.later',
       );
-      expect(events, hasLength(1));
+      expect(
+        events.where((e) => e.action == 'subscription_success'),
+        hasLength(1),
+      );
     },
   );
 }

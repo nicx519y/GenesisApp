@@ -28,7 +28,8 @@ import 'pending_purchases_params_wrapper.dart';
 ///
 /// Wraps a
 /// [`PurchasesUpdatedListener`](https://developer.android.com/reference/com/android/billingclient/api/PurchasesUpdatedListener.html).
-typedef PurchasesUpdatedListener = void Function(PurchasesResultWrapper purchasesResult);
+typedef PurchasesUpdatedListener =
+    void Function(PurchasesResultWrapper purchasesResult);
 
 /// Wraps a [UserChoiceBillingListener](https://developer.android.com/reference/com/android/billingclient/api/UserChoiceBillingListener)
 typedef UserSelectedAlternativeBillingListener =
@@ -101,7 +102,8 @@ class BillingClient {
         hostCallbackHandler.disconnectCallbacks.length - 1,
         platformBillingChoiceMode(billingChoiceMode),
         switch (pendingPurchasesParams) {
-          final PendingPurchasesParamsWrapper params => pendingPurchasesParamsFromWrapper(params),
+          final PendingPurchasesParamsWrapper params =>
+            pendingPurchasesParamsFromWrapper(params),
           null => PlatformPendingPurchasesParams(enablePrepaidPlans: false),
         },
       ),
@@ -135,10 +137,36 @@ class BillingClient {
     return productDetailsResponseWrapperFromPlatform(
       await _hostApi.queryProductDetailsAsync(
         productList
-            .map((ProductWrapper product) => platformQueryProductFromWrapper(product))
+            .map(
+              (ProductWrapper product) =>
+                  platformQueryProductFromWrapper(product),
+            )
             .toList(),
       ),
     );
+  }
+
+  Future<ProductDetailsResponseWrapper> loadProductDetails(
+    ProductWrapper product, {
+    bool forceRefresh = false,
+  }) async => productDetailsResponseWrapperFromPlatform(
+    await _hostApi.loadProductDetailsAsync(
+      platformQueryProductFromWrapper(product),
+      forceRefresh,
+    ),
+  );
+
+  Future<void> invalidateProductDetails([List<String>? ids]) =>
+      _hostApi.invalidateProductDetails(ids);
+
+  /// Reads native memory only, without contacting Google Play.
+  Future<ProductDetailsWrapper?> getCachedProductDetails(
+    ProductWrapper product,
+  ) async {
+    final cached = await _hostApi.getCachedProductDetails(
+      platformQueryProductFromWrapper(product),
+    );
+    return cached == null ? null : productDetailsWrapperFromPlatform(cached);
   }
 
   /// Attempt to launch the Play Billing Flow for a given [productDetails].
@@ -237,7 +265,9 @@ class BillingClient {
     // broken by the original change to hard-code this on the Java side (instead
     // of making it a forwarding getter on the Dart side).
     return purchasesResultWrapperFromPlatform(
-      await _hostApi.queryPurchasesAsync(platformProductTypeFromWrapper(productType)),
+      await _hostApi.queryPurchasesAsync(
+        platformProductTypeFromWrapper(productType),
+      ),
       forceOkResponseCode: true,
     );
   }
@@ -250,7 +280,9 @@ class BillingClient {
   /// This wraps
   /// [`BillingClient#consumeAsync(ConsumeParams, ConsumeResponseListener)`](https://developer.android.com/reference/com/android/billingclient/api/BillingClient.html#consumeAsync(java.lang.String,%20com.android.billingclient.api.ConsumeResponseListener))
   Future<BillingResultWrapper> consumeAsync(String purchaseToken) async {
-    return resultWrapperFromPlatform(await _hostApi.consumeAsync(purchaseToken));
+    return resultWrapperFromPlatform(
+      await _hostApi.consumeAsync(purchaseToken),
+    );
   }
 
   /// Acknowledge an in-app purchase.
@@ -272,28 +304,39 @@ class BillingClient {
   /// This wraps
   /// [`BillingClient#acknowledgePurchase(AcknowledgePurchaseParams, AcknowledgePurchaseResponseListener)`](https://developer.android.com/reference/com/android/billingclient/api/BillingClient.html#acknowledgePurchase(com.android.billingclient.api.AcknowledgePurchaseParams,%20com.android.billingclient.api.AcknowledgePurchaseResponseListener))
   Future<BillingResultWrapper> acknowledgePurchase(String purchaseToken) async {
-    return resultWrapperFromPlatform(await _hostApi.acknowledgePurchase(purchaseToken));
+    return resultWrapperFromPlatform(
+      await _hostApi.acknowledgePurchase(purchaseToken),
+    );
   }
 
   /// Checks if the specified feature or capability is supported by the Play Store.
   /// Call this to check if a [BillingClientFeature] is supported by the device.
   Future<bool> isFeatureSupported(BillingClientFeature feature) async {
-    return _hostApi.isFeatureSupported(billingClientFeatureFromWrapper(feature));
+    return _hostApi.isFeatureSupported(
+      billingClientFeatureFromWrapper(feature),
+    );
   }
 
   /// Fetches billing config info into a [BillingConfigWrapper] object.
   Future<BillingConfigWrapper> getBillingConfig() async {
-    return billingConfigWrapperFromPlatform(await _hostApi.getBillingConfigAsync());
+    return billingConfigWrapperFromPlatform(
+      await _hostApi.getBillingConfigAsync(),
+    );
   }
 
   /// Checks if "AlterntitiveBillingOnly" feature is available.
   Future<BillingResultWrapper> isAlternativeBillingOnlyAvailable() async {
-    return resultWrapperFromPlatform(await _hostApi.isAlternativeBillingOnlyAvailableAsync());
+    return resultWrapperFromPlatform(
+      await _hostApi.isAlternativeBillingOnlyAvailableAsync(),
+    );
   }
 
   /// Shows the alternative billing only information dialog on top of the calling app.
-  Future<BillingResultWrapper> showAlternativeBillingOnlyInformationDialog() async {
-    return resultWrapperFromPlatform(await _hostApi.showAlternativeBillingOnlyInformationDialog());
+  Future<BillingResultWrapper>
+  showAlternativeBillingOnlyInformationDialog() async {
+    return resultWrapperFromPlatform(
+      await _hostApi.showAlternativeBillingOnlyInformationDialog(),
+    );
   }
 
   /// The details used to report transactions made via alternative billing
@@ -310,7 +353,9 @@ class BillingClient {
   // For example, show a message to inform users that their subscription payment
   // has been declined and provide options to take them to fix their payment method.
   Future<InAppMessageResultWrapper> showInAppMessages() async {
-    return inAppMessageResultWrapperFromPlatform(await _hostApi.showInAppMessages());
+    return inAppMessageResultWrapperFromPlatform(
+      await _hostApi.showInAppMessages(),
+    );
   }
 }
 
@@ -324,7 +369,10 @@ class BillingClient {
 class HostBillingClientCallbackHandler implements InAppPurchaseCallbackApi {
   /// Creates a new handler with the given singleton handlers, and no
   /// per-connection handlers.
-  HostBillingClientCallbackHandler(this.purchasesUpdatedCallback, this.alternativeBillingListener);
+  HostBillingClientCallbackHandler(
+    this.purchasesUpdatedCallback,
+    this.alternativeBillingListener,
+  );
 
   /// The handler for PurchasesUpdatedListener#onPurchasesUpdated.
   final PurchasesUpdatedListener purchasesUpdatedCallback;
@@ -333,7 +381,8 @@ class HostBillingClientCallbackHandler implements InAppPurchaseCallbackApi {
   UserSelectedAlternativeBillingListener? alternativeBillingListener;
 
   /// Handlers for onBillingServiceDisconnected, indexed by handle identifier.
-  final List<OnBillingServiceDisconnected> disconnectCallbacks = <OnBillingServiceDisconnected>[];
+  final List<OnBillingServiceDisconnected> disconnectCallbacks =
+      <OnBillingServiceDisconnected>[];
 
   @override
   void onBillingServiceDisconnected(int callbackHandle) {

@@ -115,7 +115,7 @@ void main() {
   );
 
   test(
-    'catalog refresh during in-flight preparation cannot launch old product',
+    'catalog refresh does not abort a click already preparing its product',
     () async {
       final p = membershipProduct(yearly: true);
       var catalog = MembershipProductList(products: [p]);
@@ -132,7 +132,8 @@ void main() {
       );
       gate.complete();
       await checkout;
-      expect(h.platform.launches, 0);
+      expect(h.platform.launches, 1);
+      expect(h.platform.product?.offerId, p.offerId);
     },
   );
 
@@ -218,7 +219,7 @@ void main() {
   );
 
   test(
-    'cold preparation cannot launch a product changed during query',
+    'cold preparation keeps its click snapshot during background refresh',
     () async {
       final p = membershipProduct(yearly: true);
       var catalog = MembershipProductList(products: [p]);
@@ -232,7 +233,8 @@ void main() {
       );
       gate.complete();
       await checkout;
-      expect(h.platform.launches, 0);
+      expect(h.platform.launches, 1);
+      expect(h.platform.product?.offerId, p.offerId);
     },
   );
 

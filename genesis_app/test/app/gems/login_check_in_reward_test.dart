@@ -108,10 +108,10 @@ void main() {
           expect(gem.calls, 1);
           expect(find.text('+100'), findsOneWidget);
           expect(find.text('+50'), findsNothing);
-          expect(find.text('Cancel'), findsOneWidget);
           expect(find.text('Check in'), findsOneWidget);
-          expect(find.text('Get 100'), findsNothing);
-          await tester.tap(find.text('Cancel'));
+          expect(find.text('Get 190'), findsNothing);
+          expect(find.text('Get 350.5'), findsOneWidget);
+          Navigator.of(tester.element(find.text('Daily Check-in'))).pop();
           await tester.pumpAndSettle();
         } else {
           expect(gem.calls, 0);
@@ -187,20 +187,13 @@ class _GemApi extends Fake implements GemV1Api {
           groupCode: 'daily',
           groupTitle: 'Daily',
           tasks: [
-            GemTask(
-              taskCode: 'daily_checkin',
-              title: 'Daily Check-in',
-              description: '',
-              rewardGemsCent: reward(),
-              rewardValidDays: 1,
-              cycleType: 'daily',
-              cycleKey: 'test-day',
-              progress: 0,
-              targetCount: 1,
-              progressText: '0/1',
-              status: 'in_progress',
-              actionText: 'Check in',
-            ),
+            GemTask.fromJson({
+              'task_code': 'daily_checkin',
+              'reward_gems_cent': reward(),
+              'reward_gems_cent_premium': 9000,
+              'reward_gems_cent_deluxe': 25050,
+              'status': 'in_progress',
+            }),
           ],
         ),
       ],

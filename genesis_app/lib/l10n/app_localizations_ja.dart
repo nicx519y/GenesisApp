@@ -2367,7 +2367,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get meSignUpContinue => '登録して続行';
 
   @override
-  String get meAccountLoggedAnotherDevice => '別の端末でアカウントにログインされています。';
+  String get meAccountLoggedAnotherDevice => 'ログインの有効期限が切れました。もう一度ログインしてください。';
 
   @override
   String get premiumSubscription => 'サブスクリプション';
@@ -2409,7 +2409,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get meDailyCheck => 'デイリーチェックイン';
 
   @override
-  String get gemsDailyCheckInReward => '100獲得';
+  String gemsDailyCheckInReward({required String amount}) {
+    return '$amount獲得';
+  }
 
   @override
   String get meCheck => 'チェックイン';
@@ -3746,4 +3748,100 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cameraRequestConflict => 'このリクエストは以前の送信内容と競合しています。内容は変更できません。';
+
+  @override
+  String get membershipExpiry => 'メンバーシップ有効期限';
+
+  @override
+  String get meSignUpClaimDeluxe => '登録してDeluxeを受け取る';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return '毎月最大 $amount ジェム';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ 年',
+      'other': '/ 月',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => '年単位で請求';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return '毎月最大 $amount ジェムと、自動更新される記憶。';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      'あらゆる展開、選択、登場人物を網羅し、プレイに合わせて書き直される物語の振り返りに加え、毎月最大 3,500 ジェムを獲得できます。';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      'タイムライン・登場人物・関係を通じて、プレイに合わせて更新され、キャラクターも覚えている記憶を利用できます。さらに、毎月最大 18,000 ジェムを獲得できます。';
+
+  @override
+  String get memoryMembershipDeluxeTagline => 'プレイに合わせて自動で更新される記憶。';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable => 'Deluxe はまだ利用できません。';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      '現在の Premium プランと価格を確認して登録できます。';
+
+  @override
+  String get memoryMembershipDraftPreview => 'デザインプレビュー · 価格と特典は未確定です';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return '$membership の詳細を表示';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      'タイムライン・登場人物・関係：重要な出来事、プロフィール、みんなの気持ち';
+
+  @override
+  String get memoryMembershipBenefitTimeline => 'タイムライン：重要な出来事を順番に';
+
+  @override
+  String get memoryMembershipBenefitCast => '登場人物：全員のプロフィールが更新され続ける';
+
+  @override
+  String get memoryMembershipBenefitBonds => '関係：お互いをどう思っているか';
+
+  @override
+  String get memoryMembershipRememberBenefit => 'キャラクターはそのすべてを覚えています';
+
+  @override
+  String get memoryMembershipSummaryBenefit => '記憶の範囲を超えて AI が覚えている物語の振り返り';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => 'インスピレーションが無制限';
+
+  @override
+  String get memoryMembershipEditingBenefit => '編集が無制限';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return '$membership 限定バッジ';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => 'ジェムのチャージ';
+
+  @override
+  String get mePurchasingDeluxe => 'Deluxe を購入中…';
+
+  @override
+  String get meWorldoDeluxeSubscription => 'Worldo Deluxe のサブスクリプションが有効になりました。';
 }

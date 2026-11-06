@@ -90,10 +90,24 @@ void main() {
     await reporter.reportStartup(uid: 'u_1');
 
     expect(payloads, hasLength(1));
-    expect(payloads.single['schema_version'], deviceInfoSchemaVersion);
+    for (final field in [
+      'schema_version',
+      'android_user_serial',
+      'android_user_type',
+      'gateway_public_key_hash',
+      'os_build_fingerprint_hash',
+      'signing_cert_sha256',
+      'manufacturer',
+      'model',
+    ]) {
+      expect(payloads.single, isNot(contains(field)));
+    }
     expect(payloads.single['trigger'], 'first_install');
     expect(payloads.single['device_id_source'], 'android_id');
-    expect(payloads.single['android_user_serial'], 0);
+    expect(payloads.single['device'], 'vivo,V2241A');
+    expect(payloads.single['adjust_adid'], '');
+    expect(payloads.single['gaid'], '');
+    expect(payloads.single['gaid_source'], '');
     expect(payloads.single, isNot(contains('device_id')));
     expect(payloads.single, isNot(contains('unexpected_field')));
     expect(store.state?.deviceId, 'android-id-1');
@@ -105,6 +119,7 @@ void main() {
       deviceId: 'android-id-1',
       adjustAdid: ' adjust-adid-1 ',
       gaid: ' gaid-1 ',
+      gaidSource: 'adjust',
       idfa: 'must-not-upload',
       idfv: 'must-not-upload',
     );
@@ -114,6 +129,7 @@ void main() {
 
     expect(payloads.single['adjust_adid'], 'adjust-adid-1');
     expect(payloads.single['gaid'], 'gaid-1');
+    expect(payloads.single['gaid_source'], 'adjust');
     expect(payloads.single, isNot(contains('idfa')));
     expect(payloads.single, isNot(contains('idfv')));
   });
@@ -230,7 +246,7 @@ void main() {
         deviceId: 'android-id-2',
         fields: <String, Object?>{
           ...deviceId.snapshot.fields,
-          'android_user_serial': 10,
+          'model': 'V2339',
         },
       );
       await reporter.reportStartup();

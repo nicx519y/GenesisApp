@@ -3,7 +3,7 @@ import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import '../../network/models/membership_product.dart';
-import 'store_query_cache.dart';
+import 'store_product_access.dart';
 
 class MembershipStorePrice {
   const MembershipStorePrice({
@@ -60,16 +60,39 @@ Future<ProductDetailsResponse> queryMembershipStoreProduct(
   InAppPurchase store,
   MembershipProduct product, {
   Future<ProductDetailsResponse> Function()? loader,
-}) => StoreQueryCache.load(
-  store,
-  'membership.${product.provider.name}.${product.storeProductId}.${product.basePlanId}.${product.offerId}',
-  loader ?? () => store.queryProductDetails({product.storeProductId}),
-  usable: (response) =>
-      response.error == null &&
-      response.productDetails.any(
-        (detail) => matchMembershipStorePrice(product, [detail]) != null,
-      ),
-);
+}) async {
+  await StoreProductAccess.ready();
+  if (loader != null) return loader();
+  if (product.provider != MembershipProvider.google) {
+    final response = await store.queryProductDetails({product.storeProductId});
+    return response;
+  }
+  final response = await store
+      .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
+      .loadProductDetails(
+        productId: product.storeProductId,
+        productType: ProductType.subs,
+        forceRefresh: StoreProductAccess.forceRefresh,
+      );
+
+  return ProductDetailsResponse(
+    productDetails: response.productDetailsList
+        .expand(GooglePlayProductDetails.fromProductDetails)
+        .toList(),
+    notFoundIDs: const [],
+    error: response.billingResult.responseCode == BillingResponse.ok
+        ? null
+        : IAPError(
+            source: 'google_play',
+            code: response.billingResult.responseCode.name,
+            message: response.billingResult.debugMessage ?? '',
+            details: {
+              'responseCode': response.billingResult.responseCode.name,
+              'subResponseCode': response.billingResult.subResponseCode,
+            },
+          ),
+  );
+}
 
 MembershipStorePrice? matchMembershipStorePrice(
   MembershipProduct config,

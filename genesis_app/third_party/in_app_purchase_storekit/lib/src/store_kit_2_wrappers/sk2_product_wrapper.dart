@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../../store_kit_2_wrappers.dart';
@@ -119,6 +120,7 @@ extension on SK2SubscriptionOfferMessage {
   SK2SubscriptionOffer convertFromPigeon() {
     return SK2SubscriptionOffer(
       id: id,
+
       price: price,
       type: type.convertFromPigeon(),
       period: period.convertFromPigeon(),
@@ -254,13 +256,19 @@ class SK2PriceLocale {
 
   /// Convert this instance of [SK2PriceLocale] to [SK2PriceLocaleMessage]
   SK2PriceLocaleMessage convertToPigeon() {
-    return SK2PriceLocaleMessage(currencyCode: currencyCode, currencySymbol: currencySymbol);
+    return SK2PriceLocaleMessage(
+      currencyCode: currencyCode,
+      currencySymbol: currencySymbol,
+    );
   }
 }
 
 extension on SK2PriceLocaleMessage {
   SK2PriceLocale convertFromPigeon() {
-    return SK2PriceLocale(currencyCode: currencyCode, currencySymbol: currencySymbol);
+    return SK2PriceLocale(
+      currencyCode: currencyCode,
+      currencySymbol: currencySymbol,
+    );
   }
 }
 
@@ -291,6 +299,7 @@ class SK2ProductPurchaseOptions {
     this.winBackOfferId,
     this.handoffId,
     this.checkoutAttemptId,
+    this.expectedSignature,
   });
 
   /// Sets a UUID to associate the purchase with an account in your system.
@@ -310,6 +319,7 @@ class SK2ProductPurchaseOptions {
 
   /// Echoed only on this call's result, never on background transactions.
   final String? checkoutAttemptId;
+  final String? expectedSignature;
 
   /// Convert to pigeon representation [SK2ProductPurchaseOptionsMessage].
   SK2ProductPurchaseOptionsMessage convertToPigeon() {
@@ -320,6 +330,7 @@ class SK2ProductPurchaseOptions {
       promotionalOffer: promotionalOffer,
       handoffId: handoffId,
       checkoutAttemptId: checkoutAttemptId,
+      expectedSignature: expectedSignature,
     );
   }
 }
@@ -327,10 +338,14 @@ class SK2ProductPurchaseOptions {
 extension on SK2ProductPurchaseResultMessage {
   SK2ProductPurchaseResult convertFromPigeon() {
     return switch (this) {
-      SK2ProductPurchaseResultMessage.success => SK2ProductPurchaseResult.success,
-      SK2ProductPurchaseResultMessage.userCancelled => SK2ProductPurchaseResult.userCancelled,
-      SK2ProductPurchaseResultMessage.pending => SK2ProductPurchaseResult.pending,
-      SK2ProductPurchaseResultMessage.unverified => SK2ProductPurchaseResult.unverified,
+      SK2ProductPurchaseResultMessage.success =>
+        SK2ProductPurchaseResult.success,
+      SK2ProductPurchaseResultMessage.userCancelled =>
+        SK2ProductPurchaseResult.userCancelled,
+      SK2ProductPurchaseResultMessage.pending =>
+        SK2ProductPurchaseResult.pending,
+      SK2ProductPurchaseResultMessage.unverified =>
+        SK2ProductPurchaseResult.unverified,
     };
   }
 }
@@ -339,6 +354,10 @@ extension on SK2ProductPurchaseResultMessage {
 /// The Product type represents the in-app purchases that you configure in
 /// App Store Connect and make available for purchase within your app.
 class SK2Product {
+  static final Object _forceKey = Object();
+  static Future<T> withFreshProducts<T>(Future<T> Function() action) =>
+      runZoned(action, zoneValues: {_forceKey: true});
+
   /// Creates a new [SKStorefrontWrapper] with the provided information.
   SK2Product({
     required this.id,
@@ -349,9 +368,15 @@ class SK2Product {
     required this.type,
     required this.priceLocale,
     this.subscription,
+    this.purchaseSignature,
+    this.cacheHit,
+    this.cacheAgeMs,
   });
 
   /// The unique product identifier.
+  final bool? cacheHit;
+  final int? cacheAgeMs;
+  final String? purchaseSignature;
   final String id;
 
   /// The localized display name of the product, if it exists.
@@ -379,8 +404,24 @@ class SK2Product {
   /// Given a list of identifiers, return a list of products
   /// If any of the identifiers are invalid or can't be found, they are excluded
   /// from the returned list.
+  static Future<void> invalidateProducts([List<String>? identifiers]) =>
+      hostApi2.invalidateProducts(identifiers);
+
+  static Future<List<SK2Product>> loadProducts(
+    List<String> identifiers, {
+    bool forceRefresh = false,
+  }) async {
+    final messages = await hostApi2.loadProducts(
+      identifiers,
+      forceRefresh || Zone.current[_forceKey] == true,
+    );
+    return messages.map((message) => message.convertFromPigeon()).toList();
+  }
+
   static Future<List<SK2Product>> products(List<String> identifiers) async {
-    final List<SK2ProductMessage?> productsMsg = await hostApi2.products(identifiers);
+    final List<SK2ProductMessage?> productsMsg = await hostApi2.products(
+      identifiers,
+    );
     if (productsMsg.isEmpty && identifiers.isNotEmpty) {
       throw PlatformException(
         code: 'storekit_no_response',
@@ -419,8 +460,14 @@ class SK2Product {
   }
 
   /// Checks if the user is eligible for a specific win back offer.
-  static Future<bool> isWinBackOfferEligible(String productId, String offerId) async {
-    final bool result = await hostApi2.isWinBackOfferEligible(productId, offerId);
+  static Future<bool> isWinBackOfferEligible(
+    String productId,
+    String offerId,
+  ) async {
+    final bool result = await hostApi2.isWinBackOfferEligible(
+      productId,
+      offerId,
+    );
 
     return result;
   }
@@ -431,6 +478,9 @@ class SK2Product {
       displayName: displayName,
       displayPrice: displayPrice,
       id: id,
+      purchaseSignature: purchaseSignature,
+      cacheHit: cacheHit,
+      cacheAgeMs: cacheAgeMs,
       localizedDescription: description,
       price: price,
       priceLocale: priceLocale.convertToPigeon(),
@@ -443,6 +493,9 @@ extension on SK2ProductMessage {
   SK2Product convertFromPigeon() {
     return SK2Product(
       id: id,
+      purchaseSignature: purchaseSignature,
+      cacheHit: cacheHit,
+      cacheAgeMs: cacheAgeMs,
       displayName: displayName,
       displayPrice: displayPrice,
       price: price,

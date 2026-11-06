@@ -11,6 +11,7 @@ extension Product {
     let currency = storeKitPriceCurrency(for: priceFormatStyle)
 
     return SK2ProductMessage(
+      purchaseSignature: purchaseSignature,
       id: id,
       displayName: displayName,
       localizedDescription: description,

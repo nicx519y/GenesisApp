@@ -407,6 +407,9 @@ struct SK2SubscriptionInfoMessage: Hashable, CustomStringConvertible {
 /// Generated class from Pigeon that represents data sent in messages.
 struct SK2ProductMessage: Hashable, CustomStringConvertible {
   /// The unique product identifier.
+  var cacheHit: Bool? = nil
+  var cacheAgeMs: Int64? = nil
+  var purchaseSignature: String? = nil
   var id: String
   /// The localized display name of the product, if it exists.
   var displayName: String
@@ -425,16 +428,22 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> SK2ProductMessage? {
-    let id = pigeonVar_list[0] as! String
-    let displayName = pigeonVar_list[1] as! String
-    let localizedDescription = pigeonVar_list[2] as! String
-    let price = pigeonVar_list[3] as! Double
-    let displayPrice = pigeonVar_list[4] as! String
-    let type = pigeonVar_list[5] as! SK2ProductTypeMessage
-    let subscription: SK2SubscriptionInfoMessage? = nilOrValue(pigeonVar_list[6])
-    let priceLocale = pigeonVar_list[7] as! SK2PriceLocaleMessage
+    let cacheHit: Bool? = nilOrValue(pigeonVar_list[0])
+    let cacheAgeMs: Int64? = nilOrValue(pigeonVar_list[1])
+    let purchaseSignature: String? = nilOrValue(pigeonVar_list[2])
+    let id = pigeonVar_list[3] as! String
+    let displayName = pigeonVar_list[4] as! String
+    let localizedDescription = pigeonVar_list[5] as! String
+    let price = pigeonVar_list[6] as! Double
+    let displayPrice = pigeonVar_list[7] as! String
+    let type = pigeonVar_list[8] as! SK2ProductTypeMessage
+    let subscription: SK2SubscriptionInfoMessage? = nilOrValue(pigeonVar_list[9])
+    let priceLocale = pigeonVar_list[10] as! SK2PriceLocaleMessage
 
     return SK2ProductMessage(
+      cacheHit: cacheHit,
+      cacheAgeMs: cacheAgeMs,
+      purchaseSignature: purchaseSignature,
       id: id,
       displayName: displayName,
       localizedDescription: localizedDescription,
@@ -447,6 +456,9 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
   }
   func toList() -> [Any?] {
     return [
+      cacheHit,
+      cacheAgeMs,
+      purchaseSignature,
       id,
       displayName,
       localizedDescription,
@@ -461,7 +473,10 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
     if Swift.type(of: lhs) != Swift.type(of: rhs) {
       return false
     }
-    return StoreKit2MessagesPigeonInternal.deepEquals(lhs.id, rhs.id)
+    return StoreKit2MessagesPigeonInternal.deepEquals(lhs.cacheHit, rhs.cacheHit)
+      && StoreKit2MessagesPigeonInternal.deepEquals(lhs.cacheAgeMs, rhs.cacheAgeMs)
+      && StoreKit2MessagesPigeonInternal.deepEquals(lhs.purchaseSignature, rhs.purchaseSignature)
+      && StoreKit2MessagesPigeonInternal.deepEquals(lhs.id, rhs.id)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.displayName, rhs.displayName)
       && StoreKit2MessagesPigeonInternal.deepEquals(
         lhs.localizedDescription, rhs.localizedDescription)
@@ -474,6 +489,9 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
 
   func hash(into hasher: inout Hasher) {
     hasher.combine("SK2ProductMessage")
+    StoreKit2MessagesPigeonInternal.deepHash(value: cacheHit, hasher: &hasher)
+    StoreKit2MessagesPigeonInternal.deepHash(value: cacheAgeMs, hasher: &hasher)
+    StoreKit2MessagesPigeonInternal.deepHash(value: purchaseSignature, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: id, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: displayName, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: localizedDescription, hasher: &hasher)
@@ -486,7 +504,7 @@ struct SK2ProductMessage: Hashable, CustomStringConvertible {
 
   public var description: String {
     return
-      "SK2ProductMessage(id: \(String(describing: id)), displayName: \(String(describing: displayName)), localizedDescription: \(String(describing: localizedDescription)), price: \(String(describing: price)), displayPrice: \(String(describing: displayPrice)), type: \(String(describing: type)), subscription: \(String(describing: subscription)), priceLocale: \(String(describing: priceLocale)))"
+      "SK2ProductMessage(cacheHit: \(String(describing: cacheHit)), cacheAgeMs: \(String(describing: cacheAgeMs)), purchaseSignature: \(String(describing: purchaseSignature)), id: \(String(describing: id)), displayName: \(String(describing: displayName)), localizedDescription: \(String(describing: localizedDescription)), price: \(String(describing: price)), displayPrice: \(String(describing: displayPrice)), type: \(String(describing: type)), subscription: \(String(describing: subscription)), priceLocale: \(String(describing: priceLocale)))"
   }
 }
 
@@ -642,6 +660,7 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
   var winBackOfferId: String? = nil
   var handoffId: String? = nil
   var checkoutAttemptId: String? = nil
+  var expectedSignature: String? = nil
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> SK2ProductPurchaseOptionsMessage? {
@@ -651,6 +670,7 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
     let winBackOfferId: String? = nilOrValue(pigeonVar_list[3])
     let handoffId: String? = nilOrValue(pigeonVar_list[4])
     let checkoutAttemptId: String? = nilOrValue(pigeonVar_list[5])
+    let expectedSignature: String? = nilOrValue(pigeonVar_list[6])
 
     return SK2ProductPurchaseOptionsMessage(
       appAccountToken: appAccountToken,
@@ -658,7 +678,8 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
       promotionalOffer: promotionalOffer,
       winBackOfferId: winBackOfferId,
       handoffId: handoffId,
-      checkoutAttemptId: checkoutAttemptId
+      checkoutAttemptId: checkoutAttemptId,
+      expectedSignature: expectedSignature
     )
   }
   func toList() -> [Any?] {
@@ -669,6 +690,7 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
       winBackOfferId,
       handoffId,
       checkoutAttemptId,
+      expectedSignature,
     ]
   }
   static func == (lhs: SK2ProductPurchaseOptionsMessage, rhs: SK2ProductPurchaseOptionsMessage)
@@ -683,6 +705,7 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.winBackOfferId, rhs.winBackOfferId)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.handoffId, rhs.handoffId)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.checkoutAttemptId, rhs.checkoutAttemptId)
+      && StoreKit2MessagesPigeonInternal.deepEquals(lhs.expectedSignature, rhs.expectedSignature)
   }
 
   func hash(into hasher: inout Hasher) {
@@ -693,11 +716,12 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
     StoreKit2MessagesPigeonInternal.deepHash(value: winBackOfferId, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: handoffId, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: checkoutAttemptId, hasher: &hasher)
+    StoreKit2MessagesPigeonInternal.deepHash(value: expectedSignature, hasher: &hasher)
   }
 
   public var description: String {
     return
-      "SK2ProductPurchaseOptionsMessage(appAccountToken: \(String(describing: appAccountToken)), quantity: \(String(describing: quantity)), promotionalOffer: \(String(describing: promotionalOffer)), winBackOfferId: \(String(describing: winBackOfferId)), handoffId: \(String(describing: handoffId)), checkoutAttemptId: \(String(describing: checkoutAttemptId)))"
+      "SK2ProductPurchaseOptionsMessage(appAccountToken: \(String(describing: appAccountToken)), quantity: \(String(describing: quantity)), promotionalOffer: \(String(describing: promotionalOffer)), winBackOfferId: \(String(describing: winBackOfferId)), handoffId: \(String(describing: handoffId)), checkoutAttemptId: \(String(describing: checkoutAttemptId)), expectedSignature: \(String(describing: expectedSignature)))"
   }
 }
 
@@ -992,6 +1016,11 @@ protocol InAppPurchase2API {
   func canMakePayments() throws -> Bool
   func products(
     identifiers: [String], completion: @escaping (Result<[SK2ProductMessage], Error>) -> Void)
+  func loadProducts(
+    identifiers: [String], forceRefresh: Bool,
+    completion: @escaping (Result<[SK2ProductMessage], Error>) -> Void)
+  func invalidateProducts(
+    identifiers: [String]?, completion: @escaping (Result<Void, Error>) -> Void)
   func purchase(
     id: String, options: SK2ProductPurchaseOptionsMessage?,
     completion: @escaping (Result<SK2ProductPurchaseResultMessage, Error>) -> Void)
@@ -1055,6 +1084,47 @@ class InAppPurchase2APISetup {
       }
     } else {
       productsChannel.setMessageHandler(nil)
+    }
+    let loadProductsChannel = FlutterBasicMessageChannel(
+      name:
+        "dev.flutter.pigeon.in_app_purchase_storekit.InAppPurchase2API.loadProducts\(channelSuffix)",
+      binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      loadProductsChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let identifiersArg = args[0] as! [String]
+        let forceRefreshArg = args[1] as! Bool
+        api.loadProducts(identifiers: identifiersArg, forceRefresh: forceRefreshArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      loadProductsChannel.setMessageHandler(nil)
+    }
+    let invalidateProductsChannel = FlutterBasicMessageChannel(
+      name:
+        "dev.flutter.pigeon.in_app_purchase_storekit.InAppPurchase2API.invalidateProducts\(channelSuffix)",
+      binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      invalidateProductsChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let identifiersArg: [String]? = nilOrValue(args[0])
+        api.invalidateProducts(identifiers: identifiersArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      invalidateProductsChannel.setMessageHandler(nil)
     }
     let purchaseChannel = FlutterBasicMessageChannel(
       name:

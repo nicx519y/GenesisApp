@@ -377,7 +377,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"show_opening_sheet":true,"show_personalization_form":true}}',
+            '{"err_no":0,"err_msg":"succ","data":{"show_opening_sheet":true,"show_personalization_form":true,"force_login":true}}',
       ),
     );
     final api = _apiWith(
@@ -399,6 +399,7 @@ void main() {
     expect(apiTransport.lastRequest!.bodyBytes, isNull);
     expect(config['show_opening_sheet'], isTrue);
     expect(config['show_personalization_form'], isTrue);
+    expect(config['force_login'], isTrue);
   });
 
   test('v1 app config omits uid for an anonymous startup', () async {
@@ -1597,13 +1598,13 @@ void main() {
               .having(
                 (error) => error.message,
                 'message',
-                'Your account is logged in on another device.',
+                'Your session has expired. Please sign in again.',
               ),
         ),
       );
       expect(
         await expired.future,
-        'Your account is logged in on another device.',
+        'Your session has expired. Please sign in again.',
       );
       expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
     },
@@ -4802,7 +4803,7 @@ void main() {
     expect(await api.hasAuthenticatedSession(), isFalse);
     expect(
       await sessionExpired.future,
-      'Your account is logged in on another device.',
+      'Your session has expired. Please sign in again.',
     );
     expect(identityAuth.refreshCount, 0);
     expect(

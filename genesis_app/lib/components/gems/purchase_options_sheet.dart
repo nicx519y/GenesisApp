@@ -1,9 +1,11 @@
+import 'memory_membership_style.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../app/attribution/adjust_device_registration.dart';
 import '../../app/membership/subscription_analytics.dart';
+import '../../platform/billing/billing_models.dart';
 import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/membership/membership_access_store.dart';
@@ -12,10 +14,38 @@ import '../common/genesis_bottom_sheet_panel.dart';
 import 'pro_subscription_content.dart';
 import 'gem_purchase_state.dart';
 import 'purchase_attribution_registration.dart';
+import 'purchase_legal_links.dart';
 import 'wallet_purchase_tabs.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 
 enum PurchaseSheetTab { subscription, buyGems }
+
+/// Shared frame for purchase sheets with either tabs or a title and action.
+class PurchaseSheetPanel extends StatelessWidget {
+  const PurchaseSheetPanel({
+    super.key,
+    required this.height,
+    required this.header,
+    required this.child,
+  });
+
+  static const heightFactor = 0.8;
+
+  final double height;
+  final Widget header;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => GenesisBottomSheetPanel(
+    title: '',
+    height: height,
+    padding: EdgeInsets.zero,
+    maintainBottomViewPadding: true,
+    insetBody: false,
+    header: header,
+    child: child,
+  );
+}
 
 /// Shared purchase shell with Wallet's tabs and subscription presentation.
 class PurchaseOptionsSheet extends StatefulWidget {
@@ -23,6 +53,7 @@ class PurchaseOptionsSheet extends StatefulWidget {
     super.key,
     required this.gemsBuilder,
     this.initialTab = PurchaseSheetTab.buyGems,
+    this.initialMembershipType,
     this.showBuyGems = true,
     this.membershipProductsLoader,
     this.subscriptionBuilder,
@@ -31,11 +62,14 @@ class PurchaseOptionsSheet extends StatefulWidget {
     this.subscriptionTracking,
     this.subscriptionSource = SubscriptionSource.unknown,
     this.onFirstBuyGems,
+    this.gemsSource = BillingPurchaseSource.unknown,
     this.attributionRegistration,
   });
 
   final WidgetBuilder gemsBuilder;
+  final BillingPurchaseSource gemsSource;
   final PurchaseSheetTab initialTab;
+  final MemoryMembershipTier? initialMembershipType;
   final bool showBuyGems;
   final MembershipCatalogLoader? membershipProductsLoader;
   final WidgetBuilder? subscriptionBuilder;
@@ -85,7 +119,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
           pageId: widget.analyticsPageId,
           source: initialTab == PurchaseSheetTab.subscription
               ? widget.subscriptionSource
-              : SubscriptionSource.buyGemsTab,
+              : SubscriptionSource.fromGemsEntry(widget.gemsSource),
         );
     _gemsVisited = initialTab == PurchaseSheetTab.buyGems;
     _subscriptionVisited = initialTab == PurchaseSheetTab.subscription;
@@ -156,58 +190,77 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
     if (membership != null) unawaited(membership.refresh());
   }
 
+  Color? _membershipColor;
+
   @override
   Widget build(BuildContext context) {
     return SubscriptionTrackingScope(
       page: _subscriptionTracking,
       child: GenesisDarkTheme(
         child: LayoutBuilder(
-          builder: (context, constraints) => GenesisBottomSheetPanel(
-            title: '',
+          builder: (context, constraints) => PurchaseSheetPanel(
             height: constraints.maxHeight,
-            padding: EdgeInsets.zero,
-            insetBody: false,
             header: GenesisActionSheetHeader.tabs(
-              tabs: WalletPurchaseTabs(controller: _tabs),
+              tabs: WalletPurchaseTabs(
+                controller: _tabs,
+                membershipColor: _membershipColor,
+                initialMembershipType: widget.initialMembershipType,
+                membershipCatalog: AppServicesScope.maybeOf(
+                  context,
+                )?.membershipCatalog,
+              ),
               trailing: widget.headerTrailing,
               showClose: true,
               closeButtonKey: const ValueKey('gem-purchase-sheet-close'),
               onClose: () => Navigator.of(context).pop(),
             ),
-            child: TabBarView(
-              key: const ValueKey('purchase-sheet-pages'),
+            child: WalletPurchaseTabView(
+              pageKey: const ValueKey('purchase-sheet-pages'),
               controller: _tabs,
               children: [
                 _PurchaseSheetPage(
-                  child: GenesisActionSheetBody(
-                    child: PurchaseCatalogEntry(
-                      revision: _entryRevisions[0],
-                      child: _subscriptionVisited
-                          ? widget.subscriptionBuilder?.call(context) ??
-                                ProSubscriptionContent(
-                                  refreshMembershipOnOpen: false,
-                                  productsLoader:
-                                      widget.membershipProductsLoader,
-                                  closeOnPurchaseSuccess: true,
-                                  topSpacing: 0,
-                                  horizontalInset: 0,
-                                  // Buy Gems starts its balance at the header
-                                  // boundary; this tab starts there too.
-                                  headingTopSpacing: 0,
-                                )
-                          : const SizedBox.expand(),
-                    ),
+                  child: PurchaseCatalogEntry(
+                    revision: _entryRevisions[0],
+                    child: !_subscriptionVisited
+                        ? const GemPurchaseTabPlaceholder.subscription(
+                            topSpacing: 0,
+                          )
+                        : widget.subscriptionBuilder != null
+                        ? GenesisActionSheetBody(
+                            child: widget.subscriptionBuilder!(context),
+                          )
+                        : ProSubscriptionContent.purchaseSheet(
+                            initialMembershipType: widget.initialMembershipType,
+                            onMembershipTypeChanged: (type) {
+                              if (mounted && _membershipColor != type.accent) {
+                                setState(() => _membershipColor = type.accent);
+                              }
+                            },
+                            refreshMembershipOnOpen: false,
+                            productsLoader: widget.membershipProductsLoader,
+                          ),
                   ),
                 ),
                 if (widget.showBuyGems)
                   _PurchaseSheetPage(
                     child: GenesisActionSheetBody(
-                      bottom: 10,
-                      child: PurchaseCatalogEntry(
-                        revision: _entryRevisions[1],
-                        child: _gemsVisited
-                            ? Builder(builder: widget.gemsBuilder)
-                            : const SizedBox.expand(),
+                      bottom: PurchaseLegalLinks.bottomSpacing,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: PurchaseCatalogEntry(
+                              revision: _entryRevisions[1],
+                              child: _gemsVisited
+                                  ? Builder(builder: widget.gemsBuilder)
+                                  : const GemPurchaseTabPlaceholder.gems(
+                                      horizontalInset: 0,
+                                      topSpacing: 0,
+                                    ),
+                            ),
+                          ),
+                          const PurchaseLegalLinks(),
+                        ],
                       ),
                     ),
                   ),

@@ -10,6 +10,8 @@ import 'package:genesis_flutter_android/components/onboarding/personalization_sh
 import 'package:genesis_flutter_android/pages/me/developer_personalization_preview.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
+import '../support/personalization_fixtures.dart';
+
 /// Renders the sheet the login flow raises, so its header and the benefit
 /// emphasis can be eyeballed without reaching the gate's one-shot trigger.
 void main() {
@@ -49,12 +51,10 @@ void main() {
               initialStep: PersonalizationStep.subscription,
               onSubmit: (_) async => PersonalizationNextStep.subscription,
               onSignIn: (_) async => const PersonalizationProfile(),
-              subscriptionBuilder: (context) => ProSubscriptionContent(
-                topSpacing: 0,
-                horizontalInset: 0,
-                showHeading: false,
-                productsLoader: loadPersonalizationPreviewCatalog,
-              ),
+              subscriptionBuilder: (context) =>
+                  ProSubscriptionContent.purchaseSheet(
+                    productsLoader: loadPersonalizationPreviewCatalog,
+                  ),
             ),
           ),
         ),

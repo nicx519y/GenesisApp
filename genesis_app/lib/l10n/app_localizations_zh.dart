@@ -2437,7 +2437,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get meAccountLoggedAnotherDevice =>
-      'Your account is logged in on another device.';
+      'Your session has expired. Please sign in again.';
 
   @override
   String get premiumSubscription => 'Subscription';
@@ -2479,7 +2479,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get meDailyCheck => 'Daily Check-in';
 
   @override
-  String get gemsDailyCheckInReward => 'Get 100';
+  String gemsDailyCheckInReward({required String amount}) {
+    return 'Get $amount';
+  }
 
   @override
   String get meCheck => 'Check in';
@@ -3885,6 +3887,110 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get cameraRequestConflict =>
       'This request conflicts with an earlier submission. Its details cannot be changed.';
+
+  @override
+  String get membershipExpiry => 'Membership Expiry';
+
+  @override
+  String get meSignUpClaimDeluxe => 'Sign up to claim Deluxe';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return 'Up to $amount Gems Monthly';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ year',
+      'other': '/ month',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => 'Billed annually';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return 'Up to $amount Gems monthly, plus self-updating memory.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      'Get a full recap of every twist, choice and character, rewritten as you play, plus up to 3,500 Gems every month.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      'Get Timeline, Cast and Bonds, a memory that updates as you play and that characters remember, plus up to 18,000 Gems every month.';
+
+  @override
+  String get memoryMembershipDeluxeTagline =>
+      'Memory that updates itself as you play.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable =>
+      'Deluxe is not available yet.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      'View current Premium plans and prices to subscribe.';
+
+  @override
+  String get memoryMembershipDraftPreview =>
+      'Design preview · prices and benefits are not confirmed';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return 'View $membership details';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      'Timeline, Cast and Bonds: key events, profiles, how everyone feels';
+
+  @override
+  String get memoryMembershipBenefitTimeline =>
+      'Timeline: every key event, in order';
+
+  @override
+  String get memoryMembershipBenefitCast =>
+      'Cast: a living profile of everyone';
+
+  @override
+  String get memoryMembershipBenefitBonds =>
+      'Bonds: how everyone feels about each other';
+
+  @override
+  String get memoryMembershipRememberBenefit => 'Characters remember all of it';
+
+  @override
+  String get memoryMembershipSummaryBenefit =>
+      'Story Recap the AI Remembers beyond Memory';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => 'Unlimited Inspirations';
+
+  @override
+  String get memoryMembershipEditingBenefit => 'Unlimited Editing';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return 'Exclusive $membership Badge';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => 'Gem Recharge';
+
+  @override
+  String get mePurchasingDeluxe => 'Purchasing Deluxe...';
+
+  @override
+  String get meWorldoDeluxeSubscription =>
+      'Your Worldo Deluxe subscription is now active.';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -6230,7 +6336,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get meSignUpContinue => '註冊後繼續';
 
   @override
-  String get meAccountLoggedAnotherDevice => '你的帳號已在其他裝置登入。';
+  String get meAccountLoggedAnotherDevice => '登入已過期，請重新登入。';
 
   @override
   String get premiumSubscription => '訂閱';
@@ -6272,7 +6378,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get meDailyCheck => '每日簽到';
 
   @override
-  String get gemsDailyCheckInReward => '領取 100';
+  String gemsDailyCheckInReward({required String amount}) {
+    return '領取 $amount';
+  }
 
   @override
   String get meCheck => '簽到';
@@ -7565,4 +7673,98 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get cameraRequestConflict => '此請求與先前的提交內容衝突，無法變更其內容。';
+
+  @override
+  String get membershipExpiry => '會員到期日';
+
+  @override
+  String get meSignUpClaimDeluxe => '註冊以領取 Deluxe';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return '每月最高 $amount 顆寶石';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ 年',
+      'other': '/ 月',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => '每年計費';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return '每月最高 $amount 顆寶石，另享自動更新的記憶。';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      '享有涵蓋每個轉折、選擇與角色的完整故事回顧，隨著遊玩持續改寫，每月還可獲得最高 3,500 顆寶石。';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      '享有時間軸、角色與關係，讓記憶隨著遊玩持續更新，並讓角色記住這些內容，每月還可獲得最高 18,000 顆寶石。';
+
+  @override
+  String get memoryMembershipDeluxeTagline => '隨著遊玩自動更新的記憶。';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable => 'Deluxe 尚未開放。';
+
+  @override
+  String get memoryMembershipPremiumCheckout => '查看目前的 Premium 方案與價格以訂閱。';
+
+  @override
+  String get memoryMembershipDraftPreview => '設計預覽 · 價格與權益尚未確認';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return '查看 $membership 詳情';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit => '時間軸、角色與關係：關鍵事件、人物檔案與每個人的感受';
+
+  @override
+  String get memoryMembershipBenefitTimeline => '時間軸：依序記下每個關鍵事件';
+
+  @override
+  String get memoryMembershipBenefitCast => '角色：每個人持續更新的檔案';
+
+  @override
+  String get memoryMembershipBenefitBonds => '關係：每個人對彼此的感受';
+
+  @override
+  String get memoryMembershipRememberBenefit => '角色會記住這一切';
+
+  @override
+  String get memoryMembershipSummaryBenefit => '超越記憶範圍，AI 仍記得的故事回顧';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => '無限靈感';
+
+  @override
+  String get memoryMembershipEditingBenefit => '無限編輯';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return '專屬 $membership 徽章';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => '寶石儲值';
+
+  @override
+  String get mePurchasingDeluxe => '正在購買 Deluxe…';
+
+  @override
+  String get meWorldoDeluxeSubscription => '你的 Worldo Deluxe 訂閱已生效。';
 }

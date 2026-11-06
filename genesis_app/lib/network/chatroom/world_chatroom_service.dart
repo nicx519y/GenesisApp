@@ -1,3 +1,4 @@
+import 'chatroom_connect_deadline.dart';
 import '../gem_balance_alert.dart';
 export '../gem_balance_alert.dart';
 import 'location_chat_send_gate.dart';
@@ -190,6 +191,8 @@ class WorldChatroomService {
     required ChatroomMessageStorage messageStorage,
     Duration heartbeatInterval = const Duration(seconds: 2),
     Duration reconnectInterval = const Duration(seconds: 5),
+    Duration fastReconnectInterval = const Duration(seconds: 2),
+    Duration connectionTimeout = const Duration(seconds: 5),
     Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
     Duration streamIdleTimeout = chatroomStreamIdleTimeout,
     bool refreshInitialSnapshotOnConnect = true,
@@ -217,6 +220,8 @@ class WorldChatroomService {
        _messageStorage = messageStorage,
        _heartbeatInterval = heartbeatInterval,
        _reconnectInterval = reconnectInterval,
+       _fastReconnectInterval = fastReconnectInterval,
+       _connectionTimeout = connectionTimeout,
        _conversationRoundTimeout = conversationRoundTimeout,
        _refreshInitialSnapshotOnConnect = refreshInitialSnapshotOnConnect;
 
@@ -451,6 +456,10 @@ class WorldChatroomService {
   final ChatroomMessageStorage _messageStorage;
   final Duration _heartbeatInterval;
   final Duration _reconnectInterval;
+  final Duration _fastReconnectInterval;
+  final Duration _connectionTimeout;
+  int _retryAttempts = 0;
+  NetworkCancellationToken? _connectionCancellation;
   final Duration _conversationRoundTimeout;
   final LocationChatSendGate sendGate;
   final _sendReleases = ChatSendReleaseScope();
@@ -566,6 +575,8 @@ class WorldChatroomService {
             expectedGeneration != _connectionAttemptGeneration)) {
       return;
     }
+    _connectionCancellation?.cancel();
+    _connectionCancellation = null;
     _connectionAttemptGeneration++;
     final connect = _connectCompleter;
     final join = _joinCompleter;
@@ -1166,10 +1177,11 @@ class WorldChatroomService {
       _queueAnomalyMonitor.clear();
       _queueBaselineRebuilds.clear();
       _queueIdentityChanges.clear();
+      if (_identity != null) _userDisconnected = true;
+      abandonConnectionWait();
+      _retryAttempts = 0;
       if (_identity != null) {
         final world = _state.world;
-        _userDisconnected = true;
-        abandonConnectionWait();
         await _detachSession(disconnect: true);
         _desiredLocationId = '';
         _lastUserEnterLocationCommandId = '';
@@ -1593,10 +1605,12 @@ class WorldChatroomService {
 
   Future<void> disconnect() async {
     _stopPhotoGenerationMonitor();
+    _userDisconnected = true;
+    abandonConnectionWait();
+    _retryAttempts = 0;
     _disconnectMonitor?.cancel();
     _suspendInspirations();
     _cancelHistoryRefreshes();
-    _userDisconnected = true;
     _userLocationsRefreshGeneration += 1;
     _userLocationsRefreshPending = false;
     _latestWorldMessagesRefreshPending = false;
@@ -1956,6 +1970,7 @@ class WorldChatroomService {
     _retentionLeases.clear();
     _cacheEvictedRanges.clear();
     _clearAllConversationRounds();
+    abandonConnectionWait();
     _disposed = true;
     if (_ownsSendGate) sendGate.dispose();
     for (final generation in _llmGenerations.values) {

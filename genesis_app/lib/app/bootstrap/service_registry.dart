@@ -4,7 +4,7 @@ import '../../platform/auth/login_submission_controller.dart';
 import '../gems/gem_store_catalog.dart';
 import '../../pages/mini_phone/mini_phone.dart' show MiniPhoneMusicOwner;
 import '../../platform/billing/membership_product_store.dart';
-import '../../platform/billing/store_query_cache.dart';
+import '../../platform/billing/store_product_access.dart';
 import '../../l10n/genesis_l10n.dart';
 import '../../l10n/app_language_controller.dart';
 import 'dart:async';
@@ -47,7 +47,6 @@ import '../../platform/billing/membership_pending_store.dart';
 import '../../platform/billing/membership_store_restorer.dart';
 import '../telemetry/device_info_telemetry.dart';
 import '../telemetry/app_event_reporting.dart';
-import '../telemetry/purchase_event_reporting.dart';
 import '../telemetry/firebase_analytics_monitoring.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/telemetry_upload_policy.dart';
@@ -83,6 +82,7 @@ class AppServices {
     GemWalletStore? gemWallet,
     this.billing,
     this.membershipPurchases,
+    this.purchaseCatalogReady,
     MembershipCatalog? membershipCatalog,
     ChatroomFeatureQuotaStore? featureQuotas,
     ValueNotifier<int>? sessionRevision,
@@ -97,10 +97,15 @@ class AppServices {
            membershipCatalog ??
            MembershipCatalog(
              loadStorePrices: MembershipProductStore().loadPrices,
-             loadProducts: (provider) async => api.v1.membership.products(
-               provider: provider,
-               deviceId: await deviceId.getDeviceId(),
-             ),
+             loadProducts: (provider) async {
+               final checkCurrent = api.captureAuthenticationCheck();
+               await purchaseCatalogReady;
+               checkCurrent();
+               return api.v1.membership.products(
+                 provider: provider,
+                 deviceId: await deviceId.getDeviceId(),
+               );
+             },
              provider: MembershipCatalog.currentProvider,
              readOwnerUid: sessionStore.readLoginUid,
              cacheStore: MembershipCatalogCache(
@@ -176,6 +181,9 @@ class AppServices {
   );
 
   Future<List<GemProduct>> _loadAuthenticatedGemProducts() async {
+    final checkCurrent = api.captureAuthenticationCheck();
+    await purchaseCatalogReady;
+    checkCurrent();
     if (await sessionStore.readCompleteSession() == null) {
       throw StateError('Gem products require an authenticated session');
     }
@@ -210,6 +218,10 @@ class AppServices {
   late final ChatroomFeatureQuotaStore featureQuotas;
   final BillingService? billing;
   final MembershipPurchaseService? membershipPurchases;
+
+  /// Initial Config/UserInfo language calibration only; never gates rendering
+  /// or the store transaction listener. Later entries retain normal refreshes.
+  final Future<void>? purchaseCatalogReady;
   final MembershipCatalog membershipCatalog;
   final AppGlobalConfigStore appGlobalConfig;
   final ValueNotifier<int> sessionRevision;
@@ -286,7 +298,7 @@ class AppServices {
 
   void _membershipSessionChanged() {
     chatSendGate.reset();
-    StoreQueryCache.reset();
+    StoreProductAccess.reset();
     personalization.resetForSession();
     _quotaMembershipSignature = null;
     featureQuotas.resetForSession();
@@ -345,7 +357,7 @@ class AppServices {
     balancePrompts.dispose();
     chatSendGate.dispose();
     loginSubmission.dispose();
-    StoreQueryCache.reset();
+    StoreProductAccess.reset();
     _miniPhoneMusic?.dispose();
     membershipPurchases?.catalogRevision.removeListener(
       _refreshMembershipProducts,
@@ -375,6 +387,7 @@ class ServiceRegistry {
 
   static AppServices build({
     AppConfig config = const AppConfig(),
+    Future<void>? purchaseCatalogReady,
     DeviceIdService? deviceIdOverride,
     UserSessionStore? sessionStoreOverride,
     IdentityAuthService? identityAuthOverride,
@@ -408,7 +421,7 @@ class ServiceRegistry {
         }
 
         final navigator = genesisNavigatorKey.currentState;
-        navigator?.pushNamedAndRemoveUntil(RouteNames.origin, (_) => false);
+        navigator?.pushNamedAndRemoveUntil(RouteNames.me, (_) => false);
         final toastMessage = GenesisL10n.current.meAccountLoggedAnotherDevice;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final overlay = genesisNavigatorKey.currentState?.overlay;
@@ -444,7 +457,6 @@ class ServiceRegistry {
       frameLogName: 'ChatroomSocketFrame',
     );
     final appRequestHeaders = AppRequestHeaderProvider();
-    PurchaseEventReporting? purchaseEventReporting;
     GatewayRequestInterceptor? gatewayRequestInterceptor;
     GatewayHandshakeHeaderSigner? gatewayWsHandshakeHeaderSigner;
     GatewayAuthCoordinator? gatewayAuthCoordinator;
@@ -456,9 +468,6 @@ class ServiceRegistry {
         deviceIdService: deviceId,
         keyStore: const NativeGatewayDeviceKeyStore(),
         transport: httpTransport,
-        onServerTimeSynchronized: (serverUtc) =>
-            purchaseEventReporting?.recordServerTimeSynchronized(serverUtc) ??
-            Future<void>.value(),
       );
       gatewayRequestInterceptor = GatewayRequestInterceptor(
         coordinator: gatewayAuthCoordinator,
@@ -513,17 +522,10 @@ class ServiceRegistry {
               environment: report.environment,
               occurredAtSeconds: report.occurredAtSeconds,
               params: report.params,
-              transactionId: report.transactionId,
               reportFirebase: report.reportFirebase,
             ),
           )
         : null;
-    if (eventReporting != null) {
-      purchaseEventReporting = PurchaseEventReporting(
-        eventReporting: eventReporting,
-        deviceIdReader: deviceId.getDeviceId,
-      );
-    }
     FirebaseAnalyticsMonitoring.configureServerEventReporter(
       eventReporting == null
           ? null
@@ -620,6 +622,10 @@ class ServiceRegistry {
             readLoginUid: sessionStore.readLoginUid,
             readCheckoutProducts: () =>
                 services.membershipCatalog.readCheckoutProducts(),
+            refreshCheckoutProducts: () async {
+              await services.membershipCatalog.loadForEntry();
+              return services.membershipCatalog.readCheckoutProducts();
+            },
             loadAccountUuid: loadBillingAccountUuid,
             prepareGuest: () async => api.v1.membership.prepareGuest(
               provider: membershipProvider,
@@ -647,13 +653,17 @@ class ServiceRegistry {
                     },
                     ownerUid: state.ownerUid,
                     membership: state.membership,
+                    membershipDeluxe: state.membershipDeluxe,
+                    premiumActive: state.premiumActive,
+                    deluxeActive: state.deluxeActive,
+                    isExpired: state.isExpired,
+                    isDeluxeExpired: state.isDeluxeExpired,
                   ),
                 );
               });
               return result.future;
             },
             refreshWallet: gemWallet.refreshAfterMembershipChanged,
-            purchaseEventReporting: purchaseEventReporting,
           );
     billing = billingPlatform == null
         ? null
@@ -670,8 +680,8 @@ class ServiceRegistry {
             readUid: sessionStore.readUid,
             interceptPurchase: membershipPurchases?.interceptPurchase,
             otherPurchaseBusy: () => membershipPurchases?.isBusy ?? false,
-            onPurchaseStreamError: membershipPurchases?.handleStreamError,
-            purchaseEventReporting: purchaseEventReporting,
+            onPurchaseStreamErrorWithStack:
+                membershipPurchases?.handleStreamError,
           );
     final directMessageConversations = DirectMessageConversationStore(
       api: api,
@@ -711,6 +721,7 @@ class ServiceRegistry {
       gemWallet: gemWallet,
       billing: billing,
       membershipPurchases: membershipPurchases,
+      purchaseCatalogReady: purchaseCatalogReady,
       sessionRevision: sessionRevision,
       profileAvatarCache: ProfileAvatarCache(
         sessionStore: sessionStore,
@@ -731,6 +742,7 @@ class ServiceRegistry {
     if (kDebugMode) debugPrint('[AppServices] rebuild; reason=$reason');
     final updated = build(
       config: config,
+      purchaseCatalogReady: current.purchaseCatalogReady,
       deviceIdOverride: current.deviceId,
       sessionStoreOverride: current.sessionStore,
       identityAuthOverride: current.identityAuth,

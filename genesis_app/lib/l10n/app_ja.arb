@@ -3326,9 +3326,9 @@
   "@meSignUpContinue": {
     "description": "首页 - Me → 登录弹窗，登录弹窗"
   },
-  "meAccountLoggedAnotherDevice": "別の端末でアカウントにログインされています。",
+  "meAccountLoggedAnotherDevice": "ログインの有効期限が切れました。もう一度ログインしてください。",
   "@meAccountLoggedAnotherDevice": {
-    "description": "首页 - Me → 登录状态提示，账号在其他设备登录导致当前会话失效中显示的文字"
+    "description": "Global session-expiration toast: a request using the current signed-in session returned error 10001; shown after signing out and opening the Me sign-in page. Does not imply another-device login."
   },
   "premiumSubscription": "サブスクリプション",
   "@premiumSubscription": {
@@ -3382,9 +3382,15 @@
   "@meDailyCheck": {
     "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
   },
-  "gemsDailyCheckInReward": "100獲得",
+  "gemsDailyCheckInReward": "{amount}獲得",
   "@gemsDailyCheckInReward": {
-    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+    "description": "Daily Check-in dialog: button showing the Gem reward associated with a subscription offer. Opens the relevant subscription tier.",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "100"
+      }
+    }
   },
   "meCheck": "チェックイン",
   "@meCheck": {
@@ -5173,5 +5179,134 @@
   "cameraRequestConflict": "このリクエストは以前の送信内容と競合しています。内容は変更できません。",
   "@cameraRequestConflict": {
     "description": "MiniPhone Camera: an idempotency conflict (2062) prevents retrying the same operation with a new request ID."
+  },
+  "memoryMembershipDeluxe": "Worldo Deluxe",
+  "@memoryMembershipDeluxe": {
+    "description": "Shared membership cards: independent Worldo Deluxe subscription name. Preserve Worldo and Deluxe as product names; Deluxe does not include Premium."
+  },
+  "memoryMembershipMonthlyGems": "毎月最大 {amount} ジェム",
+  "@memoryMembershipMonthlyGems": {
+    "description": "Subscription sliding membership card: compact maximum monthly Gems allowance heading above the Pink/Red Gems breakdown, from Subscribe design. amount is a preformatted allowance. Deluxe draft amounts remain restricted to explicit Developer previews; this label does not confirm a production entitlement.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipPeriod": "{period, select, year{/ 年} other{/ 月}}",
+  "@memoryMembershipPeriod": {
+    "description": "Subscription and locked-memory upsell plan cards: short billing period suffix beside a displayed catalog price. period is year for an annual plan, otherwise monthly. Keep both ICU select branches. Developer draft prices remain preview-only; the suffix does not define a SKU or enable billing.",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipBilledAnnually": "年単位で請求",
+  "@memoryMembershipBilledAnnually": {
+    "description": "Subscription and locked-memory upsell Yearly plan card: billing cadence note below the annual price, without repeating the amount. Used for catalog-backed plans or explicit Developer draft previews; does not confirm availability or enable Deluxe billing."
+  },
+  "memoryMembershipDeluxeProfileOffer": "毎月最大 {amount} ジェムと、自動更新される記憶。",
+  "@memoryMembershipDeluxeProfileOffer": {
+    "description": "Me compact Deluxe membership card from MeMember design: maximum monthly Gems and self-updating memory teaser. amount is a preformatted allowance.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipPremiumOffer": "あらゆる展開、選択、登場人物を網羅し、プレイに合わせて書き直される物語の振り返りに加え、毎月最大 3,500 ジェムを獲得できます。",
+  "@memoryMembershipPremiumOffer": {
+    "description": "Premium locked-memory upsell card from Caps design: full evolving story recap covering twists, choices and characters, plus maximum monthly Gems including conditional daily claims. This describes the independent Premium Summary benefit, not Deluxe ownership; actual purchase uses the existing store-backed flow."
+  },
+  "memoryMembershipDeluxeOffer": "タイムライン・登場人物・関係を通じて、プレイに合わせて更新され、キャラクターも覚えている記憶を利用できます。さらに、毎月最大 18,000 ジェムを獲得できます。",
+  "@memoryMembershipDeluxeOffer": {
+    "description": "Deluxe locked-memory upsell card from Caps design: Timeline, Cast and Bonds form evolving memory that characters remember, plus a maximum monthly Gems allowance. Shown wherever those sections are locked."
+  },
+  "memoryMembershipDeluxeTagline": "プレイに合わせて自動で更新される記憶。",
+  "@memoryMembershipDeluxeTagline": {
+    "description": "Deluxe subscription design-preview card tagline; proposed memory benefit, displayed with not-yet-available notice."
+  },
+  "memoryMembershipDeluxeUnavailable": "Deluxe はまだ利用できません。",
+  "@memoryMembershipDeluxeUnavailable": {
+    "description": "Production Deluxe card and subscribe feedback: no Deluxe checkout or SKU exists; proposed prices and benefits are unconfirmed. Must not imply a purchase or active membership."
+  },
+  "memoryMembershipPremiumCheckout": "現在の Premium プランと価格を確認して登録できます。",
+  "@memoryMembershipPremiumCheckout": {
+    "description": "Premium offer and subscription cards: action opens original store-backed checkout where actual plans and prices are confirmed. The local Yearly/Monthly selector alone does not place an order."
+  },
+  "memoryMembershipDraftPreview": "デザインプレビュー · 価格と特典は未確定です",
+  "@memoryMembershipDraftPreview": {
+    "description": "Explicit Developer-only membership preview notice above draft prices. Never use draft prices to charge or infer actual membership."
+  },
+  "memoryMembershipDetails": "{membership} の詳細を表示",
+  "@memoryMembershipDetails": {
+    "description": "Accessible label for a membership card chevron opening the matching Subscription slide.",
+    "placeholders": {
+      "membership": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipTimelineBenefit": "タイムライン・登場人物・関係：重要な出来事、プロフィール、みんなの気持ち",
+  "@memoryMembershipTimelineBenefit": {
+    "description": "Deluxe design card benefit: structured story memory with events, character profiles and relationships. Proposed benefit shown with availability disclaimer."
+  },
+  "memoryMembershipBenefitTimeline": "タイムライン：重要な出来事を順番に",
+  "@memoryMembershipBenefitTimeline": {
+    "description": "Deluxe subscription card, benefit row: Timeline is the Recap view listing the story's key events in the order they happened."
+  },
+  "memoryMembershipBenefitCast": "登場人物：全員のプロフィールが更新され続ける",
+  "@memoryMembershipBenefitCast": {
+    "description": "Deluxe subscription card, benefit row: Cast is the section with a self-updating profile for each character in the story."
+  },
+  "memoryMembershipBenefitBonds": "関係：お互いをどう思っているか",
+  "@memoryMembershipBenefitBonds": {
+    "description": "Deluxe subscription card, benefit row: Bonds is the section showing how characters feel about the player and about one another."
+  },
+  "memoryMembershipRememberBenefit": "キャラクターはそのすべてを覚えています",
+  "@memoryMembershipRememberBenefit": {
+    "description": "Deluxe design card benefit: the structured memory is intended to inform characters. Proposed benefit shown with availability disclaimer."
+  },
+  "memoryMembershipSummaryBenefit": "記憶の範囲を超えて AI が覚えている物語の振り返り",
+  "@memoryMembershipSummaryBenefit": {
+    "description": "Premium subscription card benefit title from approved design: existing persistent story Summary, independent of Deluxe."
+  },
+  "memoryMembershipInspirationsBenefit": "インスピレーションが無制限",
+  "@memoryMembershipInspirationsBenefit": {
+    "description": "Subscription design card benefit title for unlimited Inspiration usage. Deluxe remains unavailable."
+  },
+  "memoryMembershipEditingBenefit": "編集が無制限",
+  "@memoryMembershipEditingBenefit": {
+    "description": "Subscription design card benefit title for unlimited editing. Deluxe remains unavailable."
+  },
+  "memoryMembershipBadgeBenefit": "{membership} 限定バッジ",
+  "@memoryMembershipBadgeBenefit": {
+    "description": "Subscription design card badge benefit, membership is Premium or Deluxe; this text does not grant a badge or entitlement.",
+    "placeholders": {
+      "membership": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipRechargeBenefit": "ジェムのチャージ",
+  "@memoryMembershipRechargeBenefit": {
+    "description": "Premium subscription card benefit title from approved design. Do not show for Deluxe, whose inclusion is unconfirmed."
+  },
+  "mePurchasingDeluxe": "Deluxe を購入中…",
+  "@mePurchasingDeluxe": {
+    "description": "Deluxe subscription purchase dialog: processing label while opening the store and confirming the purchase."
+  },
+  "meWorldoDeluxeSubscription": "Worldo Deluxe のサブスクリプションが有効になりました。",
+  "@meWorldoDeluxeSubscription": {
+    "description": "Deluxe subscription purchase success dialog: confirmation shown only after the server confirms the purchase."
+  },
+  "meSignUpClaimDeluxe": "登録してDeluxeを受け取る",
+  "@meSignUpClaimDeluxe": {
+    "description": "Login sheet title after a guest buys Deluxe, prompting them to sign up to link the purchased subscription to their account. Deluxe is the membership name."
+  },
+  "membershipExpiry": "メンバーシップ有効期限",
+  "@membershipExpiry": {
+    "description": "Label above the expiry date on an active membership card on the Me page."
   }
 }

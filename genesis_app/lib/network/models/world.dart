@@ -410,6 +410,7 @@ class WorldMember {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     required this.roleAvatar,
     required this.roleNickname,
     required this.joinedAt,
@@ -421,6 +422,7 @@ class WorldMember {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final String roleAvatar;
   final String roleNickname;
   final DateTime? joinedAt;
@@ -430,6 +432,9 @@ class WorldMember {
       gender: asString(json['gender']),
       age: asString(json['age']),
       membershipStatus: asUserMembershipStatus(json['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        json['membership_deluxe_status'],
+      ),
       id: asInt(json['id']),
       worldId: asInt(json['world_id']),
       uid: asString(json['uid']),

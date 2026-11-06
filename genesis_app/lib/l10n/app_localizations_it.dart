@@ -2479,7 +2479,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get meAccountLoggedAnotherDevice =>
-      'Il tuo account è connesso su un altro dispositivo.';
+      'La tua sessione è scaduta. Accedi di nuovo.';
 
   @override
   String get premiumSubscription => 'Abbonamento';
@@ -2525,7 +2525,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get meDailyCheck => 'Check-in giornaliero';
 
   @override
-  String get gemsDailyCheckInReward => 'Ottieni 100';
+  String gemsDailyCheckInReward({required String amount}) {
+    return 'Ottieni $amount';
+  }
 
   @override
   String get meCheck => 'Fai il check-in';
@@ -3948,4 +3950,108 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get cameraRequestConflict =>
       'Questa richiesta è in conflitto con un invio precedente. Non è possibile modificarne i dettagli.';
+
+  @override
+  String get membershipExpiry => 'Scadenza abbonamento';
+
+  @override
+  String get meSignUpClaimDeluxe => 'Registrati per ottenere Deluxe';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return 'Fino a $amount Gemme al mese';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ anno',
+      'other': '/ mese',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => 'Fatturazione annuale';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return 'Fino a $amount Gemme al mese e una memoria che si aggiorna da sola.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      'Ottieni un riepilogo completo di ogni colpo di scena, scelta e personaggio, riscritto mentre giochi, e fino a 3.500 Gemme al mese.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      'Ottieni Cronologia, Personaggi e Legami: una memoria che si aggiorna mentre giochi e che i personaggi ricordano, oltre a un massimo di 18.000 Gemme al mese.';
+
+  @override
+  String get memoryMembershipDeluxeTagline =>
+      'Una memoria che si aggiorna da sola mentre giochi.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable =>
+      'Deluxe non è ancora disponibile.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      'Consulta i piani e i prezzi attuali di Premium per abbonarti.';
+
+  @override
+  String get memoryMembershipDraftPreview =>
+      'Anteprima del design · prezzi e vantaggi non confermati';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return 'Visualizza i dettagli di $membership';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      'Cronologia, Personaggi e Legami: eventi chiave, profili e sentimenti di ciascuno';
+
+  @override
+  String get memoryMembershipBenefitTimeline =>
+      'Cronologia: ogni evento chiave, in ordine';
+
+  @override
+  String get memoryMembershipBenefitCast =>
+      'Personaggi: un profilo vivo di ognuno';
+
+  @override
+  String get memoryMembershipBenefitBonds =>
+      'Legami: cosa prova ognuno per gli altri';
+
+  @override
+  String get memoryMembershipRememberBenefit => 'I personaggi ricordano tutto';
+
+  @override
+  String get memoryMembershipSummaryBenefit =>
+      'Riepilogo della storia che l’AI ricorda oltre la memoria';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => 'Ispirazione illimitata';
+
+  @override
+  String get memoryMembershipEditingBenefit => 'Modifiche illimitate';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return 'Distintivo esclusivo di $membership';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => 'Ricarica di Gemme';
+
+  @override
+  String get mePurchasingDeluxe => 'Acquisto di Deluxe in corso…';
+
+  @override
+  String get meWorldoDeluxeSubscription =>
+      'Il tuo abbonamento Worldo Deluxe è ora attivo.';
 }

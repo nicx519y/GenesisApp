@@ -198,7 +198,6 @@ class _WorldRecapSectionState extends State<WorldRecapSection>
             sheetExpandedContentHeight: widget.expandedContentHeight,
             includeBottomSafeArea: true,
             onBenefitsPullDown: widget.onBenefitsPullDown,
-            topSpacing: worldSheetVisibleContentTopGap,
             headingTopSpacing: 0,
             horizontalInset: 12,
           ),

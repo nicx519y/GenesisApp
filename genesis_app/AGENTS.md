@@ -41,7 +41,7 @@
 - 上传进度复用 `GenesisUploadProgressOverlay`；聊天气泡复用共享 UI 和场景 token；页面短提示复用 `showGenesisToast`，不用 `SnackBar` 替代。
 - 提交中保留原底色、阻止重复提交；已有圆环保留，没有圆环的不新增。普通校验禁用态独立处理。
 - 加载骨架保持静态纯色；禁用 Material stretch overscroll，保留已有滚动、回弹和刷新行为。
-- 用户名会员徽章只由所属用户模型的整数状态 1 驱动，不单独请求、缓存或轮询；World 与 Chat（含 LocationChat）不显示该徽章。
+- 用户名会员徽章由所属用户模型的 membership_status / membership_deluxe_status 分别按整数 1 驱动，双会员显示 Deluxe、Premium 两个本地皇冠；不单独请求、缓存或轮询。World 与 Chat（含 LocationChat）不显示。详见 docs/user-membership-badge-integration.md。
 
 ## 按任务读取专项规则
 
@@ -66,7 +66,7 @@
 
 - 会员文案中，已持有的订阅、订阅升级及订阅不可用使用 `subscription`；月付/年付套餐选项、套餐列表和 `selected plan` 使用 `plan`。
 
-- 用户可见的会员名称统一使用 `Premium`，包括页面、购买浮层、Toast 与 Developer 页面；不使用 `VIP`。取消提示统一采用美式拼写 `canceled`，不使用 `cancelled`。外部协议字段、商店错误码、内部标识和诊断代码保留兼容，不因展示文案调整而改名。
+- 用户可见的原会员名称使用 `Premium`，新增独立会员使用 `Deluxe`；两组可共存，详见 `docs/deluxe-membership-integration.md`。此命名适用于页面、购买浮层、Toast 与 Developer 页面；不使用 `VIP`。取消提示统一采用美式拼写 `canceled`，不使用 `cancelled`。外部协议字段、商店错误码、内部标识和诊断代码保留兼容，不因展示文案调整而改名。
 
 - Worldo 创建者的界面标签统一为 `Creator`，覆盖详情、Discuss 摘要和搜索结果；内部 `originator` 模型字段和接口字段保持兼容。
 

@@ -117,7 +117,7 @@ void main() {
                 same(content),
               );
               expect(scroll.position.pixels, closeTo(offset, .01));
-              expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+              expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
               expect(tester.takeException(), isNull);
             }
 
@@ -161,7 +161,7 @@ void main() {
             );
             expect(scroll.position.pixels, closeTo(offset, .01));
             expect(
-              find.text(refreshFails ? r'Monthly: $9.99' : r'Monthly: $12.99'),
+              findSubscriptionLabel(refreshFails ? r'Monthly: $9.99' : r'Monthly: $12.99'),
               findsOneWidget,
             );
             expect(requests, 2);

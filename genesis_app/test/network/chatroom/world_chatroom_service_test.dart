@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/network/chatroom/chatroom_connect_deadline.dart';
 import 'package:genesis_flutter_android/network/chatroom/location_chat_send_gate.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/chatroom/chat_photo_request_store.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_disconnect_monitor.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_queue_anomaly_monitor.dart';
@@ -605,15 +607,136 @@ void main() {
     expect(service.isLocationSendIdleTimedOut('loc-1'), isTrue);
   });
 
+  test('returned transport timeout keeps normal retry delay', () async {
+    final error = TimeoutException('transport returned a result');
+    final transport = _RetryAuditTransport()..returnedError = error;
+    final service = await _service(
+      socketTransport: transport,
+      fastReconnectInterval: const Duration(milliseconds: 80),
+      connectionTimeout: const Duration(seconds: 1),
+      refreshInitialSnapshotOnConnect: false,
+    );
+    addTearDown(service.dispose);
+    await expectLater(
+      service.connect(worldId: 'world-1', identity: _identity()),
+      throwsA(same(error)),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+    expect(transport.calls, hasLength(1));
+    transport.succeed = true;
+    await _waitFor(() => service.state.connected);
+    expect(transport.calls, hasLength(2));
+  });
+
   test(
-    'disconnect telemetry observes an actual hanging handshake and cancels on recovery',
+    'five fast retries switch to slow delay and recover with same telemetry round',
+    () async {
+      final transport = _RetryAuditTransport();
+      final reports = <Map<String, dynamic>>[];
+      final monitor = ChatroomDisconnectMonitor(
+        readNetworkType: () async => 'wifi',
+        report:
+            ({
+              required worldId,
+              required phase,
+              required cause,
+              required networkType,
+              required extData,
+            }) {
+              reports.add(jsonDecode(extData) as Map<String, dynamic>);
+            },
+      );
+      monitor.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      final service = await _service(
+        socketTransport: transport,
+        fastReconnectInterval: const Duration(milliseconds: 20),
+        reconnectInterval: const Duration(milliseconds: 100),
+        refreshInitialSnapshotOnConnect: false,
+        disconnectMonitor: monitor,
+      );
+      addTearDown(service.dispose);
+      await expectLater(
+        service.connect(worldId: 'world-1', identity: _identity()),
+        throwsA(isA<StateError>()),
+      );
+      await _waitFor(() => transport.calls.length >= 6);
+      expect(reports, hasLength(1));
+      expect(reports.single['cause'], 'retry_exhausted');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(transport.calls, hasLength(6));
+      transport.succeed = true;
+      await _waitFor(() => service.state.connected);
+      expect(transport.calls, hasLength(7));
+      for (var i = 1; i < 6; i++) {
+        expect(
+          transport.calls[i].difference(transport.calls[i - 1]).inMilliseconds,
+          greaterThanOrEqualTo(15),
+        );
+      }
+      expect(
+        transport.calls[6].difference(transport.calls[5]).inMilliseconds,
+        greaterThanOrEqualTo(90),
+      );
+    },
+  );
+
+  test(
+    'two hanging attempts time out, release lock and close late sockets',
+    () async {
+      final transport = _RetryAuditTransport(hang: true);
+      final reports = <Map<String, dynamic>>[];
+      final monitor = ChatroomDisconnectMonitor(
+        readNetworkType: () async => 'wifi',
+        report:
+            ({
+              required worldId,
+              required phase,
+              required cause,
+              required networkType,
+              required extData,
+            }) {
+              reports.add(jsonDecode(extData) as Map<String, dynamic>);
+            },
+      );
+      monitor.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      final service = await _service(
+        socketTransport: transport,
+        connectionTimeout: const Duration(milliseconds: 35),
+        fastReconnectInterval: const Duration(seconds: 1),
+        reconnectInterval: const Duration(seconds: 1),
+        refreshInitialSnapshotOnConnect: false,
+        disconnectMonitor: monitor,
+      );
+      addTearDown(service.dispose);
+      await expectLater(
+        service.connect(worldId: 'world-1', identity: _identity()),
+        throwsA(isA<ChatroomConnectDeadlineExceeded>()),
+      );
+      await _waitFor(() => reports.isNotEmpty);
+      expect(reports.single['cause'], 'connect_stalled');
+      expect(reports.single['timeout_count'], 2);
+      transport.hang = false;
+      transport.succeed = true;
+      await _waitFor(() => service.state.connected);
+      for (final pending in transport.pending) {
+        final socket = _FakeChatroomSocket();
+        pending.complete(socket);
+        await Future<void>.delayed(Duration.zero);
+        expect(socket.closed, isTrue);
+      }
+      expect(service.state.connected, isTrue);
+      expect(reports, hasLength(1));
+    },
+  );
+
+  test(
+    'disconnect telemetry waits for failure rather than reporting a hanging initial handshake',
     () async {
       final socket = _FakeChatroomSocket();
       final ready = Completer<void>();
       final transport = _BlockingChatroomTransport(socket, ready);
       final reports = <String>[];
       final monitor = ChatroomDisconnectMonitor(
-        threshold: const Duration(milliseconds: 30),
         readNetworkType: () async => 'none',
         report:
             ({
@@ -637,22 +760,21 @@ void main() {
         identity: _identity(),
       );
       await _waitFor(() => transport.connectStarted);
-      await _waitFor(() => reports.isNotEmpty);
-      expect(reports, ['world-1/initial_connect/unknown/none']);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(reports, isEmpty);
       ready.complete();
       await connecting;
       await Future<void>.delayed(const Duration(milliseconds: 50));
-      expect(reports, hasLength(1));
+      expect(reports, isEmpty);
     },
   );
 
   test(
-    'disconnect telemetry sees real socket closure without changing retry timing',
+    'socket closure alone does not satisfy retry failure threshold',
     () async {
       final socket = _FakeChatroomSocket();
       final reports = <String>[];
       final monitor = ChatroomDisconnectMonitor(
-        threshold: const Duration(milliseconds: 30),
         readNetworkType: () async => 'wifi',
         report:
             ({
@@ -674,8 +796,8 @@ void main() {
       addTearDown(service.dispose);
       await service.connect(worldId: 'world-1', identity: _identity());
       await socket.serverClose();
-      await _waitFor(() => reports.isNotEmpty);
-      expect(reports, ['reconnect/socket_closed']);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(reports, isEmpty);
       expect(service.state.connected, isFalse);
     },
   );
@@ -7008,6 +7130,8 @@ Future<WorldChatroomService> _service({
   HttpTransport? httpTransport,
   Duration heartbeatInterval = const Duration(seconds: 2),
   Duration reconnectInterval = const Duration(milliseconds: 20),
+  Duration connectionTimeout = const Duration(seconds: 5),
+  Duration? fastReconnectInterval,
   Duration ackTimeout = const Duration(milliseconds: 20),
   Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
   Duration streamIdleTimeout = chatroomStreamIdleTimeout,
@@ -7050,6 +7174,8 @@ Future<WorldChatroomService> _service({
     replyActionStorage: MemoryChatroomReplyActionStorage(),
     heartbeatInterval: heartbeatInterval,
     reconnectInterval: reconnectInterval,
+    fastReconnectInterval: fastReconnectInterval ?? reconnectInterval,
+    connectionTimeout: connectionTimeout,
     conversationRoundTimeout: conversationRoundTimeout,
     sendGateClock: sendGateClock,
     sendGate: sendGate,
@@ -9574,4 +9700,27 @@ void _replyCompletionTests() {
       expect(socket.sentTypes.where((type) => type == 'go_on'), hasLength(1));
     },
   );
+}
+
+class _RetryAuditTransport implements ChatroomSocketTransport {
+  _RetryAuditTransport({this.hang = false});
+  bool hang;
+  bool succeed = false;
+  Object? returnedError;
+  final calls = <DateTime>[];
+  final pending = <Completer<ChatroomSocket>>[];
+  @override
+  Future<ChatroomSocket> connect(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    calls.add(DateTime.now());
+    if (hang) {
+      final c = Completer<ChatroomSocket>();
+      pending.add(c);
+      return c.future;
+    }
+    if (!succeed) throw returnedError ?? StateError('connect failure');
+    return _FakeChatroomSocket();
+  }
 }
