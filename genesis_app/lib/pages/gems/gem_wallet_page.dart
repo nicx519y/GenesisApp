@@ -103,33 +103,6 @@ class GemWalletPage extends StatefulWidget {
   State<GemWalletPage> createState() => _GemWalletPageState();
 }
 
-Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
-  final state = ValueNotifier<GemBillingPurchaseDialogState>(
-    GemBillingPurchaseDialogState.processing(attemptId: 'developer_preview'),
-  );
-  Timer? successTimer;
-  successTimer = Timer(const Duration(milliseconds: 1200), () {
-    state.value = GemBillingPurchaseDialogState.success(
-      attemptId: 'developer_preview',
-      grantedText: '550',
-    );
-  });
-  await showGenesisGeneralDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    pageBuilder: (dialogContext, animation, secondaryAnimation) {
-      return Center(
-        child: GemBillingPurchaseDialog(
-          state: state,
-          onConfirm: () => Navigator.of(dialogContext).pop(),
-        ),
-      );
-    },
-  );
-  successTimer.cancel();
-  state.dispose();
-}
-
 class _GemWalletPageState extends State<GemWalletPage>
     with
         TickerProviderStateMixin,

@@ -15,6 +15,8 @@ import 'package:genesis_flutter_android/pages/me/developer_personalization_previ
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
+import '../support/personalization_fixtures.dart';
+
 const formTitle = 'Personalize Your Worldo Experience';
 Finder control(String name) => find.byKey(ValueKey('personalization-$name'));
 
@@ -41,6 +43,7 @@ void main() {
       final preview = showDeveloperPersonalizationPreview(
         navigatorKey.currentContext!,
         PersonalizationPreviewScenario.subscription,
+        productsLoader: loadPersonalizationPreviewCatalog,
       );
       await tester.pumpAndSettle();
 
@@ -206,6 +209,11 @@ void main() {
       expectSameHeader();
       await choose('subscription');
       expect(find.text('Skip'), findsOneWidget);
+      final subscription = tester.widget<ProSubscriptionContent>(
+        find.byType(ProSubscriptionContent),
+      );
+      expect(subscription.productsLoader, isNull);
+      expect(subscription.purchaseHandler, isNull);
       expect(control('subscription-icon'), findsOneWidget);
       expect(tester.getRect(control('header')).height, header.height);
       expect(find.text('Buy Gems'), findsNothing);

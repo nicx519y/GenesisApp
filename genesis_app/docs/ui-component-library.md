@@ -261,6 +261,10 @@ Developer Page → button → **Preview guest subscription login**（Creating �
 - 点击 Google / Apple 模拟登录成功并关闭预览；不会调用 OAuth、创建订单或更改真实账号。
 - 模拟登录等待期间退出，迟到的结果不会再次关闭底层页面。
 
+Developer Page 的 **Buy Gems** 和 **Subscription** 打开正式购买 Sheet，使用当前环境和账号的商品、钱包和商店服务。未登录时点击 **Buy Gems** 会先打开正式登录 Sheet，登录后需再次点击进入购买。购买进度及结果由商店交易触发。
+
+Developer Page 的 **Daily Check-in** 预览提供四个按钮，依次模拟无会员、Premium、Deluxe 和双会员。示例签到金额依次为 50、100、300 和 350 宝石。点击 Check in 可重复预览成功弹窗，预览只使用本地数据。
+
 Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurchaseBottomSheet` 仅保留内嵌内容，已删除独立 header、关闭按钮、`embedded` 开关和旧的 `alert` 展示参数；余额告警入口仍保留实际告警到购买埋点的映射。
 
 ### GenesisActionSheetHeader
@@ -271,7 +275,7 @@ Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurcha
 
 购买 Sheet 的 Subscription 和 Buy Gems 共用 `PurchaseLegalLinks`，固定在底部安全区上方。订阅按钮也固定在底部。常规高度下权益卡按剩余空间伸缩，短屏或大字体下权益卡和套餐可在固定区上方滚动。
 
-新用户订阅和开发预览复用 `PurchaseSheetPanel` 与 `ProSubscriptionContent.purchaseSheet`。Sheet 总高为可用屏幕高度的 80%，使用同高的会员标题栏和 Skip，底部购买按钮与协议的布局跟普通购买 Sheet 一致。开发预览注入两档会员的月付、年付及权益示例。
+新用户订阅和开发预览复用 `PurchaseSheetPanel` 与 `ProSubscriptionContent.purchaseSheet`。Sheet 总高为可用屏幕高度的 80%，使用同高的会员标题栏和 Skip，底部购买按钮与协议的布局跟普通购买 Sheet 一致。开发预览中的订阅步骤也使用正式会员目录、账号权益和购买服务。
 
 ### GenesisActionSheetBody
 

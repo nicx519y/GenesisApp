@@ -71,6 +71,60 @@ Future<bool> showDailyCheckInDialog(
       return false;
     }
   }
+  final action = await _showDailyCheckInPanel(
+    context,
+    claimed: claimed,
+    rewardGemsCent: rewardGemsCent,
+    rewardGemsCentPremium: rewardGemsCentPremium,
+    rewardGemsCentDeluxe: rewardGemsCentDeluxe,
+    activeTiers: activeTiers,
+  );
+  final tier = switch (action) {
+    _DailyCheckInAction.premium => MembershipType.premium,
+    _DailyCheckInAction.deluxe => MembershipType.deluxe,
+    _ => null,
+  };
+  if (tier != null && context.mounted) {
+    await showSubscriptionPurchaseBottomSheet(
+      context,
+      source: SubscriptionSource.dailyCheckIn,
+      initialMembershipType: tier,
+    );
+  }
+  return action == _DailyCheckInAction.checkIn;
+}
+
+Future<void> showDailyCheckInPreview(
+  BuildContext context, {
+  required int rewardGemsCent,
+  required int rewardGemsCentPremium,
+  required int rewardGemsCentDeluxe,
+  required ({bool premium, bool deluxe}) activeTiers,
+}) async {
+  final action = await _showDailyCheckInPanel(
+    context,
+    claimed: false,
+    rewardGemsCent: rewardGemsCent,
+    rewardGemsCentPremium: rewardGemsCentPremium,
+    rewardGemsCentDeluxe: rewardGemsCentDeluxe,
+    activeTiers: activeTiers,
+  );
+  if (action == _DailyCheckInAction.checkIn && context.mounted) {
+    await showDailyCheckInSuccessDialog(
+      context,
+      rewardGemsCent: rewardGemsCent,
+    );
+  }
+}
+
+Future<_DailyCheckInAction?> _showDailyCheckInPanel(
+  BuildContext context, {
+  required bool claimed,
+  required int rewardGemsCent,
+  required int? rewardGemsCentPremium,
+  required int? rewardGemsCentDeluxe,
+  required ({bool premium, bool deluxe})? activeTiers,
+}) {
   final offers = <(_DailyCheckInAction, int)>[];
   if (activeTiers != null) {
     final premium = rewardGemsCentPremium;
@@ -82,7 +136,7 @@ Future<bool> showDailyCheckInDialog(
       offers.add((_DailyCheckInAction.deluxe, rewardGemsCent + deluxe));
     }
   }
-  final action = await showGenesisDialog<_DailyCheckInAction>(
+  return showGenesisDialog<_DailyCheckInAction>(
     context: context,
     barrierColor: const Color(0x52000000),
     builder: (context) => _DailyCheckInPanel(
@@ -116,19 +170,6 @@ Future<bool> showDailyCheckInDialog(
       ],
     ),
   );
-  final tier = switch (action) {
-    _DailyCheckInAction.premium => MembershipType.premium,
-    _DailyCheckInAction.deluxe => MembershipType.deluxe,
-    _ => null,
-  };
-  if (tier != null && context.mounted) {
-    await showSubscriptionPurchaseBottomSheet(
-      context,
-      source: SubscriptionSource.dailyCheckIn,
-      initialMembershipType: tier,
-    );
-  }
-  return action == _DailyCheckInAction.checkIn;
 }
 
 Future<void> showDailyCheckInSuccessDialog(
