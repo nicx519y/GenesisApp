@@ -743,9 +743,8 @@ class _MembershipEntry extends StatelessWidget {
       final offers = services?.membershipCatalog.cached?.offers ?? const [];
       for (final offer in offers) {
         if (offer.product.membershipType != type) continue;
-        for (final benefit in offer.product.benefits) {
-          if (benefit.iconKey == 'gem') return benefit.title;
-        }
+        final title = offer.product.monthlyGemsTotal?.title;
+        if (title != null && title.trim().isNotEmpty) return title;
       }
       return null;
     }
