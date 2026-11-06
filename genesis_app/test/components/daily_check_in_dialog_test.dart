@@ -130,8 +130,12 @@ void main() {
             GenesisColors.redSecondary,
           );
           expect(
+            tester.getCenter(find.text('Get 300')).dy,
+            lessThan(tester.getCenter(find.text('Get 150')).dy),
+          );
+          expect(
             tester.getCenter(find.text('Get 150')).dy,
-            lessThan(tester.getCenter(find.text('Get 300')).dy),
+            lessThan(tester.getCenter(find.text('Check in')).dy),
           );
         }
         if (noOffers) {
@@ -141,7 +145,7 @@ void main() {
         }
         await tester.pumpAndSettle();
         expect(checkedIn, !noOffers);
-        if (singleOffer) {
+        if (singleOffer || scenario == 'non_member') {
           await tester.tap(find.text('Open'));
           await tester.pumpAndSettle();
           expect(requests, 1);
