@@ -433,17 +433,8 @@ class _UserProfileContentState extends State<UserProfileContent>
                                   widget.displayNameListenable,
                             ),
                           ),
-                          if (widget.displayNameTrailing == null &&
-                              !data.deleted &&
-                              (data.membershipStatus == 1 ||
-                                  data.membershipDeluxeStatus == 1))
-                            ProUserBadge(
-                              leadingGap: 6,
-                              membershipStatus: data.membershipStatus,
-                              membershipDeluxeStatus:
-                                  data.membershipDeluxeStatus,
-                              fontSize: 20,
-                            ),
+                          if (widget.displayNameTrailing == null)
+                            _buildNameMembershipBadge(data),
                           if (widget.displayNameTrailing != null) ...[
                             const SizedBox(width: 6),
                             widget.displayNameTrailing!,
@@ -515,6 +506,30 @@ class _UserProfileContentState extends State<UserProfileContent>
           const SizedBox(height: 5),
         ],
       ),
+    );
+  }
+
+  Widget _buildNameMembershipBadge(UserProfileData data) {
+    if (data.deleted) return const SizedBox.shrink();
+    final membership = widget.membershipStateListenable;
+    if (data.isSelf && membership != null) {
+      return ValueListenableBuilder<MembershipAccessState>(
+        valueListenable: membership,
+        builder: (context, state, _) => ProUserBadge(
+          leadingGap: 6,
+          membershipStatus: state.activeFor(MembershipType.premium) ? 1 : 0,
+          membershipDeluxeStatus: state.activeFor(MembershipType.deluxe)
+              ? 1
+              : 0,
+          fontSize: 20,
+        ),
+      );
+    }
+    return ProUserBadge(
+      leadingGap: 6,
+      membershipStatus: data.membershipStatus,
+      membershipDeluxeStatus: data.membershipDeluxeStatus,
+      fontSize: 20,
     );
   }
 

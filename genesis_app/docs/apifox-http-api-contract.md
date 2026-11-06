@@ -2822,6 +2822,7 @@ World：
 - 客户端从当前名称对应的用户模型直接读取整数 `membership_status`，仅 1 显示皇冠；0、2、缺失、非法值或 deleted=true 都不显示。gender、age 保留服务端值，本次不新增页面展示。
 - 已移除按 UID 单独查询会员标识的服务及 30 秒缓存/轮询；搜索、分页、滚动、前后台切换不会因为徽章请求 `user/info`。资料页本身所需的 user/info 请求继续保留。
 - 覆盖 Me / Profile、关注/粉丝、黑名单、搜索、私信列表、通知、Worldo Creator、评论作者/回复者和 Profile Playing Owner。World 和 Chat（含 Location Chat）不显示用户名会员徽章。
+- Me 本人皇冠与会员卡共用从 `/api/v1/gem/wallet` 推导的会员状态，按各档位是否有效显示。
 - 回复目标只有 `reply_to_uid` / `reply_to_username` 时没有足够状态，不补查、不借用作者状态；有目标用户对象或点击回复时已有该作者数据才显示对应徽章。
 - 名字徽章仅用于展示。购买、钱包、会员卡及权限校验继续使用各自现有状态服务，不改授权或计费逻辑。
 

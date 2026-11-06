@@ -1,4 +1,3 @@
-import '../../components/gems/pro_user_name.dart';
 import '../../components/auth/login_submission_state.dart';
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
@@ -350,21 +349,6 @@ class _MePageState extends State<MePage>
                           avatarPreviewBytesListenable: _avatarPreviewBytes,
                           profileAvatarCache: services.profileAvatarCache,
                           displayNameListenable: _displayName,
-                          // The crown now sits bare beside the name, so the
-                          // 50x20 plate box it used to need is gone.
-                          displayNameTrailing:
-                              !visibleData.deleted &&
-                                  (visibleData.membershipStatus == 1 ||
-                                      visibleData.membershipDeluxeStatus == 1)
-                              ? ProUserBadge(
-                                  leadingGap: 0,
-                                  membershipStatus:
-                                      visibleData.membershipStatus,
-                                  membershipDeluxeStatus:
-                                      visibleData.membershipDeluxeStatus,
-                                  fontSize: 20,
-                                )
-                              : null,
                           isUpdatingProfileListenable: _isUpdatingProfile,
                           gemWalletStateListenable: services.gemWallet.state,
                           membershipStateListenable: services.membership.state,

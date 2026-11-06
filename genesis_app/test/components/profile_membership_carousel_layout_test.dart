@@ -3,11 +3,55 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/components/gems/pro_membership_badge.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_library.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
+  testWidgets('Me crown and Deluxe card follow the same wallet state', (
+    tester,
+  ) async {
+    final membership = ValueNotifier(const MembershipAccessState());
+    addTearDown(membership.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: GenesisTheme.dark(),
+        home: Scaffold(
+          body: UserProfileContent(
+            data: const UserProfileData(
+              avatarUrl: '',
+              displayName: 'Me',
+              uid: 'u_me',
+              followingCount: 0,
+              followerCount: 0,
+              membershipDeluxeStatus: 1,
+              origins: [],
+              worlds: [],
+            ),
+            membershipStateListenable: membership,
+          ),
+        ),
+      ),
+    );
+    final crown = find.byType(ProMembershipBadge);
+    final deluxeSubscribe = find.byKey(
+      const ValueKey('membership-subscribe-deluxe'),
+    );
+    expect(crown, findsNothing);
+    expect(deluxeSubscribe, findsOneWidget);
+
+    membership.value = const MembershipAccessState(deluxeActive: true);
+    await tester.pumpAndSettle();
+    expect(crown, findsOneWidget);
+    expect(deluxeSubscribe, findsNothing);
+
+    membership.value = const MembershipAccessState(isDeluxeExpired: true);
+    await tester.pumpAndSettle();
+    expect(crown, findsNothing);
+    expect(deluxeSubscribe, findsOneWidget);
+  });
+
   testWidgets('Me prioritizes active memberships before purchase history', (
     tester,
   ) async {

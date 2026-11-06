@@ -41,7 +41,7 @@
 - 上传进度复用 `GenesisUploadProgressOverlay`；聊天气泡复用共享 UI 和场景 token；页面短提示复用 `showGenesisToast`，不用 `SnackBar` 替代。
 - 提交中保留原底色、阻止重复提交；已有圆环保留，没有圆环的不新增。普通校验禁用态独立处理。
 - 加载骨架保持静态纯色；禁用 Material stretch overscroll，保留已有滚动、回弹和刷新行为。
-- 用户名会员徽章由所属用户模型的 membership_status / membership_deluxe_status 分别按整数 1 驱动，双会员显示 Deluxe、Premium 两个本地皇冠；不单独请求、缓存或轮询。World 与 Chat（含 LocationChat）不显示。详见 docs/user-membership-badge-integration.md。
+- Me 本人名字旁的皇冠与会员卡共用钱包推导的会员状态。其他用户名会员徽章由所属用户模型的 membership_status / membership_deluxe_status 分别按整数 1 驱动。双会员显示 Deluxe、Premium 两个本地皇冠；不单独请求、缓存或轮询。World 与 Chat（含 LocationChat）不显示。详见 docs/user-membership-badge-integration.md。
 
 ## 按任务读取专项规则
 

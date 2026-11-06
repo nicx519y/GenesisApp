@@ -485,6 +485,8 @@ HTTP 映射层的图片规则：
 
 ### 用户名会员徽章
 
+- Me 本人名字旁的皇冠与会员卡共用 `MembershipAccessStore.state`，按 Premium / Deluxe 各自的有效状态显示。
+
 - 名字与徽章复用 `ProUserName`；已有元数据行使用 `GenesisInlineMetaLabel.membershipStatus`；评论等富文本使用 `ProUserBadge.span`。保留原文字样式、点击行为和省略规则，徽章垂直居中。
 - 图形唯一实现为 `ProMembershipBadge`：高度为相邻文字字号的 0.85，宽高比 96/68；20px 名字对应 24×17px，随系统文字缩放。Me 保留 6px 名字间距，其他公共名字布局默认 4px。
 - 用户模型透传接口 `UserInfo` 的 `gender`、`age`、`membership_status` 和 `membership_deluxe_status`；名字后的两种徽章分别使用同一用户模型的整数状态 1，双会员按 Deluxe、Premium 排列。0、2、缺失／未知和已删除用户不显示，不留空位，不使用当前账号的钱包推断他人。
