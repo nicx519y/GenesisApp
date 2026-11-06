@@ -20,6 +20,33 @@ import '../../ui/theme/genesis_dark_theme.dart';
 
 enum PurchaseSheetTab { subscription, buyGems }
 
+/// Shared frame for purchase sheets with either tabs or a title and action.
+class PurchaseSheetPanel extends StatelessWidget {
+  const PurchaseSheetPanel({
+    super.key,
+    required this.height,
+    required this.header,
+    required this.child,
+  });
+
+  static const heightFactor = 0.8;
+
+  final double height;
+  final Widget header;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => GenesisBottomSheetPanel(
+    title: '',
+    height: height,
+    padding: EdgeInsets.zero,
+    maintainBottomViewPadding: true,
+    insetBody: false,
+    header: header,
+    child: child,
+  );
+}
+
 /// Shared purchase shell with Wallet's tabs and subscription presentation.
 class PurchaseOptionsSheet extends StatefulWidget {
   const PurchaseOptionsSheet({
@@ -171,12 +198,8 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
       page: _subscriptionTracking,
       child: GenesisDarkTheme(
         child: LayoutBuilder(
-          builder: (context, constraints) => GenesisBottomSheetPanel(
-            title: '',
+          builder: (context, constraints) => PurchaseSheetPanel(
             height: constraints.maxHeight,
-            padding: EdgeInsets.zero,
-            maintainBottomViewPadding: true,
-            insetBody: false,
             header: GenesisActionSheetHeader.tabs(
               tabs: WalletPurchaseTabs(
                 controller: _tabs,
@@ -199,12 +222,14 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                   child: PurchaseCatalogEntry(
                     revision: _entryRevisions[0],
                     child: !_subscriptionVisited
-                        ? const GemPurchaseTabPlaceholder.subscription()
+                        ? const GemPurchaseTabPlaceholder.subscription(
+                            topSpacing: 0,
+                          )
                         : widget.subscriptionBuilder != null
                         ? GenesisActionSheetBody(
                             child: widget.subscriptionBuilder!(context),
                           )
-                        : ProSubscriptionContent(
+                        : ProSubscriptionContent.purchaseSheet(
                             initialMembershipType: widget.initialMembershipType,
                             onMembershipTypeChanged: (type) {
                               if (mounted && _membershipColor != type.accent) {
@@ -213,14 +238,6 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                             },
                             refreshMembershipOnOpen: false,
                             productsLoader: widget.membershipProductsLoader,
-                            closeOnPurchaseSuccess: true,
-                            topSpacing: 0,
-                            horizontalInset:
-                                GenesisActionSheetBody.horizontalInset,
-                            pinPurchaseActions: true,
-                            loadingPlaceholder:
-                                const GemPurchaseTabPlaceholder.subscription(),
-                            headingTopSpacing: 0,
                           ),
                   ),
                 ),
@@ -238,6 +255,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                                   ? Builder(builder: widget.gemsBuilder)
                                   : const GemPurchaseTabPlaceholder.gems(
                                       horizontalInset: 0,
+                                      topSpacing: 0,
                                     ),
                             ),
                           ),

@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
+import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
+import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
 import 'package:genesis_flutter_android/components/onboarding/personalization_sheet.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/pages/me/developer_personalization_preview.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
@@ -15,6 +19,110 @@ const formTitle = 'Personalize Your Worldo Experience';
 Finder control(String name) => find.byKey(ValueKey('personalization-$name'));
 
 void main() {
+  testWidgets(
+    'onboarding preview shares the purchase sheet layout and has both tiers',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          theme: GenesisTheme.dark(),
+          home: const Scaffold(),
+        ),
+      );
+      final preview = showDeveloperPersonalizationPreview(
+        navigatorKey.currentContext!,
+        PersonalizationPreviewScenario.subscription,
+      );
+      await tester.pumpAndSettle();
+
+      final cards = find.byKey(const ValueKey('membership-subscription-pages'));
+      final button = find.byKey(const ValueKey('pro-subscribe-button'));
+      List<Rect> layout() => [
+        for (final finder in [
+          find.byType(GenesisBottomSheetPanel),
+          find.byType(GenesisActionSheetHeader),
+          cards,
+          button,
+          find.text('Privacy Policy'),
+        ])
+          tester.getRect(finder),
+      ];
+      void expectHeader(String title, String icon) {
+        expect(
+          find.descendant(of: control('header'), matching: find.text(title)),
+          findsOneWidget,
+        );
+        final crown = tester.widget<SvgPicture>(control('subscription-icon'));
+        expect((crown.bytesLoader as SvgAssetLoader).assetName, icon);
+      }
+
+      expectHeader('Worldo Premium', proCrownGoldIconAsset);
+      final previewLayout = layout();
+      expect(previewLayout.first.height, closeTo(844 * .8, .01));
+      expect(previewLayout[1].height, 68);
+      expect(button.hitTestable(), findsOneWidget);
+      expect(
+        tester.widget<GenesisPrimaryButton>(button).label,
+        r'Yearly: $59.99',
+      );
+
+      await tester.drag(cards, const Offset(-160, 0));
+      await tester.pumpAndSettle();
+      expectHeader('Worldo Deluxe', proCrownDeluxeIconAsset);
+      expect(
+        find.text('Up to 18,000 Gems Monthly', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text(r'$44.90'), findsOneWidget);
+      expect(
+        tester.widget<GenesisPrimaryButton>(button).label,
+        r'Yearly: $449',
+      );
+      expect(find.text('Skip'), findsOneWidget);
+
+      await tester.drag(cards, const Offset(160, 0));
+      await tester.pumpAndSettle();
+      expectHeader('Worldo Premium', proCrownGoldIconAsset);
+      expect(
+        tester.widget<GenesisPrimaryButton>(button).label,
+        r'Yearly: $59.99',
+      );
+
+      await tester.tap(control('skip'));
+      await tester.pumpAndSettle();
+      await preview;
+
+      final standard = showGenesisModalBottomSheet<void>(
+        context: navigatorKey.currentContext!,
+        isScrollControlled: true,
+        builder: (_) => FractionallySizedBox(
+          heightFactor: PurchaseSheetPanel.heightFactor,
+          alignment: Alignment.bottomCenter,
+          child: PurchaseOptionsSheet(
+            initialTab: PurchaseSheetTab.subscription,
+            membershipProductsLoader: loadPersonalizationPreviewCatalog,
+            gemsBuilder: (_) => const SizedBox.expand(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(layout(), previewLayout);
+      navigatorKey.currentState!.pop();
+      await tester.pumpAndSettle();
+      await standard;
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'developer menu opens distinct states and can close locked form',
     (tester) async {
@@ -42,6 +150,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(control('sign-in'), findsOneWidget);
       final panel = tester.getRect(find.byType(GenesisBottomSheetPanel));
+      expect(
+        tester.getRect(control('sign-in')).bottom,
+        closeTo(panel.bottom, .01),
+      );
       final options = tester.getRect(
         find.byKey(const ValueKey('onboarding-preview-options')),
       );
@@ -53,16 +165,14 @@ void main() {
       expect(header.height, 68);
       expect(body.top, header.bottom);
       expect(titleStyle?.fontSize, 18);
-      void expectSameHeader({bool plainTitle = true}) {
-        expect(tester.getRect(control('header')), header);
-        expect(tester.getRect(control('body')), body);
-        // The subscription step titles itself with the plan's wordmark, so
-        // only the header's geometry carries over from the other steps.
-        if (!plainTitle) return;
+      void expectSameHeader() {
+        final current = tester.getRect(control('header'));
+        expect(current.height, header.height);
+        expect(tester.getRect(control('body')).top, current.bottom);
         expect(tester.widget<Text>(control('header-title')).style, titleStyle);
         expect(
           tester.getRect(control('header-title')).center.dy,
-          closeTo(header.center.dy, .01),
+          closeTo(current.center.dy, .01),
         );
       }
 
@@ -84,23 +194,25 @@ void main() {
         tester.widget<GenesisPrimaryButton>(control('continue')).onPressed,
         isNull,
       );
-      expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
+      expect(
+        tester.getRect(control('continue')).bottom,
+        closeTo(panel.bottom, .01),
+      );
       expectSameHeader();
       await choose('signInComplete');
       expect(find.text('Continue with Google'), findsOneWidget);
       expect(find.text(formTitle), findsNothing);
-      expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
+      expect(tester.getRect(find.byType(GenesisBottomSheetPanel)).height, 600);
       expectSameHeader();
       await choose('subscription');
       expect(find.text('Skip'), findsOneWidget);
       expect(control('subscription-icon'), findsOneWidget);
-      expect(
-        tester.getRect(find.byKey(const ValueKey('pro-benefits-card'))).top,
-        tester.getRect(control('body')).top,
-      );
+      expect(tester.getRect(control('header')).height, header.height);
       expect(find.text('Buy Gems'), findsNothing);
-      expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
-      expectSameHeader(plainTitle: false);
+      expect(
+        tester.getRect(find.byType(GenesisBottomSheetPanel)).height,
+        closeTo(844 * .8, .01),
+      );
       await choose('newUser');
       expect(control('sign-in'), findsOneWidget);
       await choose('close');
@@ -195,12 +307,11 @@ void main() {
                     if (fail) throw StateError('Preview failure');
                     return account;
                   },
-                  subscriptionBuilder: (_) => ProSubscriptionContent(
-                    topSpacing: 0,
-                    horizontalInset: 0,
-                    productsLoader: loadPersonalizationPreviewCatalog,
-                    purchaseHandler: (_) async {},
-                  ),
+                  subscriptionBuilder: (_) =>
+                      ProSubscriptionContent.purchaseSheet(
+                        productsLoader: loadPersonalizationPreviewCatalog,
+                        purchaseHandler: (_) async {},
+                      ),
                 ),
                 child: const Text('Open preview'),
               ),
@@ -251,90 +362,106 @@ void main() {
     });
   }
 
-  testWidgets(
-    'required choices, locked dismissal and fixed height across all steps',
-    (tester) async {
-      final font = FontLoader('Inter')
-        ..addFont(rootBundle.load('assets/fonts/InterVariable.ttf'));
-      await font.load();
-      final icons = FontLoader('MaterialIcons')
-        ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-      await icons.load();
-      await open(tester);
-      final panel = tester.getRect(find.byType(GenesisBottomSheetPanel));
-      expect(panel.height, 600);
-      expect(panel.top, 844 - 600);
-      expect(panel.bottom, 844);
-      final header = tester.getRect(control('header'));
-      final body = tester.getRect(control('body'));
-      final titleStyle = tester.widget<Text>(control('header-title')).style;
-      expect(header.height, 68);
-      expect(body.top, header.bottom);
-      expect(titleStyle?.fontSize, 18);
-      void expectSameHeader({bool plainTitle = true}) {
-        expect(tester.getRect(control('header')), header);
-        expect(tester.getRect(control('body')), body);
-        // The subscription step titles itself with the plan's wordmark, so
-        // only the header's geometry carries over from the other steps.
-        if (!plainTitle) return;
-        expect(tester.widget<Text>(control('header-title')).style, titleStyle);
-        expect(
-          tester.getRect(control('header-title')).center.dy,
-          closeTo(header.center.dy, .01),
-        );
-      }
-
-      expectSameHeader();
-      expect(enabled(tester), isFalse);
-      await tester.tapAt(const Offset(10, 20));
-      await tester.binding.handlePopRoute();
-      await tester.drag(find.text(formTitle), const Offset(0, 250));
-      await tester.pumpAndSettle();
-      expect(find.text(formTitle), findsOneWidget);
-      await capture(tester, 'empty');
-      await tap(tester, 'continue');
-      expect(find.text('Please select your gender and age.'), findsOneWidget);
-      expect(find.text(formTitle), findsOneWidget);
-      await tester.pump(const Duration(seconds: 3));
-      await tap(tester, 'Female');
-      expect(enabled(tester), isFalse);
-      await tap(tester, 'continue');
-      expect(find.text('Please select your age.'), findsOneWidget);
-      expect(find.text('Skip'), findsNothing);
-      await tester.pump(const Duration(seconds: 3));
-      await tap(tester, '25-34');
-      expect(enabled(tester), isTrue);
-      final continueRect = tester.getRect(control('continue'));
-      expect(continueRect.left - panel.left, 16);
-      expect(panel.right - continueRect.right, 16);
-      await capture(tester, 'selected');
-      await tap(tester, 'sign-in');
-      expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
-      expectSameHeader();
-      await capture(tester, 'login');
-      await tap(tester, 'back');
-      expect(enabled(tester), isTrue);
-      await tap(tester, 'continue');
-      expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
-      expectSameHeader(plainTitle: false);
-      expect(find.text('Buy Gems'), findsNothing);
-      expect(find.text('Skip'), findsOneWidget);
-      expect(control('subscription-icon'), findsOneWidget);
+  testWidgets('required choices and locked dismissal across onboarding steps', (
+    tester,
+  ) async {
+    final font = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/InterVariable.ttf'));
+    await font.load();
+    final icons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await icons.load();
+    await open(tester);
+    final panel = tester.getRect(find.byType(GenesisBottomSheetPanel));
+    expect(panel.height, lessThan(600));
+    expect(panel.bottom, 844);
+    expect(
+      panel.bottom - tester.getRect(control('sign-in')).bottom,
+      closeTo(34, .01),
+    );
+    final header = tester.getRect(control('header'));
+    final body = tester.getRect(control('body'));
+    final titleStyle = tester.widget<Text>(control('header-title')).style;
+    expect(header.height, 68);
+    expect(body.top, header.bottom);
+    expect(titleStyle?.fontSize, 18);
+    void expectSameHeader() {
+      final current = tester.getRect(control('header'));
+      expect(current.height, header.height);
+      expect(tester.getRect(control('body')).top, current.bottom);
+      expect(tester.widget<Text>(control('header-title')).style, titleStyle);
       expect(
-        tester.getRect(find.byKey(const ValueKey('pro-benefits-card'))).top,
-        tester.getRect(control('body')).top,
+        tester.getRect(control('header-title')).center.dy,
+        closeTo(current.center.dy, .01),
       );
-      for (final key in ['pro-benefits-card', 'pro-subscribe-button']) {
-        final rect = tester.getRect(find.byKey(ValueKey(key)));
-        expect(rect.left - panel.left, 16);
-        expect(panel.right - rect.right, 16);
-      }
-      await capture(tester, 'subscription');
-      await tap(tester, 'skip');
-      expect(find.byType(PersonalizationSheet), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    }
+
+    expectSameHeader();
+    expect(enabled(tester), isFalse);
+    await tester.tapAt(const Offset(10, 20));
+    await tester.binding.handlePopRoute();
+    await tester.drag(find.text(formTitle), const Offset(0, 250));
+    await tester.pumpAndSettle();
+    expect(find.text(formTitle), findsOneWidget);
+    await capture(tester, 'empty');
+    await tap(tester, 'continue');
+    expect(find.text('Please select your gender and age.'), findsOneWidget);
+    expect(find.text(formTitle), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tap(tester, 'Female');
+    expect(enabled(tester), isFalse);
+    await tap(tester, 'continue');
+    expect(find.text('Please select your age.'), findsOneWidget);
+    expect(find.text('Skip'), findsNothing);
+    await tester.pump(const Duration(seconds: 3));
+    await tap(tester, '25-34');
+    expect(enabled(tester), isTrue);
+    final continueRect = tester.getRect(control('continue'));
+    expect(continueRect.left - panel.left, 16);
+    expect(panel.right - continueRect.right, 16);
+    await capture(tester, 'selected');
+    await tap(tester, 'sign-in');
+    expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
+    expectSameHeader();
+    await capture(tester, 'login');
+    await tap(tester, 'back');
+    expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
+    expect(enabled(tester), isTrue);
+    final animatedSheet = find.byType(PersonalizationSheet);
+    await tester.tap(control('continue'));
+    await tester.pump();
+    expect(tester.getRect(animatedSheet), panel);
+    await tester.pump(const Duration(milliseconds: 120));
+    final expanding = tester.getRect(animatedSheet);
+    expect(expanding.bottom, panel.bottom);
+    expect(expanding.height, greaterThan(panel.height));
+    expect(expanding.height, lessThan(844 * .8));
+    expect(tester.getRect(control('header')).top, expanding.top);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byType(GenesisBottomSheetPanel)).height,
+      closeTo(844 * .8, .01),
+    );
+    expect(tester.getRect(control('header')).height, header.height);
+    expect(find.text('Buy Gems'), findsNothing);
+    expect(find.text('Skip'), findsOneWidget);
+    expect(control('subscription-icon'), findsOneWidget);
+    expect(
+      tester
+          .getRect(find.byKey(const ValueKey('membership-subscription-pages')))
+          .top,
+      closeTo(tester.getRect(control('body')).top, .01),
+    );
+    final button = find.byKey(const ValueKey('pro-subscribe-button'));
+    final rect = tester.getRect(button);
+    expect(rect.left - panel.left, 16);
+    expect(panel.right - rect.right, 16);
+    expect(button.hitTestable(), findsOneWidget);
+    await capture(tester, 'subscription');
+    await tap(tester, 'skip');
+    expect(find.byType(PersonalizationSheet), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
     testWidgets('onboarding only allows explicit dismissal on $platform', (
       tester,
@@ -346,7 +473,10 @@ void main() {
         await tester.dragFrom(Offset(1, panel.top + 100), const Offset(300, 0));
         await tester.pumpAndSettle();
         expect(find.byType(PersonalizationSheet), findsOneWidget);
-        await tester.drag(control('header'), const Offset(0, 300));
+        await tester.dragFrom(
+          tester.getCenter(control('header')),
+          const Offset(0, 300),
+        );
         await tester.pumpAndSettle();
         expect(find.byType(PersonalizationSheet), findsOneWidget);
         await tester.tapAt(const Offset(10, 100));
@@ -428,17 +558,33 @@ void main() {
   ) async {
     await open(
       tester,
-      size: const Size(320, 568),
+      size: const Size(320, 500),
       scale: 1.5,
       safeTop: 20,
-      safeBottom: 0,
+      safeBottom: 24,
     );
+    final scroll = Scrollable.of(tester.element(control('continue'))).position;
+    expect(scroll.maxScrollExtent, greaterThan(0));
+    final sheet = find.byType(PersonalizationSheet);
+    final form = tester.getRect(sheet);
+    await tap(tester, 'sign-in');
+    expect(tester.getRect(sheet), form);
+    await tap(tester, 'back');
     await tap(tester, 'Non_binary');
     await tap(tester, '45+');
     await tester.ensureVisible(control('continue'));
     await tester.pumpAndSettle();
     expect(enabled(tester), isTrue);
-    await tap(tester, 'continue');
+    await tester.tap(control('continue'));
+    await tester.pump();
+    expect(tester.getRect(sheet), form);
+    await tester.pump(const Duration(milliseconds: 120));
+    final contracting = tester.getRect(sheet);
+    expect(contracting.bottom, 500);
+    expect(contracting.height, lessThan(form.height));
+    expect(contracting.height, greaterThan(400));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(sheet).height, 400);
     expect(find.text('Skip'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

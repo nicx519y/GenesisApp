@@ -24,9 +24,7 @@ class GenesisBottomSheetCloseButton extends StatelessWidget {
       key: buttonKey,
       dimension: 24,
       child: IconButton(
-        tooltip: GenesisL10n
-            .current
-            .commonClose,
+        tooltip: GenesisL10n.current.commonClose,
         onPressed: onPressed,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints.tightFor(width: 24, height: 24),
@@ -127,7 +125,8 @@ class GenesisActionSheetHeader extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 56),
+              // TabBar reserves 2 px below the label for its indicator.
+              padding: const EdgeInsets.fromLTRB(56, 2, 56, 0),
               child: SizedBox(height: 50, child: Center(child: tabs)),
             ),
             if (action != null) Positioned(right: inset, child: action),
@@ -195,6 +194,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     this.showHeader = true,
     this.header,
     this.insetBody = true,
+    this.shrinkWrap = false,
   });
 
   static const BorderRadius borderRadius = GenesisRadii.sheet;
@@ -222,6 +222,9 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   /// Tab/step shells apply GenesisActionSheetBody inside each page instead.
   final bool insetBody;
 
+  /// Treats [height] as a maximum so scrollable content can size the panel.
+  final bool shrinkWrap;
+
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -231,6 +234,8 @@ class GenesisBottomSheetPanel extends StatelessWidget {
                   ? GenesisActionSheetHeader(title: title, trailing: trailing)
                   : null)
         : null;
+    final mainAxisSize = shrinkWrap ? MainAxisSize.min : MainAxisSize.max;
+    final bodyFit = shrinkWrap ? FlexFit.loose : FlexFit.tight;
     return Material(
       color:
           backgroundColor ??
@@ -239,15 +244,20 @@ class GenesisBottomSheetPanel extends StatelessWidget {
       child: SafeArea(
         top: false,
         maintainBottomViewPadding: maintainBottomViewPadding,
-        child: SizedBox(
-          height: height,
-          width: double.infinity,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: double.infinity,
+            minHeight: shrinkWrap ? 0 : height,
+            maxHeight: height,
+          ),
           child: actionHeader != null
               ? Column(
+                  mainAxisSize: mainAxisSize,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     actionHeader,
-                    Expanded(
+                    Flexible(
+                      fit: bodyFit,
                       child: insetBody
                           ? GenesisActionSheetBody(
                               bottom: padding.bottom,
@@ -263,6 +273,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
               : Padding(
                   padding: padding,
                   child: Column(
+                    mainAxisSize: mainAxisSize,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (showHeader) ...[
@@ -288,7 +299,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
                         ),
                         SizedBox(height: titleBottomSpacing),
                       ],
-                      Expanded(child: child),
+                      Flexible(fit: bodyFit, child: child),
                     ],
                   ),
                 ),

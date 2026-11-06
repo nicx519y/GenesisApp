@@ -17,6 +17,7 @@ typedef MemoryMembershipTier = MembershipType;
 const membershipTierTransitionDuration = Duration(milliseconds: 480);
 const membershipTierTransitionCurve = Cubic(.2, .8, .2, 1);
 const purchaseTabContentTopSpacing = 12.0;
+const membershipPricePlaceholder = '--';
 const deluxeInkOnPearl = Color(0xFF3A2530);
 
 enum MemoryMembershipSurfaceKind { subscription, offer, profile }
@@ -584,9 +585,8 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
     final deluxeProgress = deluxeColorProgress ?? (premium ? 0.0 : 1.0);
     Color tierColor(Color gold, Color pink) =>
         Color.lerp(gold, pink, deluxeProgress)!;
-    final price = annual
-        ? yearlyPrice ?? context.l10n.premiumPurchaseUnavailable
-        : monthlyPrice ?? context.l10n.premiumPurchaseUnavailable;
+    final price =
+        (annual ? yearlyPrice : monthlyPrice) ?? membershipPricePlaceholder;
     final accent = offer
         ? (premium ? const Color(0xFFF3C558) : const Color(0xFFFFE3A3))
         : tierColor(premiumGold, MemoryMembershipTier.deluxe.accent);

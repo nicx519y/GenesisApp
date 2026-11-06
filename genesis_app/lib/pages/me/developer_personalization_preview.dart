@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../app/gems/gem_wallet_store.dart';
+import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_catalog.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/pro_subscription_content.dart';
 import '../../components/onboarding/personalization_sheet.dart';
 import '../../network/models/membership_benefit.dart';
+import '../../network/models/gem_wallet.dart';
 import '../../network/models/membership_product.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 
@@ -118,8 +121,24 @@ class _DeveloperPersonalizationPreview extends StatefulWidget {
 
 class _DeveloperPersonalizationPreviewState
     extends State<_DeveloperPersonalizationPreview> {
+  final _previewWallet = GemWalletStore(
+    loadWallet: () async => const GemWallet(balanceCent: 0),
+    readUid: () async => null,
+  );
+  late final _previewMembership = MembershipAccessStore(
+    wallet: _previewWallet,
+    readLoginUid: () async => null,
+    serverNow: () => null,
+  );
   late PersonalizationPreviewScenario _scenario = widget.initialScenario;
   int _revision = 0;
+
+  @override
+  void dispose() {
+    _previewMembership.dispose();
+    _previewWallet.dispose();
+    super.dispose();
+  }
 
   Future<void> _options() async {
     final selection = await selectPersonalizationPreviewScenario(context);
@@ -191,17 +210,17 @@ class _DeveloperPersonalizationPreviewState
                     ? completeProfile
                     : const PersonalizationProfile();
               },
-              subscriptionBuilder: (context) => ProSubscriptionContent(
-                topSpacing: 0,
-                horizontalInset: 0,
-                showHeading: false,
-                productsLoader: loadPersonalizationPreviewCatalog,
-                purchaseHandler: (_) async => showGenesisToast(
-                  context,
-                  'Preview only — no purchase was made.',
-                  brightness: Brightness.dark,
-                ),
-              ),
+              subscriptionBuilder: (context) =>
+                  ProSubscriptionContent.purchaseSheet(
+                    productsLoader: loadPersonalizationPreviewCatalog,
+                    membershipAccess: _previewMembership,
+                    refreshMembershipOnOpen: false,
+                    purchaseHandler: (_) async => showGenesisToast(
+                      context,
+                      'Preview only — no purchase was made.',
+                      brightness: Brightness.dark,
+                    ),
+                  ),
             ),
           ),
         ],
@@ -294,6 +313,43 @@ Future<MembershipCatalogData> loadPersonalizationPreviewCatalog() async =>
                   iconKey: 'recharge',
                   displayType: MembershipBenefitDisplay.included,
                 ),
+              ],
+            ),
+          ),
+        for (final yearly in [true, false])
+          MembershipOffer(
+            product: MembershipProduct(
+              title: 'Deluxe',
+              planCode: yearly ? 'deluxe_yearly' : 'deluxe_monthly',
+              provider: MembershipProvider.google,
+              storeProductId: 'developer_preview_deluxe_only',
+              billingMonths: yearly ? 12 : 1,
+              monthlyGemsCent: 1200000,
+              priceCurrencyCode: 'USD',
+              priceAmount: yearly ? 44900 : 4490,
+              benefits: [
+                for (final (code, title, icon) in const [
+                  ('gems', 'Up to 18,000 Gems Monthly', 'gem'),
+                  ('pink_gems', '12,000 Pink Gems per Month', 'gem'),
+                  ('red_gems', '200 Extra Red Gems per Daily Check-in', 'gem'),
+                  ('timeline', 'Timeline: every key event, in order', 'memory'),
+                  ('cast', 'Cast: a living profile of everyone', 'memory'),
+                  (
+                    'bonds',
+                    'Bonds: how everyone feels about each other',
+                    'memory',
+                  ),
+                  ('recall', 'Characters remember all of it', 'memory'),
+                  ('inspirations', 'Unlimited Inspirations', 'inspiration'),
+                  ('editing', 'Unlimited Editing', 'edit'),
+                  ('badge', 'Exclusive Deluxe Badge', 'badge'),
+                ])
+                  MembershipBenefit(
+                    code: 'preview_deluxe_$code',
+                    title: title,
+                    iconKey: icon,
+                    displayType: MembershipBenefitDisplay.enhanced,
+                  ),
               ],
             ),
           ),

@@ -25,6 +25,7 @@ import 'gem_purchase_state.dart';
 import 'membership_purchase_presentation.dart';
 import 'purchase_legal_links.dart';
 import '../common/genesis_center_toast.dart';
+import '../common/genesis_bottom_sheet_panel.dart';
 import 'pro_colors.dart';
 import 'memory_membership_style.dart';
 import 'memory_membership_carousel.dart';
@@ -38,6 +39,12 @@ enum _ProPlan {
     _ProPlan.yearly => GenesisL10n.current.yearlyPlan,
     _ProPlan.monthly => GenesisL10n.current.monthlyPlan,
   };
+}
+
+class SubscriptionTierChanged extends Notification {
+  const SubscriptionTierChanged(this.tier);
+
+  final MemoryMembershipTier tier;
 }
 
 class ProSubscriptionContent extends StatefulWidget {
@@ -55,7 +62,7 @@ class ProSubscriptionContent extends StatefulWidget {
     this.onCloseAfterPurchaseSuccess,
     this.showHeading = true,
     this.headingTopSpacing = 22,
-    this.topSpacing = 10,
+    this.topSpacing = purchaseTabContentTopSpacing,
     this.horizontalInset = 20,
     this.tagline,
     this.headingSuffix,
@@ -66,6 +73,34 @@ class ProSubscriptionContent extends StatefulWidget {
     this.includeBottomSafeArea = false,
     this.onBenefitsPullDown,
   });
+
+  const ProSubscriptionContent.purchaseSheet({
+    Key? key,
+    MembershipCatalogLoader? productsLoader,
+    MemoryMembershipTier? initialMembershipType,
+    ValueChanged<MemoryMembershipTier>? onMembershipTypeChanged,
+    Future<void> Function(MembershipProduct)? purchaseHandler,
+    MembershipAccessStore? membershipAccess,
+    bool refreshMembershipOnOpen = true,
+    VoidCallback? onCloseAfterPurchaseSuccess,
+  }) : this(
+         key: key,
+         productsLoader: productsLoader,
+         initialMembershipType: initialMembershipType,
+         onMembershipTypeChanged: onMembershipTypeChanged,
+         purchaseHandler: purchaseHandler,
+         membershipAccess: membershipAccess,
+         refreshMembershipOnOpen: refreshMembershipOnOpen,
+         closeOnPurchaseSuccess: true,
+         onCloseAfterPurchaseSuccess: onCloseAfterPurchaseSuccess,
+         topSpacing: 0,
+         headingTopSpacing: 0,
+         horizontalInset: GenesisActionSheetBody.horizontalInset,
+         loadingPlaceholder: const GemPurchaseTabPlaceholder.subscription(
+           topSpacing: 0,
+         ),
+         pinPurchaseActions: true,
+       );
 
   final MembershipCatalogLoader? productsLoader;
   final MembershipType? initialMembershipType;
@@ -574,6 +609,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final carousel = MemoryMembershipSubscriptionCarousel(
       hasPurchased: _hasPurchased,
       initialTier: _type,
+      topSpacing: widget.topSpacing,
       // Sheet hosts already provide the carousel's outer horizontal spacing.
       horizontalInset: widget.horizontalInset == 0 ? 0 : 16,
       premiumActive: state.activeFor(MembershipType.premium),
@@ -583,6 +619,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       onTierChanged: (type) {
         if (!mounted || _submitting) return;
         widget.onMembershipTypeChanged?.call(type);
+        SubscriptionTierChanged(type).dispatch(context);
         if (_type == type) return;
         setState(() {
           _plans[_type] = _plan;
@@ -784,7 +821,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final price = _offerFor(_plan)?.price?.formattedPrice;
     final label = subscribed
         ? GenesisL10n.current.premiumSubscribed
-        : '$period: ${price ?? GenesisL10n.current.premiumPurchaseUnavailable}';
+        : '$period: ${price ?? membershipPricePlaceholder}';
     final gradient = switch (deluxeColorProgress) {
       0 => premiumGradient,
       1 => deluxeGradient,
@@ -874,23 +911,23 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   static String get _restLabel => GenesisL10n.current.premiumAlsoIncluded;
 }
 
-/// "Worldo Premium" under a gold sweep, as on the profile card. Public so a
-/// sheet that titles itself with the plan can show the same lockup.
-class PremiumWordmark extends StatelessWidget {
-  const PremiumWordmark({super.key, this.textStyle});
+/// The tier's title and gradient for a subscription sheet header.
+class MembershipWordmark extends StatelessWidget {
+  const MembershipWordmark({super.key, required this.tier, this.textStyle});
 
+  final MemoryMembershipTier tier;
   final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
     return ShaderMask(
       blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => proTitleGradient.createShader(bounds),
+      shaderCallback: tier.foreground.createShader,
       // No compressed line height: at height 1 the glyphs sit above the centre
       // of their own box, which tips the wordmark off whatever is centred
       // beside it. The font's natural leading keeps the two level.
       child: Text(
-        GenesisL10n.current.premiumWorldo,
+        tier.title(context),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style:

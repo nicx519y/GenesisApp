@@ -23,6 +23,7 @@ class MemoryMembershipSubscriptionCarousel extends StatefulWidget {
     this.deluxeExpiry,
     this.initialTier,
     this.horizontalInset = 16,
+    this.topSpacing = purchaseTabContentTopSpacing,
     required this.plansBuilder,
     required this.actionsBuilder,
     this.pinPurchaseActions = false,
@@ -40,6 +41,7 @@ class MemoryMembershipSubscriptionCarousel extends StatefulWidget {
   /// The card to open on when the entry asks for one; otherwise the lead card.
   final MemoryMembershipTier? initialTier;
   final double horizontalInset;
+  final double topSpacing;
   final Widget Function(double deluxeColorProgress) plansBuilder;
   final Widget Function(double deluxeColorProgress) actionsBuilder;
   final bool pinPurchaseActions;
@@ -167,7 +169,7 @@ class _SubscriptionCarouselState
           final plans = widget.plansBuilder(progress);
           final actions = widget.actionsBuilder(progress);
           final indicator = _pageIndicator(context);
-          const topSpace = SizedBox(height: purchaseTabContentTopSpacing);
+          final topSpace = SizedBox(height: widget.topSpacing);
           if (!scrollBody) {
             return Column(
               children: [

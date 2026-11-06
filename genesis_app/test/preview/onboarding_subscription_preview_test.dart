@@ -49,12 +49,10 @@ void main() {
               initialStep: PersonalizationStep.subscription,
               onSubmit: (_) async => PersonalizationNextStep.subscription,
               onSignIn: (_) async => const PersonalizationProfile(),
-              subscriptionBuilder: (context) => ProSubscriptionContent(
-                topSpacing: 0,
-                horizontalInset: 0,
-                showHeading: false,
-                productsLoader: loadPersonalizationPreviewCatalog,
-              ),
+              subscriptionBuilder: (context) =>
+                  ProSubscriptionContent.purchaseSheet(
+                    productsLoader: loadPersonalizationPreviewCatalog,
+                  ),
             ),
           ),
         ),

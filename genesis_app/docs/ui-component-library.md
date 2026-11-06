@@ -267,9 +267,11 @@ Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurcha
 
 用户端交互 / 提交 Sheet 的公共 Header，总高 68（含正文前留白），标题 18 / 600、行高 24，左对齐，左右边距 16，标题与左右操作在 Header 内垂直居中。普通深色 `GenesisBottomSheetPanel` 自动复用；无固定高度的发帖 / 回复编辑弹层也直接复用，并将右侧关闭接到原有键盘退出动画。允许关闭的弹层使用标准圆形关闭按钮；新用户订阅保留 Skip。
 
-购买 Sheet 使用 `.tabs` 变体，高度 68，采用 16 / 600 的纯文字 Tab 与下划线。Subscription 下划线随会员卡切换，Premium 为金色，Deluxe 为粉色，Buy Gems 为品牌红。文字使用公共一级和二级白。完整支付页和购买 Sheet 的订阅卡片顶边与 My Balance 标题行均距 Tab 内容区顶部 12 个逻辑像素。订阅协议下方统一保留 10px，系统底部安全区由外层处理一次。Mention、World / Worldo 内容面板和开发工具保留各自 Header。
+购买 Sheet 使用 `.tabs` 变体，高度 68，采用 16 / 600 的纯文字 Tab 与下划线。Subscription 下划线随会员卡切换，Premium 为金色，Deluxe 为粉色，Buy Gems 为品牌红。文字使用公共一级和二级白。购买 Sheet 的订阅卡片顶边和 My Balance 标题行紧接 Header，完整支付页保留 12 个逻辑像素的顶部间距。订阅协议下方统一保留 10px，系统底部安全区由外层处理一次。Mention、World / Worldo 内容面板和开发工具保留各自 Header。
 
 购买 Sheet 的 Subscription 和 Buy Gems 共用 `PurchaseLegalLinks`，固定在底部安全区上方。订阅按钮也固定在底部。常规高度下权益卡按剩余空间伸缩，短屏或大字体下权益卡和套餐可在固定区上方滚动。
+
+新用户订阅和开发预览复用 `PurchaseSheetPanel` 与 `ProSubscriptionContent.purchaseSheet`。Sheet 总高为可用屏幕高度的 80%，使用同高的会员标题栏和 Skip，底部购买按钮与协议的布局跟普通购买 Sheet 一致。开发预览注入两档会员的月付、年付及权益示例。
 
 ### GenesisActionSheetBody
 

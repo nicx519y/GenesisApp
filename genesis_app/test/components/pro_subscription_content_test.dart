@@ -1293,10 +1293,8 @@ void main() {
     expect(find.text('Monthly VIP'), findsNothing);
     expect(find.text('Monthly bonus Gems'), findsOneWidget);
     expect(find.text('Pro'), findsNothing);
-    expect(
-      findSubscriptionLabel('Monthly: Premium purchase is currently unavailable.'),
-      findsOneWidget,
-    );
+    expect(find.text('--'), findsNWidgets(2));
+    expect(findSubscriptionLabel('Monthly: --'), findsOneWidget);
   });
 
   _testWidgets(

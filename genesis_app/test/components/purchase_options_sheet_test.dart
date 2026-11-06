@@ -193,6 +193,13 @@ void main() {
       expect(color(), MemoryMembershipTier.deluxe.accent);
       final cards = find.byKey(const ValueKey('membership-subscription-pages'));
       final subscriptionTop = tester.getTopLeft(cards).dy;
+      final header = tester.getRect(find.byType(GenesisActionSheetHeader));
+      final title = tester.getRect(find.text('Subscription'));
+      expect(subscriptionTop, closeTo(header.bottom, .01));
+      expect(
+        subscriptionTop - title.bottom,
+        closeTo(title.top - header.top, .01),
+      );
       await tester.drag(cards, const Offset(200, 0));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 90));
