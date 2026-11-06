@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 void main() {
   testWidgets('world name stays in place while time loads', (tester) async {
@@ -96,6 +97,9 @@ void main() {
   testWidgets(
     'launched world footer shows the current user role and messages',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       final world = WorldDetail.fromJson(const {
         'world_id': 'world-launched',
         'tick_count': 7,
@@ -113,7 +117,7 @@ void main() {
             'char_id': 'character-self',
             'player_uid': 'user-self',
             'name': 'My Role',
-            'avatar': '',
+            'avatar': 'https://cdn.example.com/footer-role.webp',
           },
         ],
       });
@@ -170,6 +174,19 @@ void main() {
         BorderRadius.circular(12),
       );
       expect(avatar.size, worldCharacterAvatarLogicalSize);
+      final avatarImage = tester.widget<GenesisStaticNetworkImage>(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('world-current-character-avatar'),
+          ),
+          matching: find.byType(GenesisStaticNetworkImage),
+        ),
+      );
+      expect(
+        avatarImage.imageUrl,
+        'https://cdn.example.com/footer-role.webp'
+        '?x-oss-process=image/resize,w_96/format,webp',
+      );
       expect(
         tester.getSize(
           find.byKey(const ValueKey<String>('world-current-character-avatar')),

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/home/world_item_card.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_avatar_radii.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 
@@ -45,7 +46,8 @@ void main() {
       'my_character': {
         'char_id': 'c_self',
         'name': 'Self Hero',
-        'avatar': {'sm_url': '', 'xl_url': '', 'object_key': ''},
+        'avatar':
+            'https://cdn.example.com/home-role.webp?key=avatar&x-oss-process=image/resize,w_180',
       },
     });
 
@@ -108,7 +110,17 @@ void main() {
     );
     expect(avatar.size, 25);
     expect(avatar.borderRadius, GenesisAvatarRadii.character);
-    expect(avatar.maxDevicePixelRatio, 3);
+    final avatarImage = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: find.byType(GenesisCharacterAvatar),
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    expect(
+      avatarImage.imageUrl,
+      'https://cdn.example.com/home-role.webp?key=avatar'
+      '&x-oss-process=image/resize,w_50/format,webp',
+    );
 
     final nameRect = tester.getRect(
       find.byKey(const ValueKey<String>('world-card-name')),

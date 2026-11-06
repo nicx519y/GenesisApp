@@ -250,8 +250,8 @@ class _ChatPhotoDescription extends StatelessWidget {
               child: Text(
                 caption,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.95),
+                style: GenesisTypography.body.copyWith(
+                  color: GenesisColors.darkTextPrimary,
                   fontSize: 13,
                   height: 18 / 13,
                   letterSpacing: 0,

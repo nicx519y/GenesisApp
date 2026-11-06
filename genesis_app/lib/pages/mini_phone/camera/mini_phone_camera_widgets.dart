@@ -7,6 +7,7 @@ import '../../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../../network/mini_phone/mini_phone_models.dart';
 import '../../../ui/tokens/genesis_radii.dart';
 import '../../../ui/tokens/genesis_blur.dart';
+import '../../../ui/tokens/genesis_typography.dart';
 import '../shared/mini_phone_ui.dart';
 import 'mini_phone_camera_strings.dart';
 import 'mini_phone_camera_templates.dart';
@@ -28,7 +29,7 @@ class MiniPhoneCameraSectionHeading extends StatelessWidget {
       Expanded(
         child: Text(
           label,
-          style: miniStyle(14, FontWeight.w600).copyWith(height: 1.4),
+          style: GenesisTypography.bodyStrong.copyWith(color: miniWhite),
         ),
       ),
       if (detail != null) ...[
@@ -37,11 +38,10 @@ class MiniPhoneCameraSectionHeading extends StatelessWidget {
           child: Text(
             detail!,
             textAlign: TextAlign.end,
-            style: miniStyle(
-              12,
-              FontWeight.w400,
-              miniTertiary,
-            ).copyWith(height: 1.4),
+            style: GenesisTypography.supporting.copyWith(
+              fontWeight: FontWeight.w400,
+              color: miniTertiary,
+            ),
           ),
         ),
       ],
@@ -268,6 +268,12 @@ class MiniPhoneCameraThumbnail extends StatelessWidget {
   final Widget child;
   final bool showSwitch;
 
+  static final _labelStyle = GenesisTypography.supporting.copyWith(
+    fontSize: 11,
+    fontWeight: FontWeight.w400,
+    color: miniSecondary,
+  );
+
   @override
   Widget build(BuildContext context) => Semantics(
     label: label,
@@ -327,8 +333,10 @@ class MiniPhoneCameraThumbnail extends StatelessWidget {
             // first frame. Keep both caption lines in the footer from launch.
             SizedBox(
               height:
-                  (MediaQuery.textScalerOf(context).scale(11) *
-                          miniStyle(11).height! *
+                  (MediaQuery.textScalerOf(
+                            context,
+                          ).scale(_labelStyle.fontSize!) *
+                          _labelStyle.height! *
                           2)
                       .ceilToDouble(),
               child: Text(
@@ -336,7 +344,7 @@ class MiniPhoneCameraThumbnail extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: miniStyle(11, FontWeight.w400, miniSecondary),
+                style: _labelStyle,
               ),
             ),
           ],

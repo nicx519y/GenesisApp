@@ -85,6 +85,8 @@ class _MePageState extends State<MePage>
   late Future<_MePageContent> _future;
   final ValueNotifier<bool> _isUpdatingProfile = ValueNotifier<bool>(false);
   final ValueNotifier<String> _avatarUrl = ValueNotifier<String>('');
+  final ValueNotifier<Uint8List?> _avatarPreviewBytes = ValueNotifier(null);
+  Object? _avatarEditToken;
   final ValueNotifier<String> _displayName = ValueNotifier<String>('');
   final ValueNotifier<UserProfileData?> _profileData =
       ValueNotifier<UserProfileData?>(null);
@@ -190,6 +192,7 @@ class _MePageState extends State<MePage>
     widget.activationListenable?.removeListener(_tabActivatedListener);
     _isUpdatingProfile.dispose();
     _avatarUrl.dispose();
+    _avatarPreviewBytes.dispose();
     _displayName.dispose();
     _profileData.dispose();
     _profileCollapsed.dispose();
@@ -336,6 +339,7 @@ class _MePageState extends State<MePage>
                           originsListenable: _originsState,
                           worldsListenable: _worldsState,
                           avatarUrlListenable: _avatarUrl,
+                          avatarPreviewBytesListenable: _avatarPreviewBytes,
                           displayNameListenable: _displayName,
                           // The crown now sits bare beside the name, so the
                           // 50x20 plate box it used to need is gone.

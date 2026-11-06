@@ -86,25 +86,16 @@ class GenesisPushBanner extends StatelessWidget {
                               title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: GenesisTypography.fontFamily,
-                                fontFamilyFallback:
-                                    GenesisTypography.fontFamilyFallback,
+                              style: GenesisTypography.supporting.copyWith(
                                 color: GenesisColors.darkTextSecondary,
-                                fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 height: 1.2,
                               ),
                             ),
                             const SizedBox(height: 5),
                             DefaultTextStyle(
-                              style: const TextStyle(
-                                fontFamily: GenesisTypography.fontFamily,
-                                fontFamilyFallback:
-                                    GenesisTypography.fontFamilyFallback,
+                              style: GenesisTypography.bodyStrong.copyWith(
                                 color: GenesisColors.darkTextPrimary,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
                                 height: 1.25,
                               ),
                               child: detail,

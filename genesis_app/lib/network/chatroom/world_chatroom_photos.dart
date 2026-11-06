@@ -133,11 +133,18 @@ extension WorldChatroomPhotos on WorldChatroomService {
         }, request: request);
       }
       _photoLiveRevisions[receipt.photo.taskId] = ++_photoRevision;
-      await replyActions?.refreshPhotoCard(
+      final refreshed = await replyActions?.refreshPhotoCards(
         receipt.locationId,
         receipt.roundId,
-        receipt.cardId!,
+        {receipt.cardId!},
       );
+      if (refreshed != null) {
+        _observeRefreshedCardPhotos(
+          receipt.locationId,
+          receipt.roundId,
+          refreshed,
+        );
+      }
       return;
     }
     final message = WorldChatroomMessage.fromHttpMessage(
@@ -248,6 +255,20 @@ extension WorldChatroomPhotos on WorldChatroomService {
     return failOnError ? write : _photoJournalWrites;
   }
 
+  void _observeRefreshedCardPhotos(String location, int round, Set<int> cards) {
+    final monitor = _photoGenerationMonitor;
+    if (monitor == null) return;
+    final state = replyActions?.stateForRound(location, round);
+    if (state == null) return;
+    for (final id in cards) {
+      for (final message in state.messagesForCard(id)) {
+        if (message.photo case final photo? when photo.terminal) {
+          monitor.observe('chat', photo);
+        }
+      }
+    }
+  }
+
   /// Re-read known unfinished rounds; a latest-page cursor cannot find updates
   /// to an older message. This is lifecycle driven, never task polling.
   Future<void> recoverPhotos(
@@ -269,55 +290,35 @@ extension WorldChatroomPhotos on WorldChatroomService {
           world != _worldId) {
         return;
       }
+      final store = ChatPhotoJobStore(
+        _api.chatroomHttp.cacheNamespace,
+        _storageOwnerUid,
+        world,
+        locationId,
+      );
+      final targets = <int, Set<int>>{};
+      var jobs = <Map<String, dynamic>>[];
       try {
-        final jobs = await ChatPhotoJobStore(
-          _api.chatroomHttp.cacheNamespace,
-          _storageOwnerUid,
-          world,
-          locationId,
-        ).read();
-        for (final job in jobs.where((j) => j['card_id'] != null)) {
-          await replyActions?.refreshPhotoCard(
-            locationId,
-            chatPhotoId(job['conversation_round_id']),
-            chatPhotoId(job['card_id']),
-          );
-          if (_disposed ||
-              world != _worldId ||
-              generation != _messageSyncGeneration) {
-            return;
-          }
-          final oldPhoto = ChatPhoto.fromJson(
-            (job['raw_payload'] ?? job['payload'] as Map)['photo'],
-          );
-          final current = replyActions
-              ?.stateForRound(
-                locationId,
-                chatPhotoId(job['conversation_round_id']),
-              )
-              ?.messagesForCard(chatPhotoId(job['card_id']));
-          if (current != null &&
-              !current.any(
-                (m) =>
-                    m.photo?.taskId == oldPhoto.taskId &&
-                    m.photo?.terminal == false,
-              )) {
-            await ChatPhotoJobStore(
-              _api.chatroomHttp.cacheNamespace,
-              _storageOwnerUid,
-              world,
-              locationId,
-            ).remove(oldPhoto.taskId);
+        jobs = await store.read();
+        if (_disposed ||
+            generation != _messageSyncGeneration ||
+            world != _worldId) {
+          return;
+        }
+        for (final job in jobs) {
+          final round = chatPhotoId(job['conversation_round_id']);
+          if (job['card_id'] != null) {
+            targets
+                .putIfAbsent(round, () => <int>{})
+                .add(chatPhotoId(job['card_id']));
+          } else {
+            final message = WorldChatroomMessage.fromStorageJson(job);
+            if (message.photo?.status == ChatPhotoStatus.generating &&
+                round > 0) {
+              rounds.add(round);
+            }
           }
         }
-        rounds.addAll(
-          jobs
-              .where((j) => j['card_id'] == null)
-              .map(WorldChatroomMessage.fromStorageJson)
-              .where((m) => m.photo?.status == ChatPhotoStatus.generating)
-              .map((m) => m.conversationRoundNumber)
-              .where((r) => r > 0),
-        );
       } catch (error) {
         _logChatroomSocketEvent('photo task restore failed: $error');
       }
@@ -330,12 +331,53 @@ extension WorldChatroomPhotos on WorldChatroomService {
                 ChatPhoto.tryParse(m.message.payload['photo'])?.status ==
                 ChatPhotoStatus.generating,
           )) {
-            await replyActions?.refreshPhotoCard(
-              locationId,
-              state.roundId,
-              card.cardId,
-            );
+            targets.putIfAbsent(state.roundId, () => <int>{}).add(card.cardId);
           }
+        }
+      }
+      for (final entry in targets.entries) {
+        if (_disposed ||
+            generation != _messageSyncGeneration ||
+            world != _worldId) {
+          return;
+        }
+        try {
+          final refreshed =
+              await replyActions?.refreshPhotoCards(
+                locationId,
+                entry.key,
+                entry.value,
+              ) ??
+              <int>{};
+          if (_disposed ||
+              generation != _messageSyncGeneration ||
+              world != _worldId) {
+            return;
+          }
+          _observeRefreshedCardPhotos(locationId, entry.key, refreshed);
+          for (final job in jobs.where(
+            (j) =>
+                chatPhotoId(j['conversation_round_id']) == entry.key &&
+                j['card_id'] != null &&
+                refreshed.contains(chatPhotoId(j['card_id'])),
+          )) {
+            final oldPhoto = ChatPhoto.fromJson(
+              ((job['raw_payload'] ?? job['payload']) as Map)['photo'],
+            );
+            final messages = replyActions
+                ?.stateForRound(locationId, entry.key)
+                ?.messagesForCard(chatPhotoId(job['card_id']));
+            if (messages != null &&
+                !messages.any(
+                  (m) =>
+                      m.photo?.taskId == oldPhoto.taskId &&
+                      m.photo?.terminal == false,
+                )) {
+              await store.remove(oldPhoto.taskId);
+            }
+          }
+        } catch (error) {
+          _logChatroomSocketEvent('photo card recovery failed: $error');
         }
       }
       for (final round in rounds) {
@@ -374,6 +416,9 @@ extension WorldChatroomPhotos on WorldChatroomService {
             } else {
               // Recovery is not a pagination operation: don't splice an isolated
               // old round into the visible latest window.
+              if (message.photo case final photo? when photo.terminal) {
+                _photoGenerationMonitor?.observe('chat', photo);
+              }
               _rememberPhotoJob(message);
               await _persistMessage(message);
             }

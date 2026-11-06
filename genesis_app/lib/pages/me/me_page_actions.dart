@@ -102,70 +102,100 @@ extension _MePageActions on _MePageState {
   }
 
   Future<void> _editAvatar() async {
-    final Uint8List bytes;
+    if (_isUpdatingProfile.value) return;
+    final services = AppServicesScope.read(context);
+    final editToken = Object();
+    _avatarEditToken = editToken;
+    bool isCurrent() => mounted && identical(_avatarEditToken, editToken);
+    final previousPreview = _avatarPreviewBytes.value;
+    _isUpdatingProfile.value = true;
+    var failureMessage = GenesisL10n.current.meImagePickFailed;
+
     try {
       final image = await ImagePicker().pickImage(source: ImageSource.gallery);
-      if (image == null) return;
-      bytes = await image.readAsBytes();
+      if (image == null || !isCurrent()) return;
+      final bytes = await image.readAsBytes();
+      if (!isCurrent()) return;
       throwIfGifImage(
         bytes: bytes,
         filename: image.name,
         contentType: image.mimeType ?? '',
       );
-    } on UnsupportedGifImageException {
-      if (!mounted) return;
-      showGenesisToast(
-        context,
-        unsupportedGifImageMessage,
-        brightness: Brightness.dark,
-      );
-      return;
-    } catch (_) {
-      if (!mounted) return;
-      showGenesisToast(
-        context,
-        GenesisL10n.current.meImagePickFailed,
-        brightness: Brightness.dark,
-      );
-      return;
-    }
-    if (!mounted) return;
-    final services = AppServicesScope.read(context);
-    final avatarUrl = await Navigator.of(context).push<String>(
-      MaterialPageRoute<String>(
-        builder: (_) => LocalImageCropPage(
-          imageBytes: bytes,
-          cropSize: meProfileAvatarUploadSize,
-          maxOutputSize: meProfileAvatarUploadSize,
-          filename: 'avatar.png',
-          contentType: 'image/png',
-          onUpload: (result) async {
-            final uploaded = await services.api.v1.upload.image(
-              bytes: result.bytes,
-              filename: result.filename,
-              contentType: result.contentType,
-            );
-            return asResolvedImageUrl(uploaded, resolveAssetUrl);
-          },
+      failureMessage = GenesisL10n.current.imageCropUploadFailed;
+      final crop = await Navigator.of(context).push<LocalImageCropResult>(
+        MaterialPageRoute<LocalImageCropResult>(
+          builder: (_) => LocalImageCropPage(
+            imageBytes: bytes,
+            cropSize: meProfileAvatarUploadSize,
+            maxOutputSize: meProfileAvatarUploadSize,
+            filename: 'avatar.png',
+            contentType: 'image/png',
+            uploadOnConfirm: false,
+          ),
         ),
-      ),
-    );
-    if (avatarUrl == null || avatarUrl.trim().isEmpty || !mounted) return;
+      );
+      if (crop == null || !isCurrent()) return;
+      _avatarPreviewBytes.value = crop.bytes;
 
-    await _updateAvatar(
-      update: () => services.api.v1.user.update(avatar: avatarUrl),
-      apply: (updatedUser) {
-        final updatedAvatar = asResolvedImageUrl(
-          updatedUser['avatar'],
-          resolveAssetUrl,
-          fallback: avatarUrl,
-        );
-        return updatedAvatar;
-      },
-    );
+      final uploaded = await services.api.v1.upload.image(
+        bytes: crop.bytes,
+        filename: crop.filename,
+        contentType: crop.contentType,
+      );
+      if (!isCurrent()) return;
+      final avatarUrl = asResolvedImageUrl(uploaded, resolveAssetUrl);
+      if (avatarUrl.isEmpty) throw StateError('Upload returned an empty URL');
+
+      failureMessage = GenesisL10n.current.meUpdateFailed;
+      final response = await services.api.v1.user.update(avatar: avatarUrl);
+      if (!isCurrent()) return;
+      // A profile refresh started during the edit may still hold the old avatar.
+      _loadGeneration += 1;
+      final updatedUser = response['user'] is Map
+          ? asJsonMap(response['user'])
+          : response;
+      final updatedAvatar = asResolvedImageUrl(
+        updatedUser['avatar'],
+        resolveAssetUrl,
+      );
+      final savedAvatarUrl = updatedAvatar.isEmpty ? avatarUrl : updatedAvatar;
+      _avatarUrl.value = savedAvatarUrl;
+      try {
+        await _cacheUpdatedUserInfo({
+          ...updatedUser,
+          'avatar': updatedAvatar.isEmpty ? avatarUrl : updatedUser['avatar'],
+        }, canSave: isCurrent);
+        if (isCurrent()) {
+          unawaited(
+            services.profileAvatarCache?.replaceFromEdit(
+              savedAvatarUrl,
+              crop.bytes,
+            ),
+          );
+        }
+      } catch (error) {
+        debugPrint('[MePage] Could not cache the saved avatar: $error');
+      }
+    } catch (error) {
+      if (!isCurrent()) return;
+      _avatarPreviewBytes.value = previousPreview;
+      showGenesisToast(
+        context,
+        error is UnsupportedGifImageException
+            ? unsupportedGifImageMessage
+            : apiErrorMessage(error, fallback: failureMessage),
+        brightness: Brightness.dark,
+      );
+    } finally {
+      if (isCurrent()) {
+        _avatarEditToken = null;
+        _isUpdatingProfile.value = false;
+      }
+    }
   }
 
   Future<void> _editNickName() async {
+    if (_isUpdatingProfile.value) return;
     final currentDisplayName = _displayName.value.trim();
     final nickName = await showGenesisDialog<String>(
       context: context,
@@ -174,7 +204,7 @@ extension _MePageActions on _MePageState {
 
     final trimmedName = nickName?.trim() ?? '';
     if (trimmedName.isEmpty || trimmedName == currentDisplayName) return;
-    if (!mounted) return;
+    if (!mounted || _isUpdatingProfile.value) return;
 
     final services = AppServicesScope.read(context);
     await _updateDisplayName(
@@ -216,33 +246,10 @@ extension _MePageActions on _MePageState {
     }
   }
 
-  Future<void> _updateAvatar({
-    required Future<Map<String, dynamic>> Function() update,
-    required String Function(Map<dynamic, dynamic> updatedUser) apply,
+  Future<void> _cacheUpdatedUserInfo(
+    Map<dynamic, dynamic> updatedUser, {
+    bool Function()? canSave,
   }) async {
-    _isUpdatingProfile.value = true;
-    try {
-      final response = await update();
-      final updatedUser = response['user'] is Map
-          ? response['user'] as Map
-          : response;
-      await _cacheUpdatedUserInfo(updatedUser);
-      final updatedAvatarUrl = apply(updatedUser);
-      if (!mounted) return;
-      _avatarUrl.value = updatedAvatarUrl;
-    } catch (error) {
-      if (!mounted) return;
-      showGenesisToast(
-        context,
-        apiErrorMessage(error, fallback: GenesisL10n.current.meUpdateFailed),
-        brightness: Brightness.dark,
-      );
-    } finally {
-      if (mounted) _isUpdatingProfile.value = false;
-    }
-  }
-
-  Future<void> _cacheUpdatedUserInfo(Map<dynamic, dynamic> updatedUser) async {
     final services = AppServicesScope.read(context);
     final current = await services.sessionStore.readUserInfo();
     final merged = <String, dynamic>{
@@ -254,6 +261,8 @@ extension _MePageActions on _MePageState {
     if (uid.isNotEmpty) {
       merged.putIfAbsent('uid', () => uid);
     }
-    await services.sessionStore.saveUserInfo(merged);
+    if (canSave?.call() ?? true) {
+      await services.sessionStore.saveUserInfo(merged);
+    }
   }
 }

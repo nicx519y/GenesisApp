@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settin
 import 'package:genesis_flutter_android/components/world_new_badge.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -87,7 +88,7 @@ void main() {
               'identity': 'Visitor',
               'brief': 'Travels between unfinished worlds',
               'goal': 'Player goals remain hidden',
-              'avatar': '',
+              'avatar': 'https://cdn.example.com/cast-role.webp',
             },
             currentUid: 'user-self',
             subtitle: 'Visitor\nTravels between unfinished worlds',
@@ -106,6 +107,14 @@ void main() {
     expect(brief.style?.color, GenesisColors.redSecondary);
     expect(find.text('Goal: Player goals remain hidden'), findsNothing);
     expect(find.text('No character details yet.'), findsNothing);
+    final avatarImage = tester.widget<GenesisStaticNetworkImage>(
+      find.byType(GenesisStaticNetworkImage),
+    );
+    expect(
+      avatarImage.imageUrl,
+      'https://cdn.example.com/cast-role.webp'
+      '?x-oss-process=image/resize,w_96/format,webp',
+    );
   });
 
   testWidgets('WorldCharacterRow robustly shows New beside the name', (

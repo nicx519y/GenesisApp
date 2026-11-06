@@ -339,7 +339,7 @@ void main() {
     final sections = worldSectionsSource;
     final characterRow = sections.substring(
       sections.indexOf('class WorldCharacterRow'),
-      sections.indexOf('String worldResizedCharacterAvatarUrl'),
+      sections.indexOf('List<Map<String, dynamic>> worldSortedCharacters'),
     );
 
     expect(characterRow, contains('fontSize: 13'));

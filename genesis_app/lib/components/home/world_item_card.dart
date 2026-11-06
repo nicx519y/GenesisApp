@@ -381,7 +381,7 @@ class _WorldSummary extends StatelessWidget {
                 name: characterName,
                 size: 25,
                 showFallbackWhileLoading: false,
-                maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                useFixedCdnWidth: true,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -448,7 +448,7 @@ String _mapImageUrl(Map<String, dynamic> map, List<String> keys) {
   for (final key in keys) {
     final value = map[key];
     if (value == null) continue;
-    final imageUrl = resolveAssetUrl(asImageUrl(value));
+    final imageUrl = asResolvedImageUrl(value, resolveAssetUrl);
     if (imageUrl.trim().isNotEmpty) return imageUrl;
   }
   return '';

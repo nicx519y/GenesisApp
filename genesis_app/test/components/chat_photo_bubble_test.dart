@@ -7,6 +7,8 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
   for (final deviceDpr in [1.0, 3.0]) {
@@ -214,7 +216,8 @@ void main() {
     expect(text.textAlign, TextAlign.center);
     expect(text.style!.fontSize, 13);
     expect(text.style!.height, closeTo(18 / 13, .001));
-    expect(text.style!.color, Colors.white.withValues(alpha: .95));
+    expect(text.style!.color, GenesisColors.darkTextPrimary);
+    expect(text.style!.fontFamily, GenesisTypography.fontFamily);
     final decoration =
         tester.widget<DecoratedBox>(plate).decoration as BoxDecoration;
     expect(decoration.color, kChatNarratorBubbleColor);

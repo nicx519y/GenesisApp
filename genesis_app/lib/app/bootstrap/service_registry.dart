@@ -30,6 +30,7 @@ import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
 import '../../platform/device/android_advertising_id_service.dart';
 import '../../platform/session/user_info_cache.dart';
+import '../../platform/session/profile_avatar_cache.dart';
 import '../../platform/billing/membership_catalog_cache.dart';
 import '../config/app_config.dart';
 import '../config/app_global_config.dart';
@@ -85,6 +86,7 @@ class AppServices {
     MembershipCatalog? membershipCatalog,
     ChatroomFeatureQuotaStore? featureQuotas,
     ValueNotifier<int>? sessionRevision,
+    this.profileAvatarCache,
     AppGlobalConfigStore? appGlobalConfig,
     PersonalizationStore? personalization,
     this.adjustDeviceRegistration,
@@ -211,6 +213,7 @@ class AppServices {
   final MembershipCatalog membershipCatalog;
   final AppGlobalConfigStore appGlobalConfig;
   final ValueNotifier<int> sessionRevision;
+  final ProfileAvatarCache? profileAvatarCache;
   final AdjustDeviceRegistration? adjustDeviceRegistration;
   final AppEventReporting? eventReporting;
   final VoidCallback? _removeAdjustSessionListener;
@@ -338,6 +341,7 @@ class AppServices {
     chatroom.onGemBalanceAlert = null;
     sessionRevision.removeListener(balancePrompts.reset);
     sessionRevision.removeListener(_resetLoginForSessionChange);
+    profileAvatarCache?.dispose();
     balancePrompts.dispose();
     chatSendGate.dispose();
     loginSubmission.dispose();
@@ -708,6 +712,11 @@ class ServiceRegistry {
       billing: billing,
       membershipPurchases: membershipPurchases,
       sessionRevision: sessionRevision,
+      profileAvatarCache: ProfileAvatarCache(
+        sessionStore: sessionStore,
+        sessionRevision: sessionRevision,
+        namespace: '${config.effectiveApiEnvironment}|${platformConfig.apiBaseUrl}',
+      ),
       adjustDeviceRegistration: adjustDeviceRegistration,
       eventReporting: eventReporting,
       removeAdjustSessionListener: removeAdjustSessionListener,

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../../network/api_exception.dart';
 import '../../../network/mini_phone/mini_phone_api.dart';
 import '../../../network/models/photo_task.dart';
+import '../../../network/photo_generation_monitor.dart';
 import '../../../l10n/genesis_l10n.dart';
 import '../state/mini_phone_requests.dart';
 import '../state/mini_phone_write.dart';
@@ -22,10 +23,12 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
     required this.onChanged,
     required this.onSuccess,
     this.namespace = '',
+    this.generationMonitor,
   });
   final MiniPhoneApi api;
   final String worldId;
   final String namespace;
+  final PhotoGenerationMonitor? Function()? generationMonitor;
   final MiniPhoneRequests requests;
   final Map<String, PhoneWrite> pending;
   final Future<bool> Function() saveJournal;
@@ -143,11 +146,14 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
     pending[write.key] = write;
     submitting = true;
     _notify();
+    PhotoGenerationMonitor? monitor;
     try {
       if (!await saveJournal()) {
         throw StateError(GenesisL10n.current.miniPhoneSaveRequestsFailed);
       }
       if (!_current(generation)) return;
+      monitor = generationMonitor?.call();
+      monitor?.start('camera', write.id);
       final receipt = await api.createCameraPhoto(request);
       if (!_current(generation)) return;
       if (receipt.worldId != worldId ||
@@ -155,10 +161,14 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
               receipt.photo.requestId != write.id) {
         throw const FormatException('Camera receipt identity mismatch');
       }
+      monitor?.observe('camera', receipt.photo, requestId: write.id);
       accept(receipt.photo, requestId: write.id);
       await saveJournal();
     } catch (error) {
       if (!_current(generation)) return;
+      if (error is ApiException && error.kind == ApiExceptionKind.business) {
+        monitor?.finish('camera', write.id);
+      }
       // A push can confirm acceptance while the HTTP response is lost.
       if (!write.accepted) {
         write.uncertain = true;
@@ -243,11 +253,13 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
   ) async {
     if (_recovering || _disposed || requests.uid == null) return;
     final generation = requests.generation;
-    final wanted = <String, PhotoTask>{
+    final wanted = <String, ({String requestId, PhotoTask task})>{
       for (final w in records)
-        if (w.cameraPhoto case final p? when !p.terminal) p.taskId: p,
+        if (w.cameraPhoto case final p? when !p.terminal)
+          p.taskId: (requestId: w.id, task: p),
     };
     if (wanted.isEmpty) return;
+    final monitor = generationMonitor?.call();
     _recovering = true;
     try {
       final successAssets = <int, PhotoTask>{};
@@ -263,9 +275,11 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
               target['source'] != 'camera') {
             continue;
           }
-          final task = wanted[notice['obj_id']];
-          if (task == null) continue;
+          final match = wanted[notice['obj_id']];
+          if (match == null) continue;
+          final task = match.task;
           if (notice['notice_type'] == 'photo_failed') {
+            monitor?.finish('camera', match.requestId);
             accept(
               PhotoTask(
                 taskId: task.taskId,
@@ -288,6 +302,7 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
             wanted.remove(task.taskId);
           } else if (notice['notice_type'] == 'photo_succeeded') {
             successAssets[photoTaskId(target['asset_id'])] = task;
+            monitor?.finish('camera', match.requestId);
             wanted.remove(task.taskId);
           }
         }

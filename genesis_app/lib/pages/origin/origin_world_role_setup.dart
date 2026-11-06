@@ -954,6 +954,34 @@ class _OriginSetupRoleImage extends StatelessWidget {
       1,
       (_originLocationChatRolePillAvatarSize * devicePixelRatio).ceil(),
     );
+    final profileCache = AppServicesScope.maybeOf(context)?.profileAvatarCache;
+    Widget withProfilePreview(Widget placeholder) {
+      if (profileCache == null) return placeholder;
+      return ListenableBuilder(
+        listenable: profileCache,
+        builder: (context, _) {
+          final bytes = profileCache.bytesFor(snapshotSourceKey);
+          if (bytes == null) return placeholder;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.memory(
+                bytes,
+                width: width,
+                height: height,
+                fit: BoxFit.cover,
+                cacheWidth: outputSize,
+                cacheHeight: outputSize,
+                errorBuilder: (context, error, stackTrace) => placeholder,
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(gradient: originRolePortraitGradient),
+              ),
+            ],
+          );
+        },
+      );
+    }
     return Image(
       image: OriginRolePortraitImageProvider.fromUrl(
         imageUrl: url,
@@ -969,12 +997,14 @@ class _OriginSetupRoleImage extends StatelessWidget {
       gaplessPlayback: true,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded || frame != null) return child;
-        return ColoredBox(
-          color: const Color(0xFF202022),
-          child: SizedBox(width: width, height: height),
+        return withProfilePreview(
+          ColoredBox(
+            color: const Color(0xFF202022),
+            child: SizedBox(width: width, height: height),
+          ),
         );
       },
-      errorBuilder: (context, error, stackTrace) => fallback,
+      errorBuilder: (context, error, stackTrace) => withProfilePreview(fallback),
     );
   }
 }

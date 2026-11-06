@@ -200,11 +200,16 @@ void main() {
     expect(characterAvatar.size, 48);
     expect(characterAvatar.borderRadius, 8);
     expect(characterAvatar.showFallbackWhileLoading, isFalse);
-    final detailText = tester.widget<Text>(
-      find.byKey(const ValueKey<String>('world-update-push-detail')),
+    final detailFinder = find.byKey(
+      const ValueKey<String>('world-update-push-detail'),
     );
-    expect(detailText.style?.fontSize, 14);
-    expect(detailText.style?.color, const Color(0xF2FFFFFF));
+    final detailText = tester.widget<Text>(detailFinder);
+    final renderedDetail = tester.widget<RichText>(
+      find.descendant(of: detailFinder, matching: find.byType(RichText)),
+    );
+    expect(renderedDetail.text.style?.fontSize, 14);
+    expect(renderedDetail.text.style?.color, const Color(0xF2FFFFFF));
+    expect(renderedDetail.text.style?.height, 1.25);
     expect(detailText.maxLines, 1);
     expect(detailText.overflow, TextOverflow.ellipsis);
     final detailSpan = detailText.textSpan! as TextSpan;

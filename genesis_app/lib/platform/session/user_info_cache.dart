@@ -10,6 +10,7 @@ Future<Map<String, dynamic>?> cacheCurrentUserInfoResponse({
   required UserSessionStore sessionStore,
   required Map<String, dynamic> response,
   String fallbackUid = '',
+  bool Function()? canSave,
 }) async {
   final rawUser = response['user'];
   if (rawUser is! Map || rawUser.isEmpty) return null;
@@ -29,6 +30,7 @@ Future<Map<String, dynamic>?> cacheCurrentUserInfoResponse({
     if (response.containsKey(key)) merged[key] = response[key];
   }
 
+  if (!(canSave?.call() ?? true)) return null;
   await sessionStore.saveUserInfo(merged);
   return merged;
 }

@@ -131,7 +131,7 @@ WebSocket 当前协议规则：
 - `HomePage`：首页 feed 和我的 world 卡片入口，默认 App 首屏。列表/卡片展示字段来自 `GenesisApi` 对 v1/home 和 world/origin 数据的映射。
 - `OriginPage`：Origin 模板列表和模板卡片入口。卡片组件在 `lib/components/origin/origin_item_card.dart`，列表组合在 `lib/pages/origin/origin_page.dart`。
 - `OriginWorldPage`：Origin 详情/预览页，不等同于已加入 world。复用 `WorldDetailsPageScaffold`、`WorldDetailsShell`、`WorldMap`、`WorldTickEventItem`；Launch 通过 `showOriginRoleLaunchSheet` 选择角色后创建/进入 world。Origin inline chat 是 launch-only 预览，不应显示真实连接状态。
-- Origin 开场面板及地点预览复用同一角色卡片组件和编辑交互控制器；编辑统一在卡片内完成，不因缺少推荐角色改为弹 Sheet。信息浏览态的各栏内容最多 3 行，超出使用省略号，编辑表单保留完整内容。
+- Origin 开场面板及地点预览复用同一角色卡片组件和编辑交互控制器；编辑统一在卡片内完成，不因缺少推荐角色改为弹 Sheet。信息浏览态的各栏内容最多 3 行，超出使用省略号。角色编辑表单对预填、键入和粘贴统一按可见字符截断。推荐角色的名称、身份、个性上限分别是 128、255、512，自定义角色分别是 30、100、100，两种角色的 Setting 上限均为 500。
 - Origin 开场面板及地点预览中的角色卡片处于编辑态时，内部上下滚动须保留输入焦点和键盘；外层滚动容器不得因内部滚动通知收起键盘。非编辑态保留原有拖动收起键盘行为。
 - `WorldPage`：监听账号会话变更，登录后重新读取当前 UID 和 World Detail，以服务端 `relation_status` 更新底部操作；交互登录不自动申请或 Tick。旧账号详情响应不得覆盖新会话，进行中的详情请求结束后补做会话刷新；同时释放旧聊天室和小手机会话，重新获取当前账号的音乐租约，避免引用已释放的播放器。已创建/加入的 world 详情页。使用同一套 floating map + panel scaffold。进入页面后先拉 world detail，只有 `relation_status` 为 `owner` 或 `joined` 才启动长期 chatroom WebSocket；`approved` 只用于 Launch 流，不代表已连接。
 - `LocationChatPage`：地点聊天室页。页面可以从 world drill-down 打开，但只有 leaf location 才允许 `join`/`leave`。非 leaf 只展示页面/地图层级，不产生聊天室副作用。
@@ -162,6 +162,8 @@ WebSocket 当前协议规则：
 - `GenesisImageResourceRegistry` 会用 legacy/sm/xl/object key/display url 建索引；如果后续 UI 只拿到其中一个 key，可以回查完整资源。
 - 公共图片 CDN 选尺寸和本地解码使用 `min(设备 DPR, 2)`；聊天／地图头像的现有独立倍率配置另行保留。
 - `selectGenesisImageUrl` 有 `xl_url` 和组件逻辑宽度时，会按 `逻辑宽度 * DPR` 匹配 `45/90/180/360/720/1080/2160` 中刚好大于所需宽度的阶梯，并基于 `xl_url` 生成 `x-oss-process=image/resize,w_{width}/format,webp`；没有 `xl_url` 或没有宽度信息时回退到旧 display/candidate 兼容逻辑。
+- 首页 World 卡片、World 详情底部和角色阵容的固定尺寸头像使用 `useFixedCdnWidth`，普通 URL 也按逻辑宽度 × 2 生成 CDN 缩放 URL。World 详情底部的预加载使用同一 URL 和解码尺寸。
+- Me 页的资料头像和共享 Worldo／World 列表封面使用固定宽度缩放，普通 URL 也分别请求 `w_160` 和 `w_120`。
 - `resizeGenesisImageUrl` 也接受 `nearestWidthTiers`：传入时按逻辑宽度 × 受限 DPR 取最近阶梯，等距取较大档；不传时保持原有下一较大宽度规则。MiniPhone Photos 使用 90/180/360/720/1080 五档，列表显示和大图预览共用同一缩略图 provider。
 - 宽度和高度入口统一调用 `buildGenesisCdnResizeUrl` 拼接 OSS 缩放 URL：`image/resize,w_{width}/format,webp` 或 `image/resize,h_{height}/format,webp`，处理指令统一可读格式，替换旧 `x-oss-process`，保留其他查询参数（含重复值），移除 fragment。
 - 固定高度缩略图使用 `resizeGenesisImageUrlToHeight`：按展示高度乘 DPR（受现有上限约束）请求 OSS `image/resize,h_{height}/format,webp`，替换旧处理参数，保留其他 URL 查询参数。MiniPhone Posts Feed 和 Post 详情共用此入口并固定占高 200；宽度使用正文区可用宽度，按高度等比缩放并与正文左边缘对齐，超宽部分从右侧裁剪。
@@ -176,6 +178,8 @@ HTTP 映射层的图片规则：
 上传入口：
 
 - 通用 upload API：`lib/network/v1/upload_api.dart`，`POST /api/v1/upload/image`，multipart 字段名是 `file`。
+- Me 编辑头像在确认裁剪后立即用内存中的裁剪图显示头像，再上传并保存。成功后当前页面继续显示本地预览，上传或保存失败时恢复编辑前的头像，账号切换时清除本地预览。
+- 登录保存用户资料时预热当前头像的 `w_160` 预览，按 API 环境、账号和头像 URL 识别，保存在内存和本地文件。Origin 开场与 Location 首卡使用当前用户头像时先显示缓存，正式肖像解码后替换。Me 保存成功后用本地裁剪数据更新缓存，退出登录清除当前环境的头像缓存。
 - 创建/编辑 Origin 图片：`CreateUploadBox` 在 `lib/pages/create/create_form_widgets.dart`，先进入 `LocalImageCropPage` 裁剪，再上传。成功后 controller 写入上传 URL，失败恢复旧 URL。
 - 讨论图片：`DiscussPostInput` 在 `lib/components/discuss/discuss_post_input.dart`，使用 `native_image_picker.dart` 选图，`resizeImageToMaxWidth` 预处理后上传，最多 6 张并按剩余槽位限制选择。
 - 上传进度视觉统一使用 `GenesisUploadProgressOverlay`，不要新增页面局部 spinner。

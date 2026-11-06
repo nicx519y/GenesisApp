@@ -1428,7 +1428,7 @@ Query：
 
 2026-11-05 自定义首卡预填：有推荐角色时保持上述逻辑，不使用 `precharacter`；无推荐角色时，自定义首卡优先整体使用 `origin/detail.precharacter`，缺失或 null 才回退用户资料。预设 `name/identity/personality/bio` 中所有 `{{user}}` 均替换为当前用户的 user name；头像 URL 为空时使用用户 profile 头像，有模板头像时保留模板头像。其他空文本字段保持为空；`bio` 对应 Setting。profile 尚未加载时保留原占位符，加载后刷新未保存的初始预填；用户在当前页保存的编辑优先，显式删除头像后不再自动补回。账号资料变更时清理旧用户的替换结果，再按新资料解析；Launch 通过 `custom_role` 提交当前卡片内容，不生成 preset 角色 ID，不回写模板或用户资料。
 
-Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；草稿、本地编辑和详情预览保留全文及原 `goal`，请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
+Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；详情预览可显示完整设定，角色编辑表单中的 Setting 按 500 个可见字符截断，草稿保留原 `goal`。请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
 
 Avatar 入参兼容已按后端 `components/define/image.go:64` 的 `ImageResource.UnmarshalJSON` 核对：URL 字符串和 ImageResource 对象均真实支持；空对象清空头像。覆盖字段省略时继承，显式空文本清空（name 最终不可空）。
 

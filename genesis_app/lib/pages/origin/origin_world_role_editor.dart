@@ -1,15 +1,23 @@
 part of 'origin_world_page.dart';
 
-const Color _originRoleEditorTextColor = Color(0xF2FFFFFF);
+const Color _originRoleEditorTextColor = GenesisColors.darkTextPrimary;
 const Color _originRoleEditorMutedLabelColor = Color(0x99FFFFFF);
-const Color _originRoleEditorCountColor = Color(0x73FFFFFF);
-const Color _originRoleEditorCancelColor = Color(0xB8FFFFFF);
+const Color _originRoleEditorCountColor = GenesisColors.darkTextTertiary;
+const Color _originRoleEditorCancelColor = GenesisColors.darkTextSecondary;
 const Color _originRoleEditorDoneDisabledColor = Color(0x59FFFFFF);
 const Color _originRoleEditorDividerColor = Color(0x14FFFFFF);
 const Color _originRoleEditorFieldColor = Color(0x14FFFFFF);
 const Color _originRoleEditorFieldFocusedColor = Color(0x24FFFFFF);
 const Color _originRoleEditorFieldInvalidColor = Color(0x1FFF2442);
 const Duration _originRoleEditorFieldTransition = Duration(milliseconds: 150);
+
+// Keep the compact form's existing line boxes while using shared typography.
+final _originRoleEditorSupportingStyle = GenesisTypography.supporting.copyWith(
+  height: 16 / 12,
+  letterSpacing: 0,
+  decoration: TextDecoration.none,
+);
+
 const String _originRoleEditorCameraGlyph =
     '<svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" '
     'stroke-linecap="round" stroke-linejoin="round">'
@@ -245,17 +253,28 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
 
   bool get _nameEmpty => _form.name.text.trim().isEmpty;
 
+  int get _nameMaxLength =>
+      widget.isPreset ? 128 : originCharacterNameMaxLength;
+  int get _identityMaxLength =>
+      widget.isPreset ? 255 : originCharacterIdentityMaxLength;
+  int get _personalityMaxLength =>
+      widget.isPreset ? 512 : originCharacterPersonalityMaxLength;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final role = widget.role;
     _seed(_form.avatarUrl, role.avatarUrl.trim());
-    _seed(_form.name, role.name.trim());
-    _seed(_form.identity, role.identity.trim());
-    _seed(_form.personality, role.personality.trim());
-    // Keep the complete setting and goal even though goal has no editor here.
-    _seed(_form.bio, role.bio);
+    _seed(_form.name, role.name.trim(), maxLength: _nameMaxLength);
+    _seed(_form.identity, role.identity.trim(), maxLength: _identityMaxLength);
+    _seed(
+      _form.personality,
+      role.personality.trim(),
+      maxLength: _personalityMaxLength,
+    );
+    _seed(_form.bio, role.bio, maxLength: originCharacterBioMaxLength);
+    // Preserve the goal, which has no editor here.
     _seed(_form.goal, role.goal);
     _form.addListener(_handleFormChanged);
     for (final focusNode in _focusNodes) {
@@ -266,10 +285,13 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     });
   }
 
-  void _seed(TextEditingController controller, String text) {
+  void _seed(TextEditingController controller, String text, {int? maxLength}) {
+    final initialText = maxLength == null
+        ? text
+        : text.characters.take(maxLength).toString();
     controller.value = TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
+      text: initialText,
+      selection: TextSelection.collapsed(offset: initialText.length),
     );
   }
 
@@ -429,10 +451,9 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
               key: const ValueKey<String>('origin-role-editor-title'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: GenesisTypography.bodyStrong.copyWith(
                 fontSize: 15,
                 height: 20 / 15,
-                fontWeight: FontWeight.w600,
                 letterSpacing: 0,
                 color: _originRoleEditorTextColor,
                 decoration: TextDecoration.none,
@@ -457,7 +478,6 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
 
   Widget _buildBody(BuildContext context) {
     final stableId = widget.stableId;
-    final isPreset = widget.isPreset;
     final focusNodes = _form.focusNodes;
     final bottomInset = _keyboardOverlap > 0
         ? 0.0
@@ -500,9 +520,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                           controller: _form.name,
                           focusNode: focusNodes.name,
                           nextFocusNode: focusNodes.identity,
-                          maxLength: isPreset
-                              ? 128
-                              : originCharacterNameMaxLength,
+                          maxLength: _nameMaxLength,
                           multiline: false,
                           invalid: _nameEmpty,
                           onDismiss: _dismissKeyboard,
@@ -523,12 +541,8 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                           key: const ValueKey<String>(
                             'origin-role-editor-name-error',
                           ),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            height: 16 / 12,
-                            letterSpacing: 0,
+                          style: _originRoleEditorSupportingStyle.copyWith(
                             color: GenesisColors.redSecondary,
-                            decoration: TextDecoration.none,
                           ),
                         ),
                       ),
@@ -542,9 +556,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                     controller: _form.identity,
                     focusNode: focusNodes.identity,
                     nextFocusNode: focusNodes.personality,
-                    maxLength: isPreset
-                        ? 255
-                        : originCharacterIdentityMaxLength,
+                    maxLength: _identityMaxLength,
                     onDismiss: _dismissKeyboard,
                   ),
                   const SizedBox(height: 16),
@@ -556,9 +568,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                     controller: _form.personality,
                     focusNode: focusNodes.personality,
                     nextFocusNode: focusNodes.bio,
-                    maxLength: isPreset
-                        ? 512
-                        : originCharacterPersonalityMaxLength,
+                    maxLength: _personalityMaxLength,
                     onDismiss: _dismissKeyboard,
                   ),
                   const SizedBox(height: 16),
@@ -569,10 +579,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
                     label: GenesisL10n.current.worldoLaunchSetting,
                     controller: _form.bio,
                     focusNode: focusNodes.bio,
-                    maxLength: math.max(
-                      originCharacterBioMaxLength,
-                      _form.bio.text.characters.length,
-                    ),
+                    maxLength: originCharacterBioMaxLength,
                     minLines: 4,
                     onDismiss: _dismissKeyboard,
                   ),
@@ -683,8 +690,7 @@ class _OriginRoleEditorHeaderAction extends StatelessWidget {
           child: Text(
             label,
             maxLines: 1,
-            style: TextStyle(
-              fontSize: 14,
+            style: GenesisTypography.body.copyWith(
               height: 1.2,
               fontWeight: fontWeight,
               letterSpacing: 0,
@@ -740,18 +746,12 @@ class _OriginRoleEditorField extends StatelessWidget {
             Flexible(
               child: AnimatedDefaultTextStyle(
                 duration: _originRoleEditorFieldTransition,
-                // Replaces the inherited style outright, so it has to carry the
-                // theme's font along.
                 style: DefaultTextStyle.of(context).style.merge(
-                  TextStyle(
-                    fontSize: 12,
-                    height: 16 / 12,
+                  _originRoleEditorSupportingStyle.copyWith(
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0,
                     color: focused
                         ? _originRoleEditorTextColor
                         : _originRoleEditorMutedLabelColor,
-                    decoration: TextDecoration.none,
                   ),
                 ),
                 child: Text(
@@ -766,13 +766,9 @@ class _OriginRoleEditorField extends StatelessWidget {
               duration: _originRoleEditorFieldTransition,
               child: Text(
                 '${controller.text.characters.length}/$maxLength',
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 16 / 12,
-                  letterSpacing: 0,
-                  fontFeatures: [FontFeature.tabularFigures()],
+                style: _originRoleEditorSupportingStyle.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
                   color: _originRoleEditorCountColor,
-                  decoration: TextDecoration.none,
                 ),
               ),
             ),
@@ -790,6 +786,7 @@ class _OriginRoleEditorField extends StatelessWidget {
             controller: controller,
             focusNode: focusNode,
             maxLength: maxLength,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
             minLines: minLines,
             maxLines: multiline ? null : 1,
             scrollPhysics: const NeverScrollableScrollPhysics(),
@@ -810,8 +807,7 @@ class _OriginRoleEditorField extends StatelessWidget {
             cursorColor: Colors.white,
             // Keep the field's label in view above a caret on its first line.
             scrollPadding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
-            style: const TextStyle(
-              fontSize: 14,
+            style: GenesisTypography.body.copyWith(
               height: 20 / 14,
               fontWeight: FontWeight.w400,
               letterSpacing: 0,

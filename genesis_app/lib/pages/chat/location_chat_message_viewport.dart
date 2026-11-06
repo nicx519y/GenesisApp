@@ -254,13 +254,9 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             takingPhoto: _takingScenePhoto,
             cameraState: actions.camera,
             photoArrivalRequestIds: Set.of(_photoArrivalRequests),
-            photoArrivalTaskIds: {
-              for (final message in displayMessages)
-                if (message.photo != null &&
-                    (_service?.photoLiveRevision(message.photo!.taskId) ?? 0) >
-                        _photoVisibility.liveBaseline)
-                  message.photo!.taskId,
-            },
+            photoArrivalTaskIds: _livePhotoTasks(displayMessages),
+            photoVisitIdentity: (_photoVisitService, _photoVisit),
+            photoContentRevision: (_replyProjectionEpoch, displayMessages),
             replyPresentationRevision:
                 replyPresentationState?.presentationRevision ?? 0,
             replyCards: _replyProjection.cards(

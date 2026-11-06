@@ -1,4 +1,5 @@
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
+import 'package:genesis_flutter_android/components/common/local_image_crop_page.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_camera_models.dart';
 import 'package:genesis_flutter_android/components/login_provider_button.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_cancelled_exception.dart';
@@ -181,6 +182,7 @@ import 'package:genesis_flutter_android/platform/device/android_sdk_version.dart
 import 'package:genesis_flutter_android/platform/keyboard/genesis_keyboard_animation.dart';
 import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparency_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
+import 'package:genesis_flutter_android/platform/session/profile_avatar_cache.dart';
 import 'package:genesis_flutter_android/platform/session/user_session_store.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_wallet_page.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
@@ -344,6 +346,7 @@ Future<AppServices> _testServices({
   String? initialAuthToken,
   Map<String, dynamic>? initialUserInfo,
   MemoryUserSessionStore? sessionStoreOverride,
+  ProfileAvatarCache? profileAvatarCache,
   DirectMessageConversationStore? directMessageConversations,
   DirectMessageMessageStore? directMessageMessages,
   ChatroomMessageStorage? chatroomMessages,
@@ -393,6 +396,7 @@ Future<AppServices> _testServices({
     deviceId: deviceId,
     sessionStore: sessionStore,
     identityAuth: resolvedIdentityAuth,
+    profileAvatarCache: profileAvatarCache,
     backendAuth: resolvedBackendAuth,
     api: api,
     chatroom:
@@ -2494,6 +2498,36 @@ TransportResponse _v1Response(Object? data) {
     headers: const {'content-type': 'application/json'},
     body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
   );
+}
+
+class _MeAvatarEditTransport implements HttpTransport {
+  static const previousUrl = 'assets/images/map_default/l1_default.webp';
+  static const uploadedUrl = 'https://cdn.example.com/uploaded-avatar.png';
+  static const savedUrl = 'https://cdn.example.com/saved-avatar.png';
+
+  final uploadStarted = Completer<void>();
+  final uploadResult = Completer<TransportResponse>();
+  final updateStarted = Completer<String>();
+  final updateResult = Completer<TransportResponse>();
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    switch (request.uri.path) {
+      case '/api/v1/user/info':
+        return _v1Response({
+          'user': {'uid': 'u_me', 'name': 'My profile', 'avatar': previousUrl},
+        });
+      case '/api/v1/upload/image':
+        uploadStarted.complete();
+        return uploadResult.future;
+      case '/api/v1/user/update':
+        final body = jsonDecode(utf8.decode(request.bodyBytes!)) as Map;
+        updateStarted.complete(body['avatar'] as String);
+        return updateResult.future;
+      default:
+        return _v1Response({'list': const [], 'total': 0});
+    }
+  }
 }
 
 Finder _searchTabCount(String tab, String count) {
@@ -14673,12 +14707,22 @@ void main() {
   );
 
   testWidgets(
-    'Origin merged role edits full Setting and scrolls without duplicating profile',
+    'Origin merged role truncates Setting on prefill and paste and keeps editing scrollable',
     (WidgetTester tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.reset);
       final setting = List.filled(180, 'Original setting line.\n').join();
+      const emoji = '👩‍🚀';
+      final clipboardText = List.filled(501, emoji).join();
+      final expectedPaste = List.filled(500, emoji).join();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => call.method == 'Clipboard.getData'
+            ? <String, dynamic>{'text': clipboardText}
+            : null,
+      );
+      addTearDown(_clearPlatformChannelHandler);
       final transport = _RecordingV1ListTransport(
         originCharacters: [
           {
@@ -14743,7 +14787,10 @@ void main() {
         ),
       );
       expect(tester.widget<TextField>(name).controller!.text, 'Profile player');
-      expect(tester.widget<TextField>(bio).controller!.text, setting);
+      expect(
+        tester.widget<TextField>(bio).controller!.text,
+        setting.substring(0, 500),
+      );
       final scroll = find.byKey(
         const ValueKey<String>(
           'origin-setup-role-inline-editor-scroll-c_recommended',
@@ -14768,16 +14815,25 @@ void main() {
         ),
         findsOneWidget,
       );
-      await tester.enterText(bio, 'Edited complete setting');
-      await tester.tap(edit);
-      await tester.pumpAndSettle();
-      // Reopening the same card reads the saved full-text draft.
-      await tester.tap(edit);
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<TextField>(bio).controller!.text,
-        'Edited complete setting',
+      await tester.enterText(bio, '');
+      final editableBio = find.descendant(
+        of: bio,
+        matching: find.byType(EditableText),
       );
+      await tester
+          .state<EditableTextState>(editableBio)
+          .pasteText(SelectionChangedCause.toolbar);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(bio).controller!.text, expectedPaste);
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('origin-role-editor-done-c_recommended'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(bio).controller!.text, expectedPaste);
       expect(tester.takeException(), isNull);
     },
   );
@@ -16520,6 +16576,106 @@ void main() {
       AppStartupCoordinator.resetForTesting();
     },
   );
+
+  for (final inLocation in [false, true]) {
+    testWidgets('Origin role shows cached avatar until CDN loads, location=$inLocation', (
+      tester,
+    ) async {
+      _mockGenesisKeyboardAnimationEvents();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      const profileUrl = 'https://cdn.example.com/cached-role-profile.webp';
+      final session = MemoryUserSessionStore();
+      final revision = ValueNotifier(0);
+      addTearDown(revision.dispose);
+      final pendingPortrait = Completer<ImageInfo>();
+      debugGenesisStaticNetworkImageCompleter = (provider) =>
+          OneFrameImageStreamCompleter(
+            provider.imageUrl.startsWith(profileUrl)
+                ? pendingPortrait.future
+                : SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+          );
+      addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+      final cache = ProfileAvatarCache(
+        sessionStore: session,
+        sessionRevision: revision,
+        namespace: 'role-preview-test',
+        cacheFile: () async => throw StateError('Disk cache disabled in test'),
+        download: (_) async => null,
+      );
+      final services = await _testServices(
+        transport: _RecordingV1ListTransport(worldRelationStatus: 'approved'),
+        useMock: false,
+        initialAuthToken: 'token',
+        initialUserInfo: const {
+          'uid': 'u_mock',
+          'name': 'Profile Hero',
+          'avatar': profileUrl,
+        },
+        sessionStoreOverride: session,
+        profileAvatarCache: cache,
+        billingService: _FakeBillingService(),
+      );
+      final previewBytes = await tester.runAsync(() async {
+        final data = await originItemTestImage.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        return data!.buffer.asUint8List();
+      });
+      await cache.replaceFromEdit(profileUrl, previewBytes!);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: !inLocation,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (inLocation) {
+        await tester.tap(find.text('Detail Location').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('origin-location-chat-l_o_test_1'),
+          ),
+          matching: find.byKey(
+            const ValueKey<String>('origin-location-chat-role-selector'),
+          ),
+        ).hitTestable());
+      }
+      await tester.pumpAndSettle();
+      final portrait = find.byKey(
+        const ValueKey<String>('origin-setup-role-portrait-current-user'),
+      );
+      final memoryImage = find.descendant(
+        of: portrait,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Image &&
+              widget.image is ResizeImage &&
+              (widget.image as ResizeImage).imageProvider is MemoryImage,
+        ),
+      );
+      expect(memoryImage, findsOneWidget);
+      pendingPortrait.complete(ImageInfo(image: originItemTestImage.clone()));
+      await tester.runAsync(() async {
+        for (var i = 0; i < 100; i += 1) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (memoryImage.evaluate().isEmpty) return;
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+      });
+      expect(portrait, findsOneWidget);
+      expect(memoryImage, findsNothing);
+    });
+  }
 
   testWidgets('Origin shows cached signed-in profile as a direct launch role', (
     WidgetTester tester,
@@ -23447,6 +23603,132 @@ void main() {
     expect(find.text('430.0'), findsNothing);
   });
 
+  for (final failure in ['none', 'upload', 'save']) {
+    testWidgets('Me avatar previews locally with failure=$failure', (
+      tester,
+    ) async {
+      final transport = _MeAvatarEditTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: 'u_me',
+        initialAuthToken: 'backend-token',
+        billingService: _FakeBillingService(),
+        initialUserInfo: const {
+          'uid': 'u_me',
+          'name': 'My profile',
+          'avatar': _MeAvatarEditTransport.previousUrl,
+        },
+      );
+      const pickerChannel = MethodChannel('plugins.flutter.io/image_picker');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      final cdnUrls = <String>[];
+      debugGenesisStaticNetworkImageCompleter = (provider) {
+        cdnUrls.add(provider.imageUrl);
+        return OneFrameImageStreamCompleter(
+          SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+        );
+      };
+      addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+      messenger.setMockMethodCallHandler(
+        pickerChannel,
+        (_) async => 'assets/images/default_list_image.png',
+      );
+      addTearDown(() => messenger.setMockMethodCallHandler(pickerChannel, null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const Scaffold(body: MePage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final avatar = find.byKey(const ValueKey('user-profile-avatar-image'));
+      void expectPreviousAvatar() {
+        expect(
+          tester.widget<Image>(avatar).image,
+          const AssetImage(_MeAvatarEditTransport.previousUrl),
+        );
+      }
+
+      Future<void> pumpUntil(bool Function() ready) async {
+        for (var i = 0; i < 100; i += 1) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (ready()) return;
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        fail('The avatar edit did not advance');
+      }
+
+      expectPreviousAvatar();
+      final confirm = find.widgetWithIcon(IconButton, Icons.check);
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(MyFlutterApp.editImage));
+        await pumpUntil(
+          () => confirm.evaluate().isNotEmpty &&
+              tester.widget<IconButton>(confirm).onPressed != null,
+        );
+        expect(find.byType(LocalImageCropPage), findsOneWidget);
+        tester.widget<IconButton>(confirm).onPressed!();
+        await pumpUntil(() => transport.uploadStarted.isCompleted);
+      });
+      await tester.pumpAndSettle();
+      expect(find.byType(LocalImageCropPage), findsNothing);
+      final preview = tester.widget<Image>(avatar).image;
+      expect((preview as ResizeImage).imageProvider, isA<MemoryImage>());
+      expect(transport.updateStarted.isCompleted, isFalse);
+
+      final failed = TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({'err_no': 9000, 'err_msg': 'Avatar edit failed'}),
+      );
+      if (failure == 'upload') {
+        transport.uploadResult.complete(failed);
+      } else {
+        transport.uploadResult.complete(
+          _v1Response({'url': _MeAvatarEditTransport.uploadedUrl}),
+        );
+        await tester.runAsync(
+          () => pumpUntil(() => transport.updateStarted.isCompleted),
+        );
+        expect(transport.updateStarted.isCompleted, isTrue);
+        expect(
+          await transport.updateStarted.future,
+          _MeAvatarEditTransport.uploadedUrl,
+        );
+        expect(tester.widget<Image>(avatar).image, preview);
+        transport.updateResult.complete(
+          failure == 'save'
+              ? failed
+              : _v1Response({
+                  'user': {'avatar': _MeAvatarEditTransport.savedUrl},
+                }),
+        );
+      }
+      await tester.runAsync(
+        () => pumpUntil(
+          () => !tester
+              .widget<UserProfileContent>(find.byType(UserProfileContent))
+              .isUpdatingProfileListenable!
+              .value,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final cached = await services.sessionStore.readUserInfo();
+      if (failure == 'none') {
+        expect(tester.widget<Image>(avatar).image, preview);
+        expect(cached?['avatar'], _MeAvatarEditTransport.savedUrl);
+        expect(cdnUrls, isEmpty);
+      } else {
+        expectPreviousAvatar();
+        expect(cached?['avatar'], _MeAvatarEditTransport.previousUrl);
+      }
+    });
+  }
+
   testWidgets('Me origin and world refresh preserve old list until response', (
     WidgetTester tester,
   ) async {
@@ -23933,7 +24215,8 @@ void main() {
             find.byKey(const ValueKey('user-profile-avatar-image')),
           )
           .imageUrl,
-      'https://cdn.example.com/old.png',
+      'https://cdn.example.com/old.png'
+      '?x-oss-process=image/resize,w_160/format,webp',
     );
 
     avatarUrl.value = 'https://cdn.example.com/new.png';
@@ -23947,7 +24230,8 @@ void main() {
             find.byKey(const ValueKey('user-profile-avatar-image')),
           )
           .imageUrl,
-      'https://cdn.example.com/new.png',
+      'https://cdn.example.com/new.png'
+      '?x-oss-process=image/resize,w_160/format,webp',
     );
   });
 

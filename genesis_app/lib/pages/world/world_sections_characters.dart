@@ -158,7 +158,7 @@ class WorldCharacterRow extends StatelessWidget {
       ], fallback: GenesisL10n.current.homeWorldCharacter),
       source: 'world.character.name',
     );
-    final avatarUrl = worldResizedCharacterAvatarUrl(context, character);
+    final avatarUrl = worldMapString(character, const ['avatar']);
     final playerUid = worldMapString(character, const ['player_uid']);
     final username = genesisSafeDisplayText(
       worldMapString(character, const ['player_username']),
@@ -205,6 +205,8 @@ class WorldCharacterRow extends StatelessWidget {
         GenesisCharacterAvatar(
           url: avatarUrl,
           name: name,
+          size: worldCharacterAvatarLogicalSize,
+          useFixedCdnWidth: true,
           border: isCharacterRole
               ? null
               : Border.all(
@@ -344,19 +346,6 @@ class WorldCharacterRow extends StatelessWidget {
       ],
     );
   }
-}
-
-String worldResizedCharacterAvatarUrl(
-  BuildContext context,
-  Map<String, dynamic> character,
-) {
-  final rawUrl = worldMapString(character, const ['avatar']).trim();
-  final resizedUrl = resizeGenesisImageUrl(
-    rawUrl,
-    logicalWidth: worldCharacterAvatarLogicalSize,
-    devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-  );
-  return resizedUrl.isNotEmpty ? resizedUrl : rawUrl;
 }
 
 List<Map<String, dynamic>> worldSortedCharacters(

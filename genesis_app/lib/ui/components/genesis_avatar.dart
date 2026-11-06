@@ -11,6 +11,7 @@ class GenesisAvatar extends StatelessWidget {
     super.key,
     required this.name,
     this.url = '',
+    this.localImage,
     this.size = 48,
     this.width,
     this.height,
@@ -23,10 +24,12 @@ class GenesisAvatar extends StatelessWidget {
     this.showFallbackWhenUnavailable = true,
     this.onVisibilityChanged,
     this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+    this.useFixedCdnWidth = false,
   });
 
   final String name;
   final String url;
+  final ImageProvider<Object>? localImage;
   final double size;
   final double? width;
   final double? height;
@@ -39,6 +42,7 @@ class GenesisAvatar extends StatelessWidget {
   final bool showFallbackWhenUnavailable;
   final ValueChanged<bool>? onVisibilityChanged;
   final double maxDevicePixelRatio;
+  final bool useFixedCdnWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -47,13 +51,16 @@ class GenesisAvatar extends StatelessWidget {
     final resolvedHeight = height ?? size;
     final imageWidth = resolvedWidth.isFinite ? resolvedWidth : null;
     final imageHeight = resolvedHeight.isFinite ? resolvedHeight : null;
-    final resolvedUrl = selectGenesisImageUrl(
-      url,
-      logicalWidth: imageWidth,
-      logicalHeight: imageHeight,
-      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-      maxDevicePixelRatio: maxDevicePixelRatio,
-    ).trim();
+    final resolvedUrl = localImage == null
+        ? selectGenesisImageUrl(
+            url,
+            logicalWidth: imageWidth,
+            logicalHeight: imageHeight,
+            devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+            maxDevicePixelRatio: maxDevicePixelRatio,
+            useFixedCdnWidth: useFixedCdnWidth,
+          ).trim()
+        : '';
     final fallback = GenesisAvatarFallback(
       name: safeName,
       width: resolvedWidth,
@@ -66,14 +73,14 @@ class GenesisAvatar extends StatelessWidget {
       height: resolvedHeight,
     );
 
-    if (resolvedUrl.isEmpty) {
+    if (localImage == null && resolvedUrl.isEmpty) {
       _notifyAvatarVisibility(onVisibilityChanged, showFallbackWhenUnavailable);
       return showFallbackWhenUnavailable ? fallback : hiddenPlaceholder;
     }
 
-    final image = resolvedUrl.startsWith('assets/')
-        ? Image.asset(
-            resolvedUrl,
+    final image = localImage != null || resolvedUrl.startsWith('assets/')
+        ? Image(
+            image: localImage ?? AssetImage(resolvedUrl),
             key: imageKey,
             width: imageWidth,
             height: imageHeight,

@@ -816,6 +816,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _openingCharacterChat = false;
   bool _takingScenePhoto = false;
   final _photoArrivalRequests = <String>{};
+  Object? _photoArrivalIndexKey;
+  Set<String> _photoArrivalTaskIds = const {};
   WorldChatroomService? _photoVisitService;
   int _photoVisit = 0;
   int? _photoVisitSessionRevision;
@@ -1438,7 +1440,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     _syncPageSendWaits();
-    final inputBlocked = _tickBlocksSend;
     final styleKey = (widget.style, locationChatHeaderEffectSettings.value);
     if (_resolvedMessageStyleKey != styleKey || _resolvedMessageStyle == null) {
       _resolvedMessageStyleKey = styleKey;
@@ -1509,7 +1510,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                   _replyReadyToSend(context) &&
                   !(_pageSendGate?.blocks(widget.worldId, widget.locationId) ??
                       false) &&
-                  !inputBlocked,
+                  !_tickBlocksSend,
               sending: false,
               onSend: () {
                 _composerFocusNode.unfocus();

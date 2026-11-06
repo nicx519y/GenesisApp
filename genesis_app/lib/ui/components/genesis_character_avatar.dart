@@ -16,6 +16,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
     this.showFallbackWhenUnavailable = true,
     this.border,
     this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+    this.useFixedCdnWidth = false,
   });
 
   final String url;
@@ -27,6 +28,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
   final bool showFallbackWhenUnavailable;
   final BoxBorder? border;
   final double maxDevicePixelRatio;
+  final bool useFixedCdnWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +57,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
                   showFallbackWhileLoading: showFallbackWhileLoading,
                   showFallbackWhenUnavailable: showFallbackWhenUnavailable,
                   maxDevicePixelRatio: maxDevicePixelRatio,
+                  useFixedCdnWidth: useFixedCdnWidth,
                 ),
               ),
             ),

@@ -38,36 +38,91 @@ extension ChatroomReplyPhotos on ChatroomReplyActionsController {
   /// Read only the requested card into its existing slot. A background photo
   /// must not complete, replace, or steal focus from a text regeneration.
   Future<void> refreshPhotoCard(String location, int round, int cardId) async {
+    await refreshPhotoCards(location, round, {cardId});
+  }
+
+  /// One round response for this recovery batch. Return only targets whose
+  /// response is still authoritative, so stale reads cannot clear job journals.
+  Future<Set<int>> refreshPhotoCards(
+    String location,
+    int round,
+    Set<int> cardIds,
+  ) async {
+    _checkCurrent();
+    if (cardIds.isEmpty) return const {};
     final state = _state(location, round);
-    final key = (location, round, cardId);
-    final query = (_photoQueries[key] ?? 0) + 1;
-    _photoQueries[key] = query;
+    final queries = <int, int>{};
+    for (final id in cardIds) {
+      final key = (location, round, id);
+      queries[id] = _photoQueries[key] = (_photoQueries[key] ?? 0) + 1;
+    }
     final result = await _http.getLlmCards(
       worldId: worldId,
       locationId: location,
       conversationRoundId: round,
     );
     _checkCurrent();
-    if (_photoQueries[key] != query) return;
-    if (state._cards.isEmpty || state.provisional && !state.generating) {
-      await _applyCards(state, result);
-      return;
-    }
-    final card = result.list.where((c) => c.cardId == cardId).firstOrNull;
-    if (card == null) {
+    final currentIds = {
+      for (final entry in queries.entries)
+        if (_photoQueries[(location, round, entry.key)] == entry.value)
+          entry.key,
+    };
+    if (currentIds.isEmpty) return const {};
+    final returned = {for (final card in result.list) card.cardId: card};
+    if (currentIds.any((id) => !returned.containsKey(id))) {
       throw StateError(GenesisL10n.current.chatPhotoUnavailable);
     }
-    final index = state._cards.indexWhere((c) => c.cardId == cardId);
-    if (index < 0) {
-      state._cards.add(card);
-      state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
-    } else {
-      state._cards[index] = card;
+    // Initialization may apply the group only while all requested versions
+    // remain current. Otherwise apply solely the non-stale target slots.
+    if (currentIds.length == queries.length &&
+        (state._cards.isEmpty || state.provisional && !state.generating)) {
+      await _applyCards(state, result);
+      return currentIds;
     }
-    _invalidateCardsCache(state);
-    _notify(location);
-    await _persist(state);
+    var changed = false;
+    for (final id in currentIds) {
+      final card = returned[id]!;
+      final index = state._cards.indexWhere((c) => c.cardId == id);
+      if (index >= 0 && _samePhotoCard(state._cards[index], card)) continue;
+      if (index < 0) {
+        state._cards.add(card);
+      } else {
+        state._cards[index] = card;
+      }
+      changed = true;
+    }
+    if (changed) {
+      state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
+      _invalidateCardsCache(state);
+      _notify(location);
+      await _persist(state);
+    }
+    return currentIds;
   }
+
+  bool _samePhotoCard(ChatroomLlmCard a, ChatroomLlmCard b) =>
+      a.cardId == b.cardId &&
+      a.cardIndex == b.cardIndex &&
+      a.isOriginal == b.isOriginal &&
+      a.generationState == b.generationState &&
+      a.canEdit == b.canEdit &&
+      a.canDelete == b.canDelete &&
+      a.createdAt == b.createdAt &&
+      a.billing.status == b.billing.status &&
+      a.billing.priceCent == b.billing.priceCent &&
+      a.billing.pricingVersion == b.billing.pricingVersion &&
+      _ReplyCardPerformance._sameJson(a.error, b.error) &&
+      _ReplyCardPerformance._sameJson(a.rawJson, b.rawJson) &&
+      a.messages.length == b.messages.length &&
+      Iterable<int>.generate(a.messages.length).every(
+        (i) =>
+            a.messages[i].isLlmStreamMessage ==
+                b.messages[i].isLlmStreamMessage &&
+            _ReplyCardPerformance._sameJson(
+              a.messages[i].message.toJson(),
+              b.messages[i].message.toJson(),
+            ),
+      );
 
   Future<void> acceptCardPhoto(ChatroomV2Message message) async {
     final cardId = chatPhotoId(message.payload['card_id']);

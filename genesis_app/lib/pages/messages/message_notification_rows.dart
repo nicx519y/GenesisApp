@@ -69,16 +69,15 @@ class _NotificationListItem extends StatelessWidget {
                     children: [
                       Text(
                         item.content,
-                        style: const TextStyle(
+                        style: GenesisTypography.body.copyWith(
                           color: GenesisColors.darkTextPrimary,
                         ),
                       ),
                       if (item.createdAt != null)
                         Text(
                           formatGenesisTimestamp(item.createdAt!),
-                          style: const TextStyle(
+                          style: GenesisTypography.supporting.copyWith(
                             color: GenesisColors.darkTextSecondary,
-                            fontSize: 12,
                           ),
                         ),
                     ],

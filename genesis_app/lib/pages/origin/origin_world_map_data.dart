@@ -8,16 +8,7 @@ String _resolvedProfileAvatar(
   Map<String, dynamic> userInfo,
   String profileAvatar,
 ) {
-  final resolved = asResolvedImageUrl(
-    _mapValue(userInfo, const ['avatar']),
-    resolveAssetUrl,
-    fallback: _mapValue(userInfo, const [
-      'avatar_url',
-      'photoUrl',
-      'photo_url',
-      'picture',
-    ]),
-  );
+  final resolved = resolveProfileAvatarUrl(userInfo);
   if (resolved.isNotEmpty) return resolved;
   return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
 }

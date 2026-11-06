@@ -121,3 +121,50 @@ flutter test --no-pub \
 一张包含 N 条正文的新卡首次挂载仍需构建／布局该卡的 N 行，复杂度仍随整轮长度增长。
 本轮减少的是后续动画、控制区刷新和流式增量的重复构建，没有实现轮内逐条虚拟化。
 超长轮的真实首次排版耗时和设备帧率尚未测量，作为后续独立性能任务保留。
+
+
+## 2026-11-05 照片接入后的性能回归修复
+
+本轮以 `869740d1` 为实现前基线，保留该版本的消息布局、长按操作和图片查看器行为。正式回复仍允许无 card_id，候选照片仍绑定原卡片；没有更改接口、420ms 入场时长、费用或重试规则。
+
+### 实现
+
+- 页面按消息投影、内容版本和访问身份缓存实时照片任务；列表只在内容变化时建立照片索引。只读历史与无照片任务路径直接跳过；操作栏与展开队列只访问活动照片，不在滚动时扫描全部历史。显式内容版本兼容 VM 原地更新；未提供版本的独立调用方保留保守刷新。
+- 活动动画、定位准备与已处理任务标识分离。完成或取消时先将行替换为固定完整高度、清理行缓存，在帧结束后销毁控制器；移出列表、暂停、切换访问及销毁均释放等待。轻量防重播标识保留至本次访问结束，不持有消息或图片。
+- 同轮照片恢复合并持久日志和内存目标，只请求一次 cards。响应按各卡请求版本应用，旧 HTTP 不覆盖新 WS；只对有效响应清理终态任务日志。等值卡片不重新通知或持久化，失败保留任务。
+- 灵感失败定位到 `_scheduleEntrySendWaitCheck` 的无条件整页刷新，而非灵感结果的正文变化。Send gate 的纯控件变化改为局部通知，Tick 等待行变化仍更新正文；输入区在局部刷新时读取当前 Tick 锁，避免捕获旧状态。
+
+### 自动化验收
+
+| 场景 | 实现前 | 本轮结果 |
+| --- | --- | --- |
+| 1200 条历史仅刷新装饰，消息读取 | 6038 次 | 恢复 `<200` 门槛 |
+| 200／600／1200 条历史，三次小幅滚动 | 660／1860／3660 次 | 全部恢复 `<100` 门槛 |
+| 200／600／1200 条消息，照片完成后滚动及父组件更新 | 未覆盖 | 照片索引扫描计数不增加；内容版本变化仍刷新 |
+| 连续 8 次照片入场、淘汰及重新挂载 | 控制器保留至列表销毁 | 控制器、准备记录、待销毁资源均归零；同任务不重播 |
+| 同轮两卡同时存在于日志和内存 | 重复请求 | 每轮一次；失败保留日志，成功校准后清理 |
+| 灵感结果／loading 更新 | 列表身份复用失败 | 原列表身份、投影次数、解析次数断言通过 |
+
+最终七份组件／性能／回复控制器测试 **284 项通过、1 项既有失败**；页面定向测试 **34 项通过、1 项既有失败**；照片服务定向测试 **10 项通过**，合计 **328 项通过、2 项既有失败**。两项失败在未修改 `869740d1` 源码的隔离副本中复现：
+
+- `camera uses the latest reply toolbar callback without sending`：按钮右边界期望 304，实际 277.5。
+- `ACK timeout retains unknown bubble without automatic resend`：等待 Send 可用超时。
+
+未放宽上述断言或把失败计作通过。灵感原失败也在隔离基线复现，本轮已修复；Tick 超时解锁定向复查通过。修改范围静态检查无问题，差异检查通过。
+
+执行范围：`location_chat_visibility_cost_test`、`location_chat_photo_navigation_test`、`location_chat_reply_card_switcher_test`、`location_chat_inspiration_height_cache_test`、`location_chat_waiting_scroll_test`、`location_chat_camera_action_test`、`chatroom_reply_actions_controller_test`；页面过滤覆盖 photo、camera、timeout、历史局部刷新、当前／目标卡解析和灵感投影；服务过滤 photo。
+
+### Pixel 6 受控 profile 测量
+
+使用独立测试包 `local.genesis.performance.location_chat_probe`，直接引用本轮工程组件，未覆盖正式应用；测完已移除测试包。使用本地构造文字与 generating 占位，未调用真实生图接口或请求 CDN 图片。滚动为 240 次、间隔约 16ms 的 3px 步进；连续加入 10 张照片，每张间隔 700ms。以下为单次测量，不是修改前后的设备对比。
+
+| 场景 | 采样帧 | build P95 | raster P95 | build >16.7ms 帧数 | 进程 RSS 前→后 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 1200 条历史滚动 | 241 | 7.359ms | 10.360ms | 0 | 305.4→308.8 MiB |
+| 200 条文字后连续 10 张照片入场 | 363 | 13.844ms | 10.561ms | 17 | 305.0→315.5 MiB |
+| 照片完成后滚动 | 240 | 8.433ms | 11.321ms | 2 | 315.5→316.1 MiB |
+| 列表 active 关闭／恢复后滚动 | 242 | 8.998ms | 11.064ms | 3 | 316.1→302.9 MiB |
+
+RSS 包含整个进程与 GC 波动，不能据此单独证明无泄漏。连续入场仍有 17 个 build 超过 16.7ms 的帧，不能声称完全无卡顿；本轮未定位这些长帧。active 切换不等于 Android 真正后台恢复，真实后端、真实图片解码及完整应用后台恢复仍待验收。
+
+日志：`/tmp/location-chat-implementation-regressions-final.log`、`/tmp/location-chat-implementation-page-final.log`、`/tmp/location-chat-implementation-service-final.log`、`/tmp/location-chat-final-baseline.log`、`/tmp/location-chat-timeout-baseline.log`、`/tmp/location-chat-profile-device-final.log`。临时测试工程与采样驱动位于 `/private/tmp/location-chat-profile-probe`。

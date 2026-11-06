@@ -59,6 +59,7 @@ extension _MePageData on _MePageState {
       api,
       services.sessionStore,
       fallbackUid: uid,
+      generation: generation,
     );
 
     if (_canUpdateAsyncState && generation == _loadGeneration && _isTabActive) {
@@ -118,6 +119,11 @@ extension _MePageData on _MePageState {
 
   void _handleSessionChanged() {
     if (!mounted) return;
+    _avatarPreviewBytes.value = null;
+    if (_avatarEditToken != null) {
+      _avatarEditToken = null;
+      _isUpdatingProfile.value = false;
+    }
     _loadGeneration += 1;
     _originsState.reset();
     _worldsState.reset();
@@ -262,6 +268,7 @@ extension _MePageData on _MePageState {
     GenesisApi api,
     UserSessionStore sessionStore, {
     required String fallbackUid,
+    required int generation,
   }) async {
     try {
       await api.ensureUid();
@@ -270,6 +277,7 @@ extension _MePageData on _MePageState {
         sessionStore: sessionStore,
         response: userInfo,
         fallbackUid: fallbackUid,
+        canSave: () => _canUpdateAsyncState && generation == _loadGeneration,
       );
     } catch (_) {
       return null;

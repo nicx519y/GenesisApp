@@ -97,6 +97,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     requests: requests,
     pending: pending,
     saveJournal: _save,
+    generationMonitor: () => _chatroomService?.photoGenerationMonitor,
     onChanged: _notify,
     onSuccess: () {
       cameraTasks.confirmAlbum(album);

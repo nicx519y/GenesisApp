@@ -15,7 +15,6 @@ import '../../components/chat/shared/chat_scene_plate_tokens.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_static_network_image.dart';
-import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/genesis_image_resource.dart';
 
 const worldUpdatePushDisplayDuration = genesisPushBannerDisplayDuration;
@@ -374,14 +373,6 @@ class _WorldUpdatePushBanner extends StatelessWidget {
       key: const ValueKey<String>('world-update-push-detail'),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        fontFamily: GenesisTypography.fontFamily,
-        fontFamilyFallback: GenesisTypography.fontFamilyFallback,
-        color: GenesisColors.darkTextPrimary,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        height: 1.25,
-      ),
     );
     return GenesisPushBanner(
       title: category,

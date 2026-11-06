@@ -301,6 +301,7 @@ class GenesisImageResourceRegistry {
   }
 }
 
+/// Fixed-width CDN images use 2x display width even for a plain URL.
 String selectGenesisImageUrl(
   Object? source, {
   Object? fallback,
@@ -308,11 +309,21 @@ String selectGenesisImageUrl(
   required double? logicalHeight,
   required double devicePixelRatio,
   double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+  bool useFixedCdnWidth = false,
 }) {
   final resource = GenesisImageResourceRegistry.resolve(
     source,
     fallback: fallback,
   );
+  if (useFixedCdnWidth &&
+      logicalWidth != null &&
+      logicalWidth.isFinite &&
+      logicalWidth > 0) {
+    final url = resource.displayUrl;
+    final width = (logicalWidth.clamp(0.5, 8192) * 2).ceil();
+    return localDefaultMapImageAssetForBackendImageUrl(url) ??
+        buildGenesisCdnResizeUrl(url, width: width);
+  }
   final selected = resource.selectUrl(
     logicalWidth: logicalWidth,
     logicalHeight: logicalHeight,

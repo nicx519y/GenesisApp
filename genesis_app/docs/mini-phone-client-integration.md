@@ -735,7 +735,7 @@ Music 进度条在时长已知时不因加载、缓冲或等待跳转而禁用�
 - 手机模型费用与范围直接展示 `biz=phone_dm` 返回值，不再额外乘 0.4 或按 Token 数换算。
 - 打开手机保留模型目录预取；每次进入私聊再次检查手机会话内模型目录缓存（包含模型设置页缓存），缺失时主动加载 `world_id` + `biz=phone_dm`，进行中请求合并。已缓存时直接显示选中模型名称；预取失败后进入私聊可重试，读取失败使用公共 Toast，账号切换或页面释放后不回写界面，不复用 LocationChat 目录。
 - 音频、封面、头像和相册图片还请求返回的媒体 URL；它们不计入上面的业务接口数。
-- MiniPhone 的 13 个 Collect 事件及完整字段见 [MiniPhone Collect 埋点表](mini-phone-collect-events.md)。复用公共队列、采集配置和上传策略，`object1` 使用真实 World ID。手机模型页关闭通用 `switch_model_page` / `switch_model_save`；手机模型/Token 变更事件仅在提交成功后记录 `scope=server`，失败不计成功事件。Photos 仅统计大图浏览张次，帖子/评论图片不计入。
+- MiniPhone 的 Collect 事件及完整字段见 [MiniPhone Collect 埋点表](mini-phone-collect-events.md)。复用公共队列、采集配置和上传策略，`object1` 使用真实 World ID。手机模型页关闭通用 `switch_model_page` / `switch_model_save`；手机模型/Token 变更事件仅在提交成功后记录 `scope=server`，失败不计成功事件。Photos 仅统计大图浏览张次，帖子/评论图片不计入。
 
 ### World WebSocket events
 
