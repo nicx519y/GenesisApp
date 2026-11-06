@@ -77,7 +77,13 @@ Future<bool> showDailyCheckInDialog(
     rewardGemsCent: rewardGemsCent,
     rewardGemsCentPremium: rewardGemsCentPremium,
     rewardGemsCentDeluxe: rewardGemsCentDeluxe,
-    activeTiers: activeTiers,
+    showMemberLayout:
+        activeTiers != null &&
+        (activeTiers.premium ||
+            activeTiers.deluxe ||
+            membership!.state.value.isExpired ||
+            membership.state.value.isDeluxeExpired),
+    canShowOffers: activeTiers != null,
   );
   final tier = switch (action) {
     _DailyCheckInAction.premium => MembershipType.premium,
@@ -99,7 +105,7 @@ Future<void> showDailyCheckInPreview(
   required int rewardGemsCent,
   required int rewardGemsCentPremium,
   required int rewardGemsCentDeluxe,
-  required ({bool premium, bool deluxe}) activeTiers,
+  required bool hasMembershipHistory,
 }) async {
   final action = await _showDailyCheckInPanel(
     context,
@@ -107,7 +113,8 @@ Future<void> showDailyCheckInPreview(
     rewardGemsCent: rewardGemsCent,
     rewardGemsCentPremium: rewardGemsCentPremium,
     rewardGemsCentDeluxe: rewardGemsCentDeluxe,
-    activeTiers: activeTiers,
+    showMemberLayout: hasMembershipHistory,
+    canShowOffers: true,
   );
   if (action == _DailyCheckInAction.checkIn && context.mounted) {
     await showDailyCheckInSuccessDialog(
@@ -123,16 +130,17 @@ Future<_DailyCheckInAction?> _showDailyCheckInPanel(
   required int rewardGemsCent,
   required int? rewardGemsCentPremium,
   required int? rewardGemsCentDeluxe,
-  required ({bool premium, bool deluxe})? activeTiers,
+  required bool showMemberLayout,
+  required bool canShowOffers,
 }) {
   final offers = <(_DailyCheckInAction, int)>[];
-  if (activeTiers != null) {
+  if (!claimed && canShowOffers && !showMemberLayout) {
     final premium = rewardGemsCentPremium;
     final deluxe = rewardGemsCentDeluxe;
-    if (!activeTiers.premium && premium != null) {
+    if (premium != null) {
       offers.add((_DailyCheckInAction.premium, rewardGemsCent + premium));
     }
-    if (!activeTiers.deluxe && deluxe != null) {
+    if (deluxe != null) {
       offers.add((_DailyCheckInAction.deluxe, rewardGemsCent + deluxe));
     }
   }
@@ -161,16 +169,29 @@ Future<_DailyCheckInAction?> _showDailyCheckInPanel(
           height: GenesisActionBox.defaultRowHeight,
           backgroundColor: Colors.transparent,
           disabledBackgroundColor: Colors.transparent,
-          foregroundColor: GenesisColors.darkTextPrimary,
+          foregroundColor: showMemberLayout
+              ? GenesisColors.redSecondary
+              : GenesisColors.darkTextPrimary,
           disabledForegroundColor: GenesisColors.darkTextTertiary,
           borderRadius: BorderRadius.zero,
           fontSize: 15,
-          fontWeight: FontWeight.w400,
+          fontWeight: showMemberLayout ? FontWeight.w600 : FontWeight.w400,
           shrinkLabelToFit: true,
           onPressed: claimed
               ? null
               : () => Navigator.of(context).pop(_DailyCheckInAction.checkIn),
         ),
+        if (showMemberLayout && !claimed)
+          GenesisPrimaryButton(
+            label: context.l10n.cancelAction,
+            height: GenesisActionBox.defaultRowHeight,
+            backgroundColor: Colors.transparent,
+            foregroundColor: GenesisColors.darkTextPrimary,
+            borderRadius: BorderRadius.zero,
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
       ],
     ),
   );

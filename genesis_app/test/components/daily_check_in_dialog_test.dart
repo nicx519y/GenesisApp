@@ -28,12 +28,16 @@ void main() {
       tester,
     ) async {
       final now = DateTime.utc(2040);
-      final noOffers = [
+      final memberLayout = [
+        'monthly',
+        'yearly',
+        'deluxe',
         'both',
-        'unknown',
-        'missing_membership',
+        'expired_status',
+        'expired_time',
       ].contains(scenario);
-      final singleOffer = ['monthly', 'yearly', 'deluxe'].contains(scenario);
+      final noOffers =
+          memberLayout || ['unknown', 'missing_membership'].contains(scenario);
       var requests = 0;
       final response = Completer<GemWallet>();
       final wallet = GemWalletStore(
@@ -110,20 +114,15 @@ void main() {
         expect(find.text('+50'), findsOneWidget);
         expect(find.text('Check in'), findsOneWidget);
         expect(find.text('Claim'), findsNothing);
+        expect(find.text('Get 150'), !noOffers ? findsOneWidget : findsNothing);
+        expect(find.text('Get 300'), !noOffers ? findsOneWidget : findsNothing);
         expect(
-          find.text('Get 150'),
-          !noOffers && (!singleOffer || scenario == 'deluxe')
-              ? findsOneWidget
-              : findsNothing,
+          find.text('Cancel'),
+          memberLayout ? findsOneWidget : findsNothing,
         );
-        expect(
-          find.text('Get 300'),
-          !noOffers && scenario != 'deluxe' ? findsOneWidget : findsNothing,
-        );
-        expect(find.text('Cancel'), findsNothing);
         expect(find.text('Worldo Premium'), findsNothing);
         expect(find.text('Worldo Deluxe'), findsNothing);
-        if (!noOffers && !singleOffer) {
+        if (!noOffers) {
           expect(find.byType(GenesisActionBoxDivider), findsNWidgets(3));
           expect(
             tester.widget<Text>(find.text('Get 150')).style?.color,
@@ -138,14 +137,16 @@ void main() {
             lessThan(tester.getCenter(find.text('Check in')).dy),
           );
         }
-        if (noOffers) {
+        if (memberLayout) {
+          await tester.tap(find.text('Cancel'));
+        } else if (noOffers) {
           await tester.tapAt(const Offset(1, 1));
         } else {
           await tester.tap(find.text('Check in'));
         }
         await tester.pumpAndSettle();
         expect(checkedIn, !noOffers);
-        if (singleOffer || scenario == 'non_member') {
+        if (scenario == 'non_member') {
           await tester.tap(find.text('Open'));
           await tester.pumpAndSettle();
           expect(requests, 1);
@@ -253,11 +254,11 @@ void main() {
           await walletRequest;
           await tester.pumpAndSettle();
           expect(find.text('Daily Check-in'), findsOneWidget);
+          expect(find.text('Get 300'), findsNothing);
           expect(
-            find.text('Get 300'),
+            find.text('Cancel'),
             refreshFails ? findsNothing : findsOneWidget,
           );
-          expect(find.text('Cancel'), findsNothing);
           expect(find.text('Check in'), findsOneWidget);
           expect(requests, 2);
           if (refreshFails) {
