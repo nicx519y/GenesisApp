@@ -909,6 +909,7 @@ const List<Map<String, dynamic>> kMockV1DmMessages = [
 const Map<String, dynamic> kMockV1DmConversation = {
   'conv_id': 'DMC_MOCK_001',
   'peer': kMockV1PeerUser,
+  'isOfficial': true,
   'last_message_id': 'DM_MOCK_002',
   'last_message': 'Yes, keep everything deterministic.',
   'last_message_at': 1797731760,

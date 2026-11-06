@@ -2925,6 +2925,10 @@
     "description": "首页 - Inbox，会话列表/空状态/筛选中显示的文字"
   },
   "inboxUnknownUser": "Unknown user",
+  "inboxOfficialBadge": "Official",
+  "@inboxOfficialBadge": {
+    "description": "Inbox direct-message list: fixed English badge after the name of an official conversation. Keep the exact label Official in every locale."
+  },
   "@inboxUnknownUser": {
     "description": "首页 - Inbox，会话列表项中显示的文字"
   },

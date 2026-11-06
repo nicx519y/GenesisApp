@@ -103,7 +103,7 @@ void main() {
                 messageId: 'msg_old',
                 message: 'old',
                 minutesAgo: 20,
-              ),
+              )..['isOfficial'] = true,
             ],
             'next_after_message_id': 'cursor_1',
           });
@@ -115,7 +115,7 @@ void main() {
               messageId: 'msg_new',
               message: 'updated',
               minutesAgo: 1,
-            ),
+            )..['isOfficial'] = false,
             _conversation(
               convId: 'conv_new',
               messageId: 'msg_insert',
@@ -130,6 +130,17 @@ void main() {
 
       await store.syncConversations();
       final existingNotifier = store.rowListenable('conv_existing')!;
+      expect(existingNotifier.value.isOfficial, isTrue);
+      await store.mergeConversationJson(
+        _conversation(
+          convId: 'conv_existing',
+          messageId: 'msg_sent',
+          message: 'sent',
+          minutesAgo: 2,
+        ),
+      );
+      expect(existingNotifier.value.lastMessage, 'sent');
+      expect(existingNotifier.value.isOfficial, isTrue);
       await store.syncConversations();
 
       final deltaRequest = transport.requests.last;
@@ -137,6 +148,8 @@ void main() {
       expect(deltaRequest.uri.queryParameters.containsKey('pn'), isFalse);
       expect(deltaRequest.uri.queryParameters.containsKey('rn'), isFalse);
       expect(existingNotifier.value.lastMessage, 'updated');
+      expect(existingNotifier.value.isOfficial, isFalse);
+      expect(store.rowListenable('conv_new')!.value.isOfficial, isFalse);
       expect(store.rowListenable('conv_existing'), same(existingNotifier));
       expect(store.orderedConversationIds.value, ['conv_existing', 'conv_new']);
     },

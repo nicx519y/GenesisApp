@@ -4781,6 +4781,7 @@ class _MockState {
     return {
       'conv_id': 'DMC_MOCK_${(index + 1).toString().padLeft(3, '0')}',
       'peer': _v1UserPayload(peer),
+      'isOfficial': false,
       'last_message_id':
           'DM_MOCK_CONV_${(index + 1).toString().padLeft(3, '0')}',
       'last_message': 'Mock conversation ${index + 1} preview message.',

@@ -177,6 +177,7 @@ Origin detail 增量核对时间：2026-08-05
 
 - `conv_id*`: string
 - `peer*`: UserInfo，对话中的另一方；其中 `last_login_at`、`create_at` 等时间字段均为 Unix 秒时间戳
+- `isOfficial`: boolean，会话列表项的顶层字段，仅 JSON `true` 在 Inbox 私信列表的名称后显示 `Official` 徽标。旧记录缺省不显示；发送响应省略时保留该会话已缓存的标记。
 - `last_message_id*`: string，当前会话最后一条消息 id
 - `last_message*`: string
 - `last_message_at*`: integer，Unix 秒时间戳，示例 `1797731760`

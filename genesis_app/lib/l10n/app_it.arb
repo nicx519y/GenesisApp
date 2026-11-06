@@ -5308,5 +5308,9 @@
   "membershipExpiry": "Scadenza abbonamento",
   "@membershipExpiry": {
     "description": "Label above the expiry date on an active membership card on the Me page."
+  },
+  "inboxOfficialBadge": "Official",
+  "@inboxOfficialBadge": {
+    "description": "Inbox direct-message list: fixed English badge after the name of an official conversation. Keep the exact label Official in every locale."
   }
 }

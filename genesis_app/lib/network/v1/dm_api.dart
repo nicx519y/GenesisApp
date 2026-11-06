@@ -13,7 +13,7 @@ class DmV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"conv_id":"string","peer":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":1779271200,"create_at":1777708800},"last_message_id":"string","last_message":"string","last_message_at":1797731760,"last_sender_uid":"string","unread_cnt":0,"is_friend":true,"i_blocked_peer":false,"peer_blocked_me":false,"can_send_next_message":true}],"total":0,"pn":1,"rn":20,"next_after_message_id":"string"}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"conv_id":"string","peer":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":1779271200,"create_at":1777708800},"isOfficial":true,"last_message_id":"string","last_message":"string","last_message_at":1797731760,"last_sender_uid":"string","unread_cnt":0,"is_friend":true,"i_blocked_peer":false,"peer_blocked_me":false,"can_send_next_message":true}],"total":0,"pn":1,"rn":20,"next_after_message_id":"string"}}
   /// ```
   Future<Map<String, dynamic>> conversations({
     int? pn,

@@ -6418,6 +6418,12 @@
           "text_hash": "9dcac987f3213294f1b996b36c974fbc7e10b70a844376b31c83f69ad03b0a6c",
           "status": "ai",
           "note": "Migrated the source branch wording for the active membership card expiry label."
+        },
+        "inboxOfficialBadge": {
+          "source_hash": "fcdda5b788c4bde757a0278376c60b5e89069b0ced63d6cbfae5ef8e84a15269",
+          "text_hash": "8c7638a8478454368a6977ab6ab2f84c26c124df33c629e42d5d32ef381badc6",
+          "status": "ai",
+          "note": "Fixed English badge with an uppercase initial as requested."
         }
       }
     },
@@ -12837,6 +12843,12 @@
           "text_hash": "ef6189efbfc1b650561e6477fe78d753a9ea94ed3a81563aada5d1691dbbc2db",
           "status": "ai",
           "note": "Migrated the source branch wording for the active membership card expiry label."
+        },
+        "inboxOfficialBadge": {
+          "source_hash": "fcdda5b788c4bde757a0278376c60b5e89069b0ced63d6cbfae5ef8e84a15269",
+          "text_hash": "8c7638a8478454368a6977ab6ab2f84c26c124df33c629e42d5d32ef381badc6",
+          "status": "ai",
+          "note": "Fixed English badge with an uppercase initial as requested."
         }
       }
     },
@@ -19256,6 +19268,12 @@
           "text_hash": "bd47c8ca906056d965da74a1df663c616aed1690b117f8fa94241781563cde58",
           "status": "ai",
           "note": "Migrated the source branch wording for the active membership card expiry label."
+        },
+        "inboxOfficialBadge": {
+          "source_hash": "fcdda5b788c4bde757a0278376c60b5e89069b0ced63d6cbfae5ef8e84a15269",
+          "text_hash": "8c7638a8478454368a6977ab6ab2f84c26c124df33c629e42d5d32ef381badc6",
+          "status": "ai",
+          "note": "Fixed English badge with an uppercase initial as requested."
         }
       }
     },
@@ -25675,6 +25693,12 @@
           "text_hash": "a18f74df1bf2bdf22f60f1c7036adc8acb6918fef565c0e5140f71bd48edba3d",
           "status": "ai",
           "note": "Migrated the source branch wording for the active membership card expiry label."
+        },
+        "inboxOfficialBadge": {
+          "source_hash": "fcdda5b788c4bde757a0278376c60b5e89069b0ced63d6cbfae5ef8e84a15269",
+          "text_hash": "8c7638a8478454368a6977ab6ab2f84c26c124df33c629e42d5d32ef381badc6",
+          "status": "ai",
+          "note": "Fixed English badge with an uppercase initial as requested."
         }
       }
     },
@@ -32094,6 +32118,12 @@
           "text_hash": "b4a019d08b2112108bcdf5ffda2bb0b64db1a810b3271bdb56075c4c5c7a3ab6",
           "status": "ai",
           "note": "Migrated the source branch wording for the active membership card expiry label."
+        },
+        "inboxOfficialBadge": {
+          "source_hash": "fcdda5b788c4bde757a0278376c60b5e89069b0ced63d6cbfae5ef8e84a15269",
+          "text_hash": "8c7638a8478454368a6977ab6ab2f84c26c124df33c629e42d5d32ef381badc6",
+          "status": "ai",
+          "note": "Fixed English badge with an uppercase initial as requested."
         }
       }
     },
@@ -38513,6 +38543,12 @@
           "text_hash": "cfd6424fd301a4fb573dfa9483652e9fecc404132be1aa716f3170fb62e49ae2",
           "status": "ai",
           "note": "Migrated the source branch wording for the active membership card expiry label."
+        },
+        "inboxOfficialBadge": {
+          "source_hash": "fcdda5b788c4bde757a0278376c60b5e89069b0ced63d6cbfae5ef8e84a15269",
+          "text_hash": "8c7638a8478454368a6977ab6ab2f84c26c124df33c629e42d5d32ef381badc6",
+          "status": "ai",
+          "note": "Fixed English badge with an uppercase initial as requested."
         }
       }
     },
@@ -44932,6 +44968,12 @@
           "text_hash": "4f796e632078221cba50d2952c25e52d6922aa3f1a6bc6664d072c970e11a13c",
           "status": "ai",
           "note": "Migrated the source branch wording for the active membership card expiry label."
+        },
+        "inboxOfficialBadge": {
+          "source_hash": "fcdda5b788c4bde757a0278376c60b5e89069b0ced63d6cbfae5ef8e84a15269",
+          "text_hash": "8c7638a8478454368a6977ab6ab2f84c26c124df33c629e42d5d32ef381badc6",
+          "status": "ai",
+          "note": "Fixed English badge with an uppercase initial as requested."
         }
       }
     },
@@ -51351,6 +51393,12 @@
           "text_hash": "52b17382ecf23d2391bcc4834516953af9dade4c7d75dc8c1fbf67e6ab5432fe",
           "status": "ai",
           "note": "Migrated the source branch wording for the active membership card expiry label."
+        },
+        "inboxOfficialBadge": {
+          "source_hash": "fcdda5b788c4bde757a0278376c60b5e89069b0ced63d6cbfae5ef8e84a15269",
+          "text_hash": "8c7638a8478454368a6977ab6ab2f84c26c124df33c629e42d5d32ef381badc6",
+          "status": "ai",
+          "note": "Fixed English badge with an uppercase initial as requested."
         }
       }
     }

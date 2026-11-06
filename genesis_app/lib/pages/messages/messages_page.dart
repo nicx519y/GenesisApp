@@ -1,5 +1,6 @@
 import '../../l10n/language_data_refresh.dart';
 import '../../l10n/genesis_l10n.dart';
+import '../../l10n/genesis_localizations.dart';
 import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
@@ -519,6 +520,9 @@ class _ConversationTile extends StatelessWidget {
                                 item.peerMembershipDeluxeStatus,
                             deleted: item.peerDeleted,
                             fontSize: 14,
+                            nameBadge: item.isOfficial
+                                ? const _OfficialConversationBadge()
+                                : null,
                             child: Text(
                               displayPeerName,
                               maxLines: 1,
@@ -573,6 +577,35 @@ class _ConversationTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _OfficialConversationBadge extends StatelessWidget {
+  const _OfficialConversationBadge();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsetsDirectional.only(start: 4),
+    child: DecoratedBox(
+      decoration: const ShapeDecoration(
+        color: GenesisColors.redPrimary,
+        shape: StadiumBorder(),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+        child: Text(
+          context.l10n.inboxOfficialBadge,
+          maxLines: 1,
+          softWrap: false,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _Avatar extends StatelessWidget {

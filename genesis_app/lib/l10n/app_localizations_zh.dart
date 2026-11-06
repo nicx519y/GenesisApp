@@ -2131,6 +2131,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get inboxUnknownUser => 'Unknown user';
 
   @override
+  String get inboxOfficialBadge => 'Official';
+
+  @override
   String get inboxDirectMessage => 'Direct message';
 
   @override
@@ -6034,6 +6037,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get inboxUnknownUser => '未知使用者';
+
+  @override
+  String get inboxOfficialBadge => 'Official';
 
   @override
   String get inboxDirectMessage => '私訊';
