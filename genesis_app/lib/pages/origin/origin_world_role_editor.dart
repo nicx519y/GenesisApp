@@ -96,11 +96,7 @@ class _OriginRoleEditorHost extends StatefulWidget {
 
 class _OriginRoleEditorHostState extends State<_OriginRoleEditorHost>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _visibility = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 280),
-    reverseDuration: const Duration(milliseconds: 180),
-  )..addStatusListener(_handleVisibilityStatus);
+  late final AnimationController _visibility;
   late final Animation<double> _surfaceOpacity = CurvedAnimation(
     parent: _visibility,
     curve: const Interval(0, 180 / 280),
@@ -124,6 +120,11 @@ class _OriginRoleEditorHostState extends State<_OriginRoleEditorHost>
   @override
   void initState() {
     super.initState();
+    _visibility = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+      reverseDuration: const Duration(milliseconds: 180),
+    )..addStatusListener(_handleVisibilityStatus);
     widget.interaction.addListener(_syncWithInteraction);
     _syncWithInteraction();
   }

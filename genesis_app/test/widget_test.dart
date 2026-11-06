@@ -16578,103 +16578,114 @@ void main() {
   );
 
   for (final inLocation in [false, true]) {
-    testWidgets('Origin role shows cached avatar until CDN loads, location=$inLocation', (
-      tester,
-    ) async {
-      _mockGenesisKeyboardAnimationEvents();
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      addTearDown(tester.view.reset);
-      const profileUrl = 'https://cdn.example.com/cached-role-profile.webp';
-      final session = MemoryUserSessionStore();
-      final revision = ValueNotifier(0);
-      addTearDown(revision.dispose);
-      final pendingPortrait = Completer<ImageInfo>();
-      debugGenesisStaticNetworkImageCompleter = (provider) =>
-          OneFrameImageStreamCompleter(
-            provider.imageUrl.startsWith(profileUrl)
-                ? pendingPortrait.future
-                : SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
-          );
-      addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
-      final cache = ProfileAvatarCache(
-        sessionStore: session,
-        sessionRevision: revision,
-        namespace: 'role-preview-test',
-        cacheFile: () async => throw StateError('Disk cache disabled in test'),
-        download: (_) async => null,
-      );
-      final services = await _testServices(
-        transport: _RecordingV1ListTransport(worldRelationStatus: 'approved'),
-        useMock: false,
-        initialAuthToken: 'token',
-        initialUserInfo: const {
-          'uid': 'u_mock',
-          'name': 'Profile Hero',
-          'avatar': profileUrl,
-        },
-        sessionStoreOverride: session,
-        profileAvatarCache: cache,
-        billingService: _FakeBillingService(),
-      );
-      final previewBytes = await tester.runAsync(() async {
-        final data = await originItemTestImage.toByteData(
-          format: ui.ImageByteFormat.png,
+    testWidgets(
+      'Origin role shows cached avatar until CDN loads, location=$inLocation',
+      (tester) async {
+        _mockGenesisKeyboardAnimationEvents();
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        const profileUrl = 'https://cdn.example.com/cached-role-profile.webp';
+        final session = MemoryUserSessionStore();
+        final revision = ValueNotifier(0);
+        addTearDown(revision.dispose);
+        final pendingPortrait = Completer<ImageInfo>();
+        debugGenesisStaticNetworkImageCompleter = (provider) =>
+            OneFrameImageStreamCompleter(
+              provider.imageUrl.startsWith(profileUrl)
+                  ? pendingPortrait.future
+                  : SynchronousFuture(
+                      ImageInfo(image: originItemTestImage.clone()),
+                    ),
+            );
+        addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+        final cache = ProfileAvatarCache(
+          sessionStore: session,
+          sessionRevision: revision,
+          namespace: 'role-preview-test',
+          cacheFile: () async =>
+              throw StateError('Disk cache disabled in test'),
+          download: (_) async => null,
         );
-        return data!.buffer.asUint8List();
-      });
-      await cache.replaceFromEdit(profileUrl, previewBytes!);
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: services,
-          child: MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.iOS),
-            onGenerateRoute: AppRouter.onGenerateRoute,
-            home: OriginWorldPage(
-              oid: 'o_test_1',
-              originId: 0,
-              showOpeningSheetOnEntry: !inLocation,
+        final services = await _testServices(
+          transport: _RecordingV1ListTransport(worldRelationStatus: 'approved'),
+          useMock: false,
+          initialAuthToken: 'token',
+          initialUserInfo: const {
+            'uid': 'u_mock',
+            'name': 'Profile Hero',
+            'avatar': profileUrl,
+          },
+          sessionStoreOverride: session,
+          profileAvatarCache: cache,
+          billingService: _FakeBillingService(),
+        );
+        final previewBytes = await tester.runAsync(() async {
+          final data = await originItemTestImage.toByteData(
+            format: ui.ImageByteFormat.png,
+          );
+          return data!.buffer.asUint8List();
+        });
+        await cache.replaceFromEdit(profileUrl, previewBytes!);
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.iOS),
+              onGenerateRoute: AppRouter.onGenerateRoute,
+              home: OriginWorldPage(
+                oid: 'o_test_1',
+                originId: 0,
+                showOpeningSheetOnEntry: !inLocation,
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      if (inLocation) {
-        await tester.tap(find.text('Detail Location').first);
+        );
         await tester.pumpAndSettle();
-        await tester.tap(find.descendant(
-          of: find.byKey(
-            const ValueKey<String>('origin-location-chat-l_o_test_1'),
-          ),
-          matching: find.byKey(
-            const ValueKey<String>('origin-location-chat-role-selector'),
-          ),
-        ).hitTestable());
-      }
-      await tester.pumpAndSettle();
-      final portrait = find.byKey(
-        const ValueKey<String>('origin-setup-role-portrait-current-user'),
-      );
-      final memoryImage = find.descendant(
-        of: portrait,
-        matching: find.byWidgetPredicate(
-          (widget) => widget is Image &&
-              widget.image is ResizeImage &&
-              (widget.image as ResizeImage).imageProvider is MemoryImage,
-        ),
-      );
-      expect(memoryImage, findsOneWidget);
-      pendingPortrait.complete(ImageInfo(image: originItemTestImage.clone()));
-      await tester.runAsync(() async {
-        for (var i = 0; i < 100; i += 1) {
-          await tester.pump(const Duration(milliseconds: 16));
-          if (memoryImage.evaluate().isEmpty) return;
-          await Future<void>.delayed(const Duration(milliseconds: 10));
+        if (inLocation) {
+          await tester.tap(find.text('Detail Location').first);
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byKey(
+                    const ValueKey<String>('origin-location-chat-l_o_test_1'),
+                  ),
+                  matching: find.byKey(
+                    const ValueKey<String>(
+                      'origin-location-chat-role-selector',
+                    ),
+                  ),
+                )
+                .hitTestable(),
+          );
         }
-      });
-      expect(portrait, findsOneWidget);
-      expect(memoryImage, findsNothing);
-    });
+        await tester.pumpAndSettle();
+        final portrait = find.byKey(
+          const ValueKey<String>('origin-setup-role-portrait-current-user'),
+        );
+        final memoryImage = find.descendant(
+          of: portrait,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Image &&
+                widget.image is ResizeImage &&
+                (widget.image as ResizeImage).imageProvider is MemoryImage,
+          ),
+        );
+        expect(memoryImage, findsOneWidget);
+        pendingPortrait.complete(ImageInfo(image: originItemTestImage.clone()));
+        await tester.runAsync(() async {
+          for (var i = 0; i < 100; i += 1) {
+            await tester.pump(const Duration(milliseconds: 16));
+            if (memoryImage.evaluate().isEmpty) return;
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+        });
+        expect(portrait, findsOneWidget);
+        expect(memoryImage, findsNothing);
+      },
+    );
   }
 
   testWidgets('Origin shows cached signed-in profile as a direct launch role', (
