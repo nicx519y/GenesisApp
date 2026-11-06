@@ -96,6 +96,8 @@ Gateway 接入规则：
 
 余额弹窗统一由 `GenesisApi` 响应入口和 `ChatroomClient` 接收入口上报到 `AppServices.balancePrompts`，`GenesisApp` 根部的 `GemBalancePromptHost` 展示。新业务使用这两个公共网络入口即可自动接入，无需页面绑定；业务层仍负责失败状态与草稿回滚。控制器验证请求／连接凭证，合并同时触发，后台延迟到前台，账号／环境切换丢弃旧提示。仅结构化 `3001`／`21001`、异步 `failure.code=insufficient_balance` 与 `balance_low` 触发，不匹配错误文案；Tick 保留 `tick_no_balance` 埋点。
 
+`GenesisApp` 根部构建必须订阅 `AppServicesScope` 的服务替换；切换环境后将余额弹窗、资料填写和购买登录组件更新到新服务，再释放旧服务。不得只读取服务快照，避免重新登录后的余额提示仍绑定已释放的控制器。
+
 Chatroom WebSocket/HTTP 另有独立契约：
 
 - WebSocket 文档：`docs/chatroom-websocket-api.md`
@@ -488,6 +490,8 @@ HTTP 映射层的图片规则：
 - 用户模型透传接口 `UserInfo` 的 `gender`、`age`、`membership_status` 和 `membership_deluxe_status`；名字后的两种徽章分别使用同一用户模型的整数状态 1，双会员按 Deluxe、Premium 排列。0、2、缺失／未知和已删除用户不显示，不留空位，不使用当前账号的钱包推断他人。
 - 徽章组件为纯展示，不按 UID 查询 `user/info`，不维护独立缓存、定时刷新或生命周期监听。状态随所属列表／资料接口刷新；World 与 Chat（含 Location Chat）页面不显示用户名会员徽章。
 
+双会员商品、UI 与购买链路接入见 [Deluxe 会员接入](deluxe-membership-integration.md)。
+
 <a id="verification"></a>
 
 ## 按改动选择验证命令
@@ -516,8 +520,6 @@ HTTP 映射层的图片规则：
 - Manifest 存在不代表原生启动异常已修复。Samsung Android 13 冷启动、后台启动和覆盖安装，以及 Android 15 输入法仍需单独真机验证。上线后按新版本使用量核对 24 小时和 7 天事件，不能把旧包事件或新包暂未上报当作结论。
 
 - Chat 与 MiniPhone 收到关联发送请求的余额不足失败后，移除本人气泡并将正文恢复到空输入框，不显示失败感叹号，不覆盖新草稿；公共 Toast 与充值面板继续统一展示。MiniPhone AI 源消息仅异步 completed 后写本地聊天库，pending/generating/failed 不写；恢复请求日志与聊天库分离。服务端是否保留源消息仍由正式服务端契约决定。
-
-双会员商品、UI 与购买链路接入见 [Deluxe 会员接入](deluxe-membership-integration.md)。
 
 ## LocationChat 聊天生图（2026-11-04）
 

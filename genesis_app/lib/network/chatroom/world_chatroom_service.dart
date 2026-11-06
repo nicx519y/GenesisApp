@@ -1174,14 +1174,15 @@ class WorldChatroomService {
     if (_worldId != nextWorldId ||
         (_identity != null && _identity!.userId != identity.userId)) {
       _stopPhotoGenerationMonitor();
+      final previousIdentity = _identity;
+      final world = _state.world;
+      if (previousIdentity != null) _userDisconnected = true;
+      abandonConnectionWait();
+      _retryAttempts = 0;
       _queueAnomalyMonitor.clear();
       _queueBaselineRebuilds.clear();
       _queueIdentityChanges.clear();
-      if (_identity != null) _userDisconnected = true;
-      abandonConnectionWait();
-      _retryAttempts = 0;
-      if (_identity != null) {
-        final world = _state.world;
+      if (previousIdentity != null) {
         await _detachSession(disconnect: true);
         _desiredLocationId = '';
         _lastUserEnterLocationCommandId = '';
@@ -1604,8 +1605,8 @@ class WorldChatroomService {
   }
 
   Future<void> disconnect() async {
-    _stopPhotoGenerationMonitor();
     _userDisconnected = true;
+    _stopPhotoGenerationMonitor();
     abandonConnectionWait();
     _retryAttempts = 0;
     _disconnectMonitor?.cancel();

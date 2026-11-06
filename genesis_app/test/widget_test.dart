@@ -9,6 +9,7 @@ import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
+import 'package:genesis_flutter_android/components/gems/gem_balance_prompt_host.dart';
 import 'support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_record.dart';
 import 'dart:async';
@@ -327,6 +328,33 @@ void _setOriginFeedPreference(
   );
 }
 
+void _mockEnvironmentSwitchPlatformChannels(WidgetTester tester) {
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(
+    GenesisMethodChannels.device,
+    (call) async => switch (call.method) {
+      GenesisMethodChannels.getAppVersion => {
+        'versionName': '1.0.0',
+        'versionCode': '1',
+        'packageName': 'com.worldo.ai',
+      },
+      GenesisMethodChannels.getSystemUserAgent => 'Android test',
+      GenesisMethodChannels.getTimeZone => 'Asia/Shanghai',
+      _ => null,
+    },
+  );
+  const adjustChannel = MethodChannel('com.adjust.sdk/api');
+  messenger.setMockMethodCallHandler(
+    adjustChannel,
+    (call) async =>
+        call.method == 'getAdidWithTimeout' ? 'test-adjust-id' : null,
+  );
+  addTearDown(() {
+    messenger.setMockMethodCallHandler(GenesisMethodChannels.device, null);
+    messenger.setMockMethodCallHandler(adjustChannel, null);
+  });
+}
+
 class _DeferredOriginProfileSessionStore extends MemoryUserSessionStore {
   Completer<Map<String, dynamic>?>? heldProfileRead;
 
@@ -336,6 +364,7 @@ class _DeferredOriginProfileSessionStore extends MemoryUserSessionStore {
 }
 
 Future<AppServices> _testServices({
+  AppConfig config = const AppConfig(useMock: true),
   bool backendAuthenticated = false,
   IdentityAuthService? identityAuth,
   BackendAuthCoordinator? backendAuth,
@@ -361,7 +390,6 @@ Future<AppServices> _testServices({
   bool usePersonalizationApi = false,
   PersonalizationStore? personalization,
 }) async {
-  const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
   final deviceId = deviceIdService ?? const _FakeDeviceIdService();
   final sessionStore = sessionStoreOverride ?? MemoryUserSessionStore();
@@ -7122,9 +7150,89 @@ void main() {
     AppStartupCoordinator.resetForTesting();
   });
 
+  testWidgets(
+    'GenesisApp rebinds balance prompts after environment switch and login',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      _mockEnvironmentSwitchPlatformChannels(tester);
+      final services = await _testServices(
+        config: const AppConfig(
+          useMock: true,
+          apiBaseUrl: 'https://dev.hushie.ai/api/',
+          gatewayApiBaseUrl: 'https://dev.hushie.ai/apix/',
+          chatroomHttpBaseUrl: 'https://dev.hushie.ai/',
+          chatroomWsBaseUrl: 'wss://dev.hushie.ai/aitown-chat/ws',
+        ),
+        initialAuthToken: 'test-token',
+      );
+      final oldBalanceReport = services.chatroom.onGemBalanceAlert!;
+      await tester.pumpWidget(GenesisApp(services: services));
+      await tester.pumpAndSettle();
+
+      // Keep the root app mounted while isolating the balance prompt from
+      // unrelated page reloads and native databases during service replacement.
+      unawaited(
+        genesisNavigatorKey.currentState!.pushAndRemoveUntil<void>(
+          MaterialPageRoute<void>(builder: (_) => const Scaffold()),
+          (_) => false,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final sessionStore = services.sessionStore;
+      await sessionStore.clearUid();
+      final updated = AppServicesScope.replaceWithConfig(
+        tester.element(find.byType(GemBalancePromptHost)),
+        const AppConfig(
+          useMock: true,
+          apiBaseUrl: 'https://api.worldo.ai/api/',
+          gatewayApiBaseUrl: 'https://api.worldo.ai/apix/',
+          chatroomHttpBaseUrl: 'https://api.worldo.ai/',
+          chatroomWsBaseUrl: 'wss://api.worldo.ai/aitown-chat/ws',
+        ),
+        reason: 'developer_environment_switch',
+      );
+      updated.notifySessionChanged();
+      await tester.pumpAndSettle();
+
+      await sessionStore.saveUid('production-user');
+      await sessionStore.saveAuthToken('production-token');
+      updated.notifySessionChanged();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<GemBalancePromptHost>(find.byType(GemBalancePromptHost))
+            .controller,
+        same(updated.balancePrompts),
+      );
+      const alert = GemBalanceAlert(
+        kind: GemBalanceAlertKind.insufficient,
+        message: 'Insufficient balance after environment switch',
+      );
+      oldBalanceReport(alert, 'test-token');
+      updated.chatroom.onGemBalanceAlert!(alert, 'test-token');
+      await tester.pumpAndSettle();
+      expect(find.byType(PurchaseOptionsSheet), findsNothing);
+      updated.chatroom.onGemBalanceAlert!(alert, 'production-token');
+      await tester.pumpAndSettle();
+      expect(find.byType(PurchaseOptionsSheet), findsOneWidget);
+      expect(
+        find.text('Insufficient balance after environment switch'),
+        findsOneWidget,
+      );
+
+      genesisNavigatorKey.currentState!.pop();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('AppServicesScope delays old GemWallet disposal on replacement', (
     WidgetTester tester,
   ) async {
+    _mockEnvironmentSwitchPlatformChannels(tester);
     final services = await _testServices(useMock: true);
     late BuildContext scopeContext;
     await tester.pumpWidget(
@@ -33279,6 +33387,7 @@ void main() {
   testWidgets(
     'developer endpoint switch signs out and resets navigation to me',
     (WidgetTester tester) async {
+      _mockEnvironmentSwitchPlatformChannels(tester);
       await AppEndpointOverrideStore.save(
         const AppEndpointOverrides(
           apiBaseUrl: 'https://api.worldo.ai/api/',

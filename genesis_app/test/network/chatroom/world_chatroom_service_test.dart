@@ -4526,9 +4526,13 @@ void main() {
     expect(hints, isEmpty);
     await firstSocket.serverClose();
 
-    await _waitFor(() => transport.connectCount == 2);
-    expect(service.state.reconnecting, false);
-    await _waitFor(() => hints.isNotEmpty);
+    await _waitFor(
+      () =>
+          hints.isNotEmpty &&
+          service.state.connected &&
+          !service.state.reconnecting,
+    );
+    expect(transport.connectCount, 2);
     expect(hints, ['world-1']);
     await subscription.cancel();
     await service.dispose();

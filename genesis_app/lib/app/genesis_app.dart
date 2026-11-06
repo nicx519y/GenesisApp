@@ -77,6 +77,8 @@ class GenesisApp extends StatelessWidget {
             },
             builder: (context, child) {
               GenesisL10n.bind(context.l10n);
+              // Config replacement rebuilds services, including prompt owners.
+              // Subscribe so root hosts detach from the disposed services.
               final services = AppServicesScope.of(context);
               // Root overlays and builder decorations sit outside page Material
               // widgets, so they also need the application's default font.

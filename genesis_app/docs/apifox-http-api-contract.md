@@ -2957,6 +2957,12 @@ Source: supplied `wallpaper.md` contract.
 
 `monitor / websocket_reconnect_success`：object1=World ID，object2=重试次数（含成功一次，首次连接的初次尝试不计为重试），object3=前台累计恢复毫秒，object4=initial_connect/reconnect；ext_data 含 connect_attempts、duration_unit、duration_scope、success_stage。WS 建联成功即上报，不等待 join/历史；首次直接成功不报，不依赖15秒断线异常门槛。详见 chatroom-websocket-api.md 的 WebSocket 重试成功监控章节。
 
+## 商店商品缓存实现补充（2026-11-02）
+
+Gems 与会员的 Apple／Google 商品详情统一由原生支付插件缓存，Dart 不另建商品详情缓存；不改变服务端商品、购买 report／claim 协议。原生商品缓存不设置固定有效期，仅在当前进程内复用；原生负责主动刷新、失效、并发合并及旧查询失效保护。iOS StoreKit 2 购买复用缓存 Product；Android 保留一次 NOT_FOUND 自动补查，购买条件改变不自动继续收费。流程和诊断字段见 [购买准备](membership-checkout-preparation.md)。
+
+商品刷新时机保持原规则：App 冷启动预加载、进入支付页、购买成功后，重新获取服务端商品并强制查询对应平台商品，覆盖原生缓存；仅在这些刷新之间复用缓存。
+
 ## 2026-11-04 聊天生图
 
 新增 GET `/aitown-chat/api/v1/message/photo/price`、POST `/aitown-chat/api/v1/message/photo/create`，复用 ChatroomHttpApi 认证与签名。价格使用整数 cent，创建仅传 `client_request_id/world_id/location_id`，不传 `expected_price_cent`；price 仅供 Sheet 异步展示，历史保留结构化 photo。字段、错误处理及恢复规则见 [聊天生图接入](chat-photo-client-integration.md)。
@@ -2972,14 +2978,7 @@ Source: supplied `wallpaper.md` contract.
 
 聊天 photo/create 增加 conversation_round_id（十进制字符串）和可选 card_id（int64 数字）；候选受理不含正式消息游标。cards.messages 包含 live_photo，图片任务状态独立于文字 generation_state。2073 表示同卡图片生成中，2072 表示正式来源变化需刷新。接口、选卡联动与通知字段见 [候选卡生图契约](2026-11-05-card-photo-client-changes.md)。小手机 Camera 接口不变。
 
-## 商店商品缓存实现补充（2026-11-02）
-
-Gems 与会员的 Apple／Google 商品详情统一由原生支付插件缓存，Dart 不另建商品详情缓存；不改变服务端商品、购买 report／claim 协议。原生商品缓存不设置固定有效期，仅在当前进程内复用；原生负责主动刷新、失效、并发合并及旧查询失效保护。iOS StoreKit 2 购买复用缓存 Product；Android 保留一次 NOT_FOUND 自动补查，购买条件改变不自动继续收费。流程和诊断字段见 [购买准备](membership-checkout-preparation.md)。
-
-商品刷新时机保持原规则：App 冷启动预加载、进入支付页、购买成功后，重新获取服务端商品并强制查询对应平台商品，覆盖原生缓存；仅在这些刷新之间复用缓存。
-
-
-### Deluxe 独立会员扩展（2026-11-04）
+## Deluxe 独立会员扩展（2026-11-04）
 
 - `/api/v1/membership/products` 客户端使用新版 Premium `list_premium` 和 Deluxe `list_deluxe`；固定 Premium 在前、Deluxe 在后；`has_purchased=true` 时默认定位第二张 Deluxe，否则定位第一张 Premium。该标志包括会员与 Gems 的成功购买历史，不能用于判断当前会员权益。
 - Premium 使用 `last_account_uuid`，Deluxe 使用 `last_account_uuid_deluxe`，禁止跨组回退购买身份；两项均不持久化到展示缓存。
