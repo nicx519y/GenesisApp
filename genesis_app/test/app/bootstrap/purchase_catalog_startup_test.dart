@@ -44,7 +44,7 @@ class _Transport extends HttpTransport {
       };
     } else if (r.uri.path.endsWith('/membership/products')) {
       data = {
-        'list': [
+        'list_premium': [
           membershipProduct(provider: MembershipProvider.apple).toJson(),
         ],
       };

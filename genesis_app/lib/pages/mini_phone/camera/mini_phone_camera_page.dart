@@ -528,7 +528,14 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final person in widget.people)
+          for (final person in [
+            ...widget.people.where(
+              (person) => person.key == widget.selfPersonKey,
+            ),
+            ...widget.people.where(
+              (person) => person.key != widget.selfPersonKey,
+            ),
+          ])
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: MiniPhoneCameraCastChoice(

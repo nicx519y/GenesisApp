@@ -372,6 +372,8 @@ void main() {
   testWidgets(
     'formal photo submits without querying cards and restores its toolbar',
     (tester) async {
+      final telemetry = _captureLocationChatCollect();
+      addTearDown(GenesisTelemetry.resetForTesting);
       await tester.binding.setSurfaceSize(const Size(390, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final backend = _LocationChatReplyHttpTransport()
@@ -409,6 +411,7 @@ void main() {
       expect(backend.photoRequests, hasLength(1));
       expect(backend.photoRequests.single['conversation_round_id'], '301');
       expect(backend.photoRequests.single.containsKey('card_id'), isFalse);
+      expect(telemetry.object3For('photo_generation'), ['click']);
       expect(
         backend.requests.where(
           (r) => r.uri.path.endsWith('/llm-messages/cards'),
@@ -430,6 +433,7 @@ void main() {
             .any((message) => message.photo != null),
       );
       await tester.pumpAndSettle();
+      expect(telemetry.object3For('photo_generation'), ['click', 'accepted']);
       expect(
         tester
             .widget<LocationChatReplyActions>(

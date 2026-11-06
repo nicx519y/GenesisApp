@@ -226,6 +226,32 @@ void main() {
     expect(decoration.borderRadius, BorderRadius.circular(8));
   });
 
+  testWidgets('searches from history without focusing the search field', (
+    tester,
+  ) async {
+    const query = 'history query';
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'search_recent_queries_v1': <String>[query],
+    });
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<EditableText>(find.byType(EditableText));
+    expect(field.focusNode.hasFocus, isTrue);
+
+    await tester.tap(find.text(query));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(field.controller.text, query);
+    expect(field.focusNode.hasFocus, isFalse);
+    expect(
+      transport.searchRequests.single.uri.queryParameters['keyword'],
+      query,
+    );
+  });
+
   testWidgets('uses card skeletons instead of progress rings while loading', (
     tester,
   ) async {

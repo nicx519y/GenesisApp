@@ -884,6 +884,7 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
         final uid = data.uid;
         if (uid == null) return;
         final tasks = data.cameraTasks;
+        final attemptId = tasks.recordCaptureClick();
         final capture = PhoneCameraRequest(
           requestId: MiniPhoneCameraTasks.newRequestId(),
           worldId: data.worldId,
@@ -923,12 +924,9 @@ class _MiniPhonePageState extends State<MiniPhonePage> {
           );
           if (!current() || !confirmed) return;
         }
-        await tasks.submit(capture);
+        await tasks.submit(capture, attemptId: attemptId);
       },
-      selfPersonKey: data.people.values
-          .where((person) => data.playerCharIds.contains(person.id))
-          .firstOrNull
-          ?.key,
+      selfPersonKey: data.people[data.cameraSelfCharacterId]?.key,
     );
   }
 

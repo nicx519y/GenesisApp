@@ -4,7 +4,6 @@ import 'dart:async';
 import '../../platform/billing/checkout_preparation_budget.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -15,12 +14,9 @@ import '../../app/membership/membership_purchase_service.dart';
 import '../../app/membership/membership_purchase_eligibility.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/components/genesis_localized_rich_text.dart';
-import '../../l10n/genesis_localizations.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../network/models/membership_product.dart';
 import '../../network/models/membership_benefit.dart';
-import 'gem_assets.dart';
 import 'gem_purchase_state.dart';
 import 'membership_purchase_presentation.dart';
 import 'purchase_legal_links.dart';
@@ -701,92 +697,123 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
 
   List<Widget> _buildBenefitRows(MembershipProduct? selectedProduct) {
     final benefits = selectedProduct?.benefits ?? const <MembershipBenefit>[];
-    // The gem grants read as one module: the first line heads it and the rest
-    // become the cards under it, instead of repeating it as their own rows.
-    final gemGrants = [
-      for (final benefit in benefits)
-        if (benefit.iconKey == _gemIconKey) benefit,
+    final total = selectedProduct?.monthlyGemsTotal;
+    final grants = [
+      if (selectedProduct?.monthlyBonusGems case final grant?) grant,
+      if (selectedProduct?.dailyCheckInBonusGems case final grant?) grant,
     ];
-    final gemHeadCode = gemGrants.isEmpty ? null : gemGrants.first.code;
-    final rows = [
-      for (final benefit in benefits)
-        if (benefit.iconKey != _gemIconKey || benefit.code == gemHeadCode)
-          benefit,
-    ];
+    final accent = selectedProduct?.membershipType == MembershipType.deluxe
+        ? MemoryMembershipTier.deluxe.accent
+        : premiumGold;
     return [
-      for (final (index, benefit) in rows.indexed) ...[
-        if (index > 0) const SizedBox(height: 20),
-        if (gemHeadCode != null && index == 1) ...[
-          Text(
-            _restLabel,
-            key: ValueKey('pro-benefits-rest-label'),
-            style: TextStyle(
-              fontSize: 12,
-              height: 1,
-              fontWeight: FontWeight.w400,
-              color: GenesisColors.darkTextTertiary,
+      if (total != null)
+        _ProBenefit(
+          code: 'monthly_gems_total',
+          title: total.title,
+          iconKey: total.iconKey,
+          amount: total.amount,
+          accent: accent,
+        ),
+      if (grants.isNotEmpty)
+        Padding(
+          padding: EdgeInsets.only(top: total == null ? 0 : 13),
+          child: IntrinsicHeight(
+            child: Row(
+              key: const ValueKey('pro-gem-breakdown'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (index, grant) in grants.indexed) ...[
+                  if (index > 0) const SizedBox(width: 10),
+                  Expanded(
+                    child: _GemGrantCard(
+                      key: ValueKey('pro-gem-card-${grant.iconKey}'),
+                      grant: grant,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 14),
-        ],
+        ),
+      if (benefits.isNotEmpty) ...[
+        if (total != null || grants.isNotEmpty) const SizedBox(height: 20),
+        Text(
+          _restLabel,
+          key: const ValueKey('pro-benefits-rest-label'),
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1,
+            fontWeight: FontWeight.w400,
+            color: GenesisColors.darkTextTertiary,
+          ),
+        ),
+        const SizedBox(height: 14),
+      ],
+      for (final (index, benefit) in benefits.indexed) ...[
+        if (index > 0) const SizedBox(height: 20),
         _ProBenefit(
           key: ValueKey('pro-benefit-${benefit.code}'),
-          benefit: benefit,
-          accent: selectedProduct?.membershipType == MembershipType.deluxe
-              ? MemoryMembershipTier.deluxe.accent
-              : premiumGold,
-          grants: benefit.code == gemHeadCode
-              ? gemGrants.skip(1).toList()
-              : const <MembershipBenefit>[],
+          code: benefit.code,
+          title: benefit.title,
+          iconKey: benefit.iconKey,
+          accent: accent,
         ),
       ],
     ];
   }
 
-  Widget _buildPlanControls(double deluxeColorProgress) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      widget.horizontalInset,
-      12,
-      widget.horizontalInset,
-      0,
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        MemoryMembershipPlanSelector(
-          tier: _type,
-          deluxeColorProgress: deluxeColorProgress,
-          savings: _offerFor(_ProPlan.yearly) == null
-              ? null
-              : membershipYearlySavings(_offerFor(_ProPlan.yearly)!, _offers),
-          yearly: _plan == _ProPlan.yearly,
-          yearlyPrice: _offerFor(_ProPlan.yearly)?.price?.formattedPrice,
-          monthlyPrice: _offerFor(_ProPlan.monthly)?.price?.formattedPrice,
-          onChanged: (yearly) {
-            setState(() {
-              _plan = yearly ? _ProPlan.yearly : _ProPlan.monthly;
-              _plans[_type] = _plan;
-            });
-            _prepareSelectedCheckout();
-          },
-        ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 35),
-          child: Center(
-            child: Text(
-              GenesisL10n.current.premiumAutoRenewsCancelAnytime,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: GenesisColors.darkTextTertiary,
+  Widget _buildPlanControls(double deluxeColorProgress) {
+    final yearlyOffer = _offerFor(_ProPlan.yearly);
+    final yearlyPrice = yearlyOffer?.price;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        widget.horizontalInset,
+        12,
+        widget.horizontalInset,
+        0,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          MemoryMembershipPlanSelector(
+            tier: _type,
+            deluxeColorProgress: deluxeColorProgress,
+            savings: yearlyOffer == null
+                ? null
+                : membershipYearlySavings(yearlyOffer, _offers),
+            yearly: _plan == _ProPlan.yearly,
+            yearlyPrice: yearlyPrice?.formattedPrice,
+            yearlyMonthlyPrice: yearlyPrice?.monthlyEquivalent(
+              Localizations.localeOf(context).toString(),
+              yearlyOffer!.product.billingMonths,
+            ),
+            monthlyPrice: _offerFor(_ProPlan.monthly)?.price?.formattedPrice,
+            onChanged: (yearly) {
+              setState(() {
+                _plan = yearly ? _ProPlan.yearly : _ProPlan.monthly;
+                _plans[_type] = _plan;
+              });
+              _prepareSelectedCheckout();
+            },
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 35),
+            child: Center(
+              child: Text(
+                GenesisL10n.current.premiumAutoRenewsCancelAnytime,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: GenesisColors.darkTextTertiary,
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   Widget _buildPurchaseActions(
     BuildContext context,
@@ -909,7 +936,6 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   }
 
   /// The server marks every gem grant with this icon.
-  static const String _gemIconKey = 'gem';
 
   /// App-side copy: the plan's positioning line and the label that introduces
   /// whatever the gem module did not already cover.
@@ -951,23 +977,21 @@ class MembershipWordmark extends StatelessWidget {
 /// One line of the plan's copy: a gold check and the server's wording. The
 /// design carries no per-benefit artwork or status, so neither does this.
 ///
-/// The gem line carries more: the grants folded into it show as cards below.
 class _ProBenefit extends StatelessWidget {
   const _ProBenefit({
     super.key,
-    required this.benefit,
+    required this.code,
+    required this.title,
+    required this.iconKey,
+    this.amount = '',
     this.accent = premiumGold,
-    this.grants = const <MembershipBenefit>[],
   });
 
-  final MembershipBenefit benefit;
+  final String code;
+  final String title;
+  final String iconKey;
+  final String amount;
   final Color accent;
-
-  /// Gem grants folded into this line, drawn as cards under the copy.
-  final List<MembershipBenefit> grants;
-
-  /// The design sets the figure in the copy apart; the rest stays plain.
-  static final RegExp _figure = RegExp(r'\d[\d,]*');
 
   @override
   Widget build(BuildContext context) {
@@ -984,8 +1008,8 @@ class _ProBenefit extends StatelessWidget {
               height: 14 * 1.35,
               child: Center(
                 child: SubscriptionBenefitIcon(
-                  key: ValueKey('pro-benefit-icon-${benefit.code}'),
-                  iconKey: benefit.iconKey,
+                  key: ValueKey('pro-benefit-icon-$code'),
+                  iconKey: iconKey,
                   size: 18,
                   color: accent,
                 ),
@@ -1005,97 +1029,40 @@ class _ProBenefit extends StatelessWidget {
             ),
           ],
         ),
-        if (grants.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 13),
-            // Equal height: a note that wraps on a narrow screen must not
-            // leave the other card short.
-            child: IntrinsicHeight(
-              child: Row(
-                key: const ValueKey('pro-gem-breakdown'),
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (index, grant) in grants.indexed) ...[
-                    if (index > 0) const SizedBox(width: 10),
-                    Expanded(
-                      child: _GemGrantCard(
-                        key: ValueKey('pro-gem-card-${grant.code}'),
-                        grant: grant,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
       ],
     );
   }
 
   TextSpan _titleSpan() {
-    final title = benefit.title;
-    final match = _figure.firstMatch(title);
-    if (match == null) return TextSpan(text: title);
+    final start = amount.isEmpty ? -1 : title.indexOf(amount);
+    if (start < 0) return TextSpan(text: title);
     return TextSpan(
       children: [
-        TextSpan(text: title.substring(0, match.start)),
+        TextSpan(text: title.substring(0, start)),
         TextSpan(
-          text: match.group(0),
+          text: amount,
           style: const TextStyle(
             fontWeight: FontWeight.w800,
             color: premiumGoldLight,
             fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
-        TextSpan(text: title.substring(match.end)),
+        TextSpan(text: title.substring(start + amount.length)),
       ],
     );
   }
 }
 
-/// One folded-in gem grant: how many, of which gem, and how often — all read
-/// out of the server's copy so the numbers stay the server's.
+/// Displays the structured gem grant supplied by the catalog.
 class _GemGrantCard extends StatelessWidget {
   const _GemGrantCard({super.key, required this.grant});
 
-  final MembershipBenefit grant;
-
-  static final RegExp _figure = RegExp(r'\d[\d,]*');
+  final MembershipGemsCard grant;
 
   @override
   Widget build(BuildContext context) {
-    final title = grant.title;
-    final lower = title.toLowerCase();
-    final pink = lower.contains('pink');
-    final extra = lower.contains('extra');
-    final name = pink
-        ? GenesisL10n.current.premiumPinkGems
-        : lower.contains('red')
-        ? GenesisL10n.current.premiumRedGems
-        : '';
-    // Copy this line can't be read apart falls back to carrying the card whole.
-    if (name.isEmpty) return _GemGrantCardShell(child: _note(title));
-    final match = _figure.firstMatch(title);
-    final amount = match == null ? '' : '${extra ? '+' : ''}${match.group(0)}';
-    // A grant that repeats says so beside its figure, the way a plan's price
-    // carries "/mo", rather than leaving the rate to the note alone.
-    final perUnit = lower.contains('check-in')
-        ? GenesisL10n.current.gemsPerDay(amount: '').trim()
-        : '';
-    // The design words the cadence itself and leaves only the figure to the
-    // server, so read which cadence this is and use the design's line. Its
-    // wording is shortened to hold one line at 12px down to a 360 screen.
-    final sourceName = pink ? 'Pink Gems' : 'Red Gems';
-    final nameAt = lower.indexOf(sourceName.toLowerCase());
-    final note = lower.contains('check-in')
-        ? (extra
-              ? GenesisL10n.current.premiumExtraDailyCheck
-              : GenesisL10n.current.premiumDailyCheck)
-        : lower.contains('month')
-        ? GenesisL10n.current.premiumClaimedMonthly
-        : nameAt < 0
-        ? title
-        : title.substring(nameAt + sourceName.length).trim();
+    final amount = grant.value;
+    final note = grant.description;
     return _GemGrantCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1104,33 +1071,26 @@ class _GemGrantCard extends StatelessWidget {
           if (amount.isNotEmpty) ...[
             Row(
               children: [
-                SvgPicture.asset(
-                  pink ? roseGemIconAsset : gemIconAsset,
-                  width: 12,
-                  height: 18,
-                ),
+                SubscriptionBenefitIcon(iconKey: grant.iconKey, size: 18),
                 const SizedBox(width: 7),
                 Flexible(
-                  child: GenesisLocalizedRichText(
-                    template: perUnit.isEmpty
-                        ? GenesisLocalizedRichText.placeholder('amount')
-                        : context.l10n.gemsPerDay(
-                            amount: GenesisLocalizedRichText.placeholder(
-                              'amount',
-                            ),
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: amount,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                            color: GenesisColors.darkTextPrimary,
+                            fontFeatures: [FontFeature.tabularFigures()],
                           ),
-                    placeholders: {
-                      'amount': TextSpan(
-                        text: amount,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1,
-                          fontWeight: FontWeight.w800,
-                          color: GenesisColors.darkTextPrimary,
-                          fontFeatures: [FontFeature.tabularFigures()],
                         ),
-                      ),
-                    },
+                        if (grant.valueSuffix.isNotEmpty)
+                          TextSpan(text: ' ${grant.valueSuffix}'),
+                      ],
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1146,7 +1106,7 @@ class _GemGrantCard extends StatelessWidget {
             const SizedBox(height: 9),
           ],
           Text(
-            name,
+            grant.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(

@@ -177,6 +177,7 @@ Origin detail 增量核对时间：2026-08-05
 
 - `conv_id*`: string
 - `peer*`: UserInfo，对话中的另一方；其中 `last_login_at`、`create_at` 等时间字段均为 Unix 秒时间戳
+- `isOfficial`: boolean，会话列表项的顶层字段，仅 JSON `true` 在 Inbox 私信列表的名称后显示 `Official` 徽标。旧记录缺省不显示；发送响应省略时保留该会话已缓存的标记。
 - `last_message_id*`: string，当前会话最后一条消息 id
 - `last_message*`: string
 - `last_message_at*`: integer，Unix 秒时间戳，示例 `1797731760`
@@ -1426,9 +1427,9 @@ Query：
 `preset_character_id` 与 `custom_role` 必须二选一；两者都为空或都非空会返回 `4004`。
 `preset_character_override` 只能用于 preset 模式，并且至少包含一个允许覆盖的字段；custom 模式携带时服务端忽略。
 
-Origin 详情的 Opening 和地点预览固定以自定义角色作为首卡。优先显示当前页已保存的编辑，其次整体使用 `origin/detail.precharacter`，缺失或无效才使用当前用户资料。两种来源都没有时仍展示可编辑的空白首卡。预设 `name/identity/personality/bio` 中的 `{{user}}` 在用户资料加载后替换为用户名，`bio` 对应 Setting。预设有头像时沿用，头像为空时补用户头像，其余空文本保留为空。使用用户头像时先显示本地缓存，卡片尺寸的 CDN 图片解码后替换。用户显式删除头像后不再补回，账号切换会清理旧账号的草稿和预填结果。
+Origin 详情的 Opening 和地点预览在登录后以自定义角色作为首卡。未登录时只展示模板角色。自定义首卡优先显示当前页已保存的编辑，其次整体使用 `origin/detail.precharacter`，缺失或无效才使用当前用户资料。两种来源都没有时仍展示可编辑的空白首卡。预设 `name/identity/personality/bio` 中的 `{{user}}` 在用户资料加载后替换为用户名，`bio` 对应 Setting。预设有头像时沿用，头像为空时补用户头像，其余空文本保留为空。使用用户头像时先显示本地缓存，卡片尺寸的 CDN 图片解码后替换。用户显式删除头像后不再补回，账号切换会清理旧账号的草稿和预填结果。
 
-模板角色排在自定义首卡后，推荐角色在模板卡内优先并保留推荐标记。预览对白保留原角色身份。发送开场消息时，自定义角色通过 `custom_role` 提交，模板角色通过 `preset_character_id` 提交。Origin 模板和用户资料均不回写。
+推荐角色在模板卡内优先并保留推荐标记。预览对白保留原角色身份。发送开场消息时，自定义角色通过 `custom_role` 提交，模板角色通过 `preset_character_id` 提交。Origin 模板和用户资料均不回写。
 
 Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；详情预览可显示完整设定，角色编辑表单中的 Setting 按 500 个可见字符截断，草稿保留原 `goal`。请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
 
@@ -2339,7 +2340,7 @@ query：
 - `target_id*`: string，举报对象业务 id；`message` 当前按 `global_message_id` 原样记录，不做存在性校验
 - `content*`: string，举报内容；服务端 trim 后不能为空，最长 1000 字符
 
-客户端 MiniPhone 接入约定（2026-11-05）：手机消息复用此接口，提交 `target_type=message`、`target_id=手机 message_id 的十进制字符串`。该 ID 与 LocationChat 的 `global_message_id` 属于不同消息空间，不做客户端互转；此约定已确认用于客户端接入，服务端准确定位手机消息仍待真实联调验收，不将受控测试视为后端已支持的证据。
+MiniPhone 客户端复用此接口，提交 `target_type=message` 和 `target_id=<world_id>_<message_id>`，由当前 World ID、下划线及手机消息 ID 的十进制字符串拼接。LocationChat 提交 `global_message_id`。服务端准确定位手机消息仍待真实联调验收。
 
 请求示例：
 
@@ -2597,7 +2598,7 @@ query：
 | `GET /api/v1/message/unread` | `MessagesV1Api.unreadSummary` 已改用消息页未读统计接口，响应消费 `world_apply_unread/follow_unread/interaction_unread/direct_message_unread/total_unread`。 |
 | `GET /api/v1/message/notifications` | `MessagesV1Api.notifications` 已改为必传 `block` query，枚举 `world_apply/follow/interaction`；页面入口已从旧 `system/follower/comment` 映射为 Apifox 的三个 block。 |
 | `POST /api/v1/message/read` | `MessagesV1Api.markNotificationsRead` 已改为 `/message/read`，body 使用 `block` 或 `notification_id`，不再提交旧 `category/notification_ids`。 |
-| `POST /api/v1/report/create` | 已新增 `ReportV1Api.create`，body 使用 `target_type/target_id/content`，响应消费 `report_id`；World、Worldo、用户详情页和 location chat 长按菜单已接入，其中 message report 的 `target_id` 使用 `global_message_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验 `target_type`、空 `target_id/content` 与 1000 字符长度限制，并为用户详情页 report 补充接受 `target_type=user`。 |
+| `POST /api/v1/report/create` | 已新增 `ReportV1Api.create`，body 使用 `target_type/target_id/content`，响应消费 `report_id`；LocationChat 消息举报的 `target_id` 使用 `global_message_id`，MiniPhone 私聊使用 `<world_id>_<message_id>`；World、Worldo 和用户详情页也已接入；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验 `target_type`、空 `target_id/content` 与 1000 字符长度限制，并为用户详情页 report 补充接受 `target_type=user`。 |
 | `POST /api/v1/feedback/create` | 已新增 `FeedbackV1Api.create`，body 支持可选 `content` / `rating`（1–5），至少一项有效，响应消费 `feedback_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验空 `content` 与 1000 字符长度限制。 |
 | `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |
 | `POST /api/v1/direct_message/unblock` | 已新增 `DmV1Api.unblock`，body 使用 `target_uid`。 |
@@ -2684,6 +2685,8 @@ World：
 来源：[Apifox 会员商品列表](https://app.apifox.com/link/project/8297783/apis/api-512137864)。2026-09-17 按用户确认增加 has_subscription_order；本次不编辑在线 Apifox。
 
 - 商品响应为 `{err_no, err_msg, data: {list: [...], last_account_uuid: "...", has_subscription_order: false}}`，不携带客户端使用的会员状态；成功但无配置时 `list=[]`。业务错误沿用统一处理。
+- 订阅卡片使用 `list_premium` 和 `list_deluxe`，展示各自全部 `benefits`。月度总额、月赠和签到卡片分别读取 `monthly_gems_total`、`monthly_bonus_gems`、`daily_check_in_bonus_gems`，配置为 null 时隐藏对应区域。图标按 `icon_key` 映射，月度总额标题按 `amount` 加粗，展示文案直接取接口。
+
 - 每项提供 `title`、`benefits`、`plan_code`（`pro_monthly`/`pro_yearly`）、`provider`、`store_product_id`、`billing_months`（1/12）、`monthly_gems_cent`、`price_currency_code`、`price_amount`。Google 还必含 `base_plan_id`，可选 `offer_id`；Apple 不返回 base plan。标题、权益、价格继续按当前契约解析，不填默认商品。
 - `last_account_uuid` 与 list 平级；非空时是所有套餐优先使用的购买身份，空/null 时游客 prepare、登录用户读取本人 UUID。商品项不再解析 can_purchase、purchase_block_reason、purchase_action、account_uuid、purchase_token。该 UUID 不表示会员权益。
 - `has_subscription_order` 为与 `list`、`last_account_uuid` 平级的布尔值。未登录用户点击购买时，当前商品响应中该值为 true 则结束本次购买并弹出已有登录弹窗，不获取购买 UUID、不调用 prepare、不调起商店、不 report；登录成功或关闭弹窗均不自动购买。已登录用户继续原购买流程。旧响应缺失/null 按 false 兼容，非布尔值视为契约错误。页面加载、商品预热和套餐切换不会因此弹登录窗。
@@ -2977,7 +2980,7 @@ Gems 与会员的 Apple／Google 商品详情统一由原生支付插件缓存�
 
 ## Deluxe 独立会员扩展（2026-11-04）
 
-- `/api/v1/membership/products` 保留 Premium `list`，新增同结构 `list_deluxe`；固定 Premium 在前、Deluxe 在后；`has_purchased=true` 时默认定位第二张 Deluxe，否则定位第一张 Premium。该标志包括会员与 Gems 的成功购买历史，不能用于判断当前会员权益。
+- `/api/v1/membership/products` 客户端使用新版 Premium `list_premium` 和 Deluxe `list_deluxe`；固定 Premium 在前、Deluxe 在后；`has_purchased=true` 时默认定位第二张 Deluxe，否则定位第一张 Premium。该标志包括会员与 Gems 的成功购买历史，不能用于判断当前会员权益。
 - Premium 使用 `last_account_uuid`，Deluxe 使用 `last_account_uuid_deluxe`，禁止跨组回退购买身份；两项均不持久化到展示缓存。
 - `plan_code` 新增 `deluxe_monthly`、`deluxe_yearly`；两组商品统一查询平台，商店价格与币种白名单沿用现有实现。
 - `/api/v1/gem/wallet` 新增 `membership_deluxe`，结构与原 `membership` 一致。Me 粉钻为两项 `blue_gems_cent` 相加；不通过状态或余额推断另一组会员。

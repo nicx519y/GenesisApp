@@ -21,6 +21,7 @@
 - 完整支付页首次横滑露出未进入的 Tab 时展示静态骨架。购买 Sheet 优先显示当前会话的缓存商品，无缓存时展示静态骨架。只有确认进入该 Tab 后才启动商品刷新及购买相关服务。
 - Me 会员卡轮播使用完整页面宽度，由轮播自身提供一次 16px 左右边距，外层不得再加 Padding。Me 卡宽为可用宽度减 104 后限制在 180 至 216，最小高度 126，卡片间隔 10。卡片分为名称、到期信息或两行权益、状态标签或订阅按钮三段。Me 横滑松手后吸附到卡片端点，Me 小卡片使用 12px 拖动门槛，并识别速度至少 200px/s 且实际位移至少 8px 的快速轻扫；很小的慢拖回到当前卡，Subscription 沿用 feature/global-memory-deluxe-20261104 的原 GestureDetector、超过 12px 的位移门槛，松手后使用 480ms 切换动画，不采用 Me 的轻扫配置；保留初始定位及用户手动选择，不停留在两卡中间。
 - 已订阅且自动续费中的当前套餐显示弱化渐变的 `Subscribed` 状态，按钮不可点击。
+- Premium 和 Deluxe 的年付卡片显示折算后的月均价，并标注按年计费。选中年付时，底部按钮显示年付总价。
 - 新用户订阅 Sheet 的顶部名称和皇冠随会员卡切换。订阅套餐卡和底部按钮在没有可显示价格时使用 `--`。
 - Me 使用双会员卡入口，点击某卡定位该组；卡片显示各自状态和到期时间。粉钻以 membership.blue_gems_cent + membership_deluxe.blue_gems_cent 的整数 cent 和展示，普通余额不变。
 - 卡片始终按 Premium / Deluxe 排列。Me 初始优先定位有效会员，两档都有效定位 Deluxe；两档都无效才按 has_purchased 定位。Subscription 初始按 has_purchased 定位。使用 has_purchased 时，true 定位第二张 Deluxe，false 定位第一张 Premium。用户已切换的卡片和每组月年选择在刷新期间保留。

@@ -136,6 +136,10 @@ Future<_DailyCheckInAction?> _showDailyCheckInPanel(
       offers.add((_DailyCheckInAction.deluxe, rewardGemsCent + deluxe));
     }
   }
+  offers.sort((left, right) {
+    final byAmount = right.$2.compareTo(left.$2);
+    return byAmount == 0 ? left.$1.index.compareTo(right.$1.index) : byAmount;
+  });
   return showGenesisDialog<_DailyCheckInAction>(
     context: context,
     barrierColor: const Color(0x52000000),

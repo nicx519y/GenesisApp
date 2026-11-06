@@ -551,7 +551,6 @@ class _SearchPageState extends State<SearchPage>
     _controller.text = query;
     _controller.selection = TextSelection.collapsed(offset: query.length);
     _onQueryChanged(query);
-    _focusNode.requestFocus();
   }
 
   Future<void> _openResult(_SearchResultItem item) async {

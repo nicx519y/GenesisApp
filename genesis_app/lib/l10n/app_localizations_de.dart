@@ -2170,6 +2170,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get inboxUnknownUser => 'Unbekannter Nutzer';
 
   @override
+  String get inboxOfficialBadge => 'Official';
+
+  @override
   String get inboxDirectMessage => 'Direktnachricht';
 
   @override

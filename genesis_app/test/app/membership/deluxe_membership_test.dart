@@ -50,7 +50,7 @@ void main() {
     'both catalogs retain independent UUIDs and never persist credentials',
     () {
       final catalog = MembershipProductList.fromJson({
-        'list': [membershipProduct().toJson()],
+        'list_premium': [membershipProduct().toJson()],
         'list_deluxe': [deluxe().toJson()],
         'has_purchased': true,
         'last_account_uuid': support.accountUuid,

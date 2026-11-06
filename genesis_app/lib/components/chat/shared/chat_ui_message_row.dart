@@ -6,6 +6,7 @@ class ChatMessageRow extends StatelessWidget {
     required this.message,
     required this.showDateDivider,
     this.visibilityKey,
+    this.imageKey,
     this.imageViewerMessages = const <ChatMessageVm>[],
     this.onAvatarTap,
     this.onMessageLongPressStart,
@@ -20,6 +21,7 @@ class ChatMessageRow extends StatelessWidget {
   final ChatMessageVm message;
   final bool showDateDivider;
   final Key? visibilityKey;
+  final Key? imageKey;
   final List<ChatMessageVm> imageViewerMessages;
   final VoidCallback? onAvatarTap;
   final ChatMessageLongPressStart? onMessageLongPressStart;
@@ -88,6 +90,7 @@ class ChatMessageRow extends StatelessWidget {
     if (message.isImage) {
       return trackVisibility(
         ChatImageMessage(
+          key: imageKey,
           message: message,
           imageViewerMessages: imageViewerMessages,
           style: style,

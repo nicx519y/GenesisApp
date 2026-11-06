@@ -5,10 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_api.dart';
 import 'package:genesis_flutter_android/network/models/photo_task.dart';
+import 'package:genesis_flutter_android/network/photo_generation_monitor.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_write.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/state/mini_phone_requests.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_tasks.dart';
 import '../../support/mini_phone_chat_backend.dart';
+import '../../support/mini_phone_collect_probe.dart';
 
 PhoneCameraRequest request(String id, {String prompt = ''}) =>
     PhoneCameraRequest(
@@ -38,6 +40,7 @@ void main() {
   late MiniPhoneRequests gate;
   late Map<String, PhoneWrite> journal;
   late MiniPhoneCameraTasks tasks;
+  PhotoGenerationMonitor? monitor;
   late List<List<Map<String, dynamic>>> saved;
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -64,10 +67,13 @@ void main() {
       },
       onChanged: () {},
       onSuccess: () {},
+      generationMonitor: () => monitor,
     );
   });
   tearDown(() {
     tasks.dispose();
+    monitor?.dispose();
+    monitor = null;
     backend.revision.dispose();
   });
 
@@ -222,17 +228,31 @@ void main() {
 
   for (final code in [1001, 10001, 2061, 2062, 3001, 21001, 99999]) {
     test('business $code never creates a generation failure card', () async {
+      final collect = MiniPhoneCollectProbe();
+      addTearDown(collect.dispose);
+      monitor = PhotoGenerationMonitor('w');
+      final attempt = tasks.recordCaptureClick();
       backend.respond = (_) => {
         'err_no': code,
         'err_msg': 'User reason',
         'data': {},
       };
       await expectLater(
-        tasks.submit(request('a')),
+        tasks.submit(request('a'), attemptId: attempt),
         throwsA(isA<ApiException>().having((e) => e.code, 'code', code)),
       );
       expect(tasks.records, isEmpty);
       expect(tasks.submitting, false);
+      final events = await collect.take();
+      final balance = code == 3001 || code == 21001;
+      expect(events.map((e) => e.object3), ['click', if (balance) 'rejected']);
+      if (balance) {
+        expect(events.last.object4, attempt);
+        expect(jsonDecode(events.last.extData), {
+          'client_request_id': 'a',
+          'failure_code': 'insufficient_balance',
+        });
+      }
       final restored = PhoneWrite.fromJson(saved.last.single);
       journal
         ..clear()
@@ -293,7 +313,12 @@ void main() {
   test(
     'Inbox restores known task using exact asset ID without create or popup',
     () async {
-      tasks.accept(photo('a', 'ta', PhotoTaskStatus.generating));
+      final collect = MiniPhoneCollectProbe();
+      addTearDown(collect.dispose);
+      monitor = PhotoGenerationMonitor('w');
+      final attempt = tasks.recordCaptureClick();
+      await tasks.submit(request('a'), attemptId: attempt);
+      final create = backend.requests.single;
       await tasks.reconcileInbox(
         (pn) async => {
           'total': 1,
@@ -301,7 +326,7 @@ void main() {
             {
               'notice_type': 'photo_succeeded',
               'biz_id': 'w',
-              'obj_id': 'ta',
+              'obj_id': 'task-a',
               'photo_target': {
                 'source': 'camera',
                 'asset_id': '9007199254740993',
@@ -318,7 +343,14 @@ void main() {
         ],
       );
       expect(tasks.latestSuccess!.description, 'Album description');
-      expect(backend.requests, isEmpty);
+      expect(backend.requests, [create]);
+      final events = await collect.take();
+      expect(events.map((e) => e.object3), ['click', 'accepted', 'succeeded']);
+      expect(events.map((e) => e.object4), [attempt, attempt, attempt]);
+      expect(jsonDecode(events.last.extData), {
+        'client_request_id': 'a',
+        'task_id': 'task-a',
+      });
     },
   );
 

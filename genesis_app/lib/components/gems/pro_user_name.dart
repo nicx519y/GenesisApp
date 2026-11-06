@@ -11,6 +11,7 @@ class ProUserName extends StatelessWidget {
     required this.fontSize,
     required this.child,
     this.deleted = false,
+    this.nameBadge,
   });
 
   final int membershipStatus;
@@ -18,6 +19,7 @@ class ProUserName extends StatelessWidget {
   final double fontSize;
   final Widget child;
   final bool deleted;
+  final Widget? nameBadge;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -25,6 +27,7 @@ class ProUserName extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.center,
     children: [
       Flexible(child: child),
+      if (nameBadge case final badge?) badge,
       ProUserBadge(
         membershipStatus: membershipStatus,
         membershipDeluxeStatus: membershipDeluxeStatus,

@@ -395,7 +395,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
       context: context,
       globalPosition: details.globalPosition,
       copyText: message.text,
-      reportTargetId: '$messageId',
+      reportTargetId: '${store.worldId}_$messageId',
     );
   }
 

@@ -245,7 +245,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       characters: origin.characters,
       roleAvatarSnapshots: _roleAvatarSnapshots,
       launchBusy: _launching,
-      profileRole: _openingProfileRole,
+      profileRole: _visibleCustomRole,
       profileRoleRevision: _profileRoleRevision,
       selectedRoleId: _effectiveLocationChatRoleId(origin),
       onSelectedRoleChanged: _selectLocationChatRole,
@@ -572,15 +572,16 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                         ),
                       ),
                     ),
-                    Positioned.fill(
-                      child: _OriginRoleEditorHost(
-                        interaction: _previewRoleEditorInteraction,
-                        role: _openingProfileRole,
-                        busy: _launching,
-                        onFillFromProfile: _loadRoleProfileForFill,
-                        topInset: MediaQuery.viewPaddingOf(context).top,
+                    if (_visibleCustomRole case final profileRole?)
+                      Positioned.fill(
+                        child: _OriginRoleEditorHost(
+                          interaction: _previewRoleEditorInteraction,
+                          role: profileRole,
+                          busy: _launching,
+                          onFillFromProfile: _loadRoleProfileForFill,
+                          topInset: MediaQuery.viewPaddingOf(context).top,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -652,18 +653,31 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
 
   String _effectiveLocationChatRoleId(OriginDetail origin) {
     final selectedId = _selectedLocationChatRoleId;
-    if (selectedId == _OriginWorldPageState._profileLocationChatRoleId ||
-        (selectedId.isNotEmpty &&
-            origin.characters.any(
-              (character) => _characterStableId(character) == selectedId,
-            ))) {
+    if (selectedId.isNotEmpty &&
+        origin.characters.any(
+          (character) => _characterStableId(character) == selectedId,
+        )) {
       return selectedId;
     }
-    return _OriginWorldPageState._profileLocationChatRoleId;
+    if (_canUseCustomRole) {
+      return _OriginWorldPageState._profileLocationChatRoleId;
+    }
+    return originCharactersRecommendedFirst(
+          origin.characters,
+        ).map(_characterStableId).where((id) => id.isNotEmpty).firstOrNull ??
+        '';
   }
 
   _OriginLocationChatRoleOption _locationChatRoleOption(OriginDetail origin) {
     final selectedId = _effectiveLocationChatRoleId(origin);
+    if (selectedId.isEmpty) {
+      return _OriginLocationChatRoleOption(
+        id: '',
+        name: GenesisL10n.current.worldoLaunchSelectRole,
+        subtitle: '',
+        avatarSnapshotSourceKey: '',
+      );
+    }
     if (selectedId != _OriginWorldPageState._profileLocationChatRoleId) {
       for (final character in origin.characters) {
         if (_characterStableId(character) == selectedId) {
@@ -704,8 +718,8 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     if (_launching || message.trim().isEmpty) {
       return _OriginLocationChatSendResult.notLaunched;
     }
-    final selectedRoleId = _effectiveLocationChatRoleId(origin);
-    _setLocationChatRoleId(selectedRoleId);
+    final selectedRole = _effectiveLocationChatRoleId(origin);
+    if (selectedRole.isNotEmpty) _setLocationChatRoleId(selectedRole);
     if (!await ensureGenesisLogin(context, source: LoginSource.worldoDetail)) {
       if (!mounted) return _OriginLocationChatSendResult.notLaunched;
       return await hasGenesisLoginSession(context)
@@ -713,6 +727,9 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
           : _OriginLocationChatSendResult.notLaunched;
     }
     if (!mounted) return _OriginLocationChatSendResult.notLaunched;
+    final selectedRoleId = selectedRole.isEmpty
+        ? _OriginWorldPageState._profileLocationChatRoleId
+        : selectedRole;
 
     OriginRoleLaunchSelection roleSelection;
     String telemetryRoleId;

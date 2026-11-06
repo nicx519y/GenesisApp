@@ -18239,6 +18239,70 @@ void main() {
     },
   );
 
+  for (final inLocation in [false, true]) {
+    testWidgets(
+      'Origin custom role follows login state, location=$inLocation',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(430, 900);
+        addTearDown(tester.view.reset);
+        final sessionStore = MemoryUserSessionStore();
+        final services = await _testServices(
+          initialUid: 'guest_origin',
+          sessionStoreOverride: sessionStore,
+          transport: _RecordingV1ListTransport(
+            originPrecharacter: const {'name': 'Custom Persona'},
+          ),
+          useMock: false,
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              home: OriginWorldPage(
+                oid: 'o_test_1',
+                originId: 0,
+                showOpeningSheetOnEntry: !inLocation,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (inLocation) {
+          await tester.tap(find.text('Detail Location'), warnIfMissed: false);
+          await tester.pumpAndSettle();
+        }
+        final roleSection = find.byKey(
+          ValueKey<String>(
+            inLocation
+                ? 'origin-location-role-cards-visibility'
+                : 'origin-opening-role-section',
+          ),
+        );
+        Finder roleCard(String id) => find.descendant(
+          of: roleSection,
+          matching: find.byKey(ValueKey<String>('origin-setup-role-page-$id')),
+        );
+        final customCard = roleCard('current-user');
+        final presetCard = roleCard('c_o_test_1');
+
+        expect(presetCard, findsOneWidget);
+        expect(customCard, findsNothing);
+
+        await sessionStore.saveUid('u_test');
+        services.notifySessionChanged();
+        await tester.pumpAndSettle();
+        expect(customCard, findsOneWidget);
+
+        await sessionStore.clearUid();
+        services.notifySessionChanged();
+        await tester.pumpAndSettle();
+        expect(presetCard, findsOneWidget);
+        expect(customCard, findsNothing);
+      },
+    );
+  }
+
   testWidgets('Origin message login defers check-in to main tabs', (
     WidgetTester tester,
   ) async {

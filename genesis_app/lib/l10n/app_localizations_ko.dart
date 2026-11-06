@@ -2072,6 +2072,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get inboxUnknownUser => '알 수 없는 사용자';
 
   @override
+  String get inboxOfficialBadge => 'Official';
+
+  @override
   String get inboxDirectMessage => '개인 메시지';
 
   @override

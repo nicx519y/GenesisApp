@@ -19,12 +19,29 @@ extension _LocationChatPhotos on _LocationChatPanelState {
     });
   }
 
-  Future<void> _takeScenePhoto() => _submitReplyAction(
-    _LocationChatReplyActionTransaction(
-      action: _LocationChatReplyConnectionAction.camera,
-      commit: _submitScenePhoto,
-    ),
-  );
+  Future<void> _takeScenePhoto() {
+    final service = _service;
+    final location = widget.locationId;
+    final attemptId =
+        widget.active &&
+            widget.isLeafLocation &&
+            _replyConnectionAction == null &&
+            !_takingScenePhoto &&
+            service != null &&
+            service.photoSessionReady &&
+            !service.photoSubmittingLocations.contains(location)
+        ? service.photoGenerationMonitor?.recordClick(
+            'chat',
+            locationId: location,
+          )
+        : null;
+    return _submitReplyAction(
+      _LocationChatReplyActionTransaction(
+        action: _LocationChatReplyConnectionAction.camera,
+        commit: () => _submitScenePhoto(attemptId),
+      ),
+    );
+  }
 
   void _resetPhotoVisit() {
     _photoArrivalRequests.clear();
@@ -103,7 +120,7 @@ extension _LocationChatPhotos on _LocationChatPanelState {
     );
   }
 
-  Future<void> _submitScenePhoto() async {
+  Future<void> _submitScenePhoto(String? attemptId) async {
     final service = _service;
     final location = widget.locationId;
     if (_takingScenePhoto ||
@@ -225,19 +242,29 @@ extension _LocationChatPhotos on _LocationChatPanelState {
         if (replacesPhoto) _photoReplacementRequests.add(request.requestId);
       });
       final monitor = service.photoGenerationMonitor;
-      monitor?.start('chat', request.requestId, locationId: location);
+      monitor?.start(
+        'chat',
+        request.requestId,
+        attemptId: attemptId,
+        locationId: location,
+        roundId: roundId,
+        cardId: cardId,
+      );
       try {
         final receipt = await services.api.chatroomHttp.createPhoto(request);
         if (revision != services.sessionRevision.value || service.isDisposed) {
           return;
         }
-        monitor?.observe('chat', receipt.photo);
+        monitor?.acceptReceipt('chat', request.requestId, receipt.photo);
         await service.acceptPhotoReceipt(receipt, request: request);
         await store.clear(request.requestId);
         return;
       } on ApiException catch (error) {
         if (error.kind == ApiExceptionKind.business) {
-          monitor?.finish('chat', request.requestId);
+          if (revision == services.sessionRevision.value &&
+              !service.isDisposed) {
+            monitor?.reject('chat', request.requestId, errorCode: error.code);
+          }
           await store.clear(request.requestId);
           if (!mounted || !current()) return;
           if ((error.code == 2072 || error.code == 2073) &&

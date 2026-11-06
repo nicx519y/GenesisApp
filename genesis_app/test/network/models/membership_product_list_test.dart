@@ -21,27 +21,27 @@ void main() {
   };
   test('catalog response contains only the product list', () {
     final parsed = MembershipProductList.fromJson({
-      'list': [product],
+      'list_premium': [product],
     });
     expect(parsed.products.single.toJson(), product);
     expect(parsed.toJson(), {
-      'list': [product],
+      'list_premium': [product],
     });
   });
   test('last account UUID is top-level, normalized and not cached', () {
     const uuid = '8b74ec68-7abc-4cce-a223-e997e31dc811';
     final parsed = MembershipProductList.fromJson({
-      'list': [product],
+      'list_premium': [product],
       'last_account_uuid': ' ${uuid.toUpperCase()} ',
     });
     expect(parsed.lastAccountUuid, uuid);
     expect(parsed.toJson(), {
-      'list': [product],
+      'list_premium': [product],
     });
     for (final empty in [null, '', '   ']) {
       expect(
         MembershipProductList.fromJson({
-          'list': [product],
+          'list_premium': [product],
           'last_account_uuid': empty,
         }).lastAccountUuid,
         isNull,
@@ -50,7 +50,7 @@ void main() {
     for (final invalid in ['invalid', 123, false]) {
       expect(
         () => MembershipProductList.fromJson({
-          'list': [product],
+          'list_premium': [product],
           'last_account_uuid': invalid,
         }),
         throwsFormatException,
@@ -60,7 +60,7 @@ void main() {
   test('subscription order flag is top-level and is not cached', () {
     for (final flag in [true, false, null]) {
       final parsed = MembershipProductList.fromJson({
-        'list': [product],
+        'list_premium': [product],
         'has_subscription_order': flag,
       });
       expect(parsed.hasSubscriptionOrder, flag == true);
@@ -68,14 +68,14 @@ void main() {
     }
     expect(
       MembershipProductList.fromJson({
-        'list': [product],
+        'list_premium': [product],
       }).hasSubscriptionOrder,
       isFalse,
     );
     for (final invalid in ['true', 1, [], {}]) {
       expect(
         () => MembershipProductList.fromJson({
-          'list': [product],
+          'list_premium': [product],
           'has_subscription_order': invalid,
         }),
         throwsFormatException,
@@ -84,7 +84,7 @@ void main() {
   });
   test('removed product fields have no effect and are never serialized', () {
     final parsed = MembershipProductList.fromJson({
-      'list': [
+      'list_premium': [
         {
           ...product,
           'can_purchase': false,
@@ -119,10 +119,44 @@ void main() {
       }
     },
   );
+  test('new catalog keeps structured card fields and ignores legacy list', () {
+    final catalog = MembershipProductList.fromJson({
+      'list': ['unused legacy payload'],
+      'list_premium': [
+        {
+          ...product,
+          'monthly_gems_total': {
+            'title': 'Up to 3,500 Gems Monthly',
+            'amount': '3,500',
+            'icon_key': 'gem',
+          },
+          'monthly_bonus_gems': null,
+          'daily_check_in_bonus_gems': {
+            'value': '+50',
+            'value_suffix': '/day',
+            'title': 'Red Gems',
+            'description': 'Daily bonus',
+            'icon_key': 'red_gem',
+          },
+        },
+      ],
+    });
+    final restored = MembershipProductList.fromJson(
+      catalog.toJson(),
+    ).products.single;
+    expect(restored.monthlyGemsTotal?.amount, '3,500');
+    expect(restored.monthlyBonusGems, isNull);
+    expect(restored.dailyCheckInBonusGems?.valueSuffix, '/day');
+    expect(restored.dailyCheckInBonusGems?.description, 'Daily bonus');
+  });
+
   test('list parses with per-product titles and benefits', () {
-    expect(MembershipProductList.fromJson({'list': []}).products, isEmpty);
+    expect(
+      MembershipProductList.fromJson({'list_premium': []}).products,
+      isEmpty,
+    );
     final result = MembershipProductList.fromJson({
-      'list': [product],
+      'list_premium': [product],
     });
     expect(result.products.single.title, 'Server monthly title');
     expect(result.products.single.benefits.single.title, 'Server title');
@@ -141,7 +175,7 @@ void main() {
       123,
     ]) {
       final parsed = MembershipProductList.fromJson({
-        'list': [
+        'list_premium': [
           {...product, 'purchase_action': action},
         ],
       }).products.single;
@@ -153,7 +187,7 @@ void main() {
       final missing = Map<String, Object?>.from(product)..remove(field);
       expect(
         () => MembershipProductList.fromJson({
-          'list': [missing],
+          'list_premium': [missing],
           'title': 'Old title',
           'benefits': [benefit],
         }),
@@ -165,7 +199,7 @@ void main() {
     'unknown icons preserve server metadata for the generic icon fallback',
     () {
       final result = MembershipProductList.fromJson({
-        'list': [product],
+        'list_premium': [product],
       });
       expect(result.products.single.benefits.single.title, 'Server title');
       expect(result.products.single.benefits.single.iconKey, 'future_icon');

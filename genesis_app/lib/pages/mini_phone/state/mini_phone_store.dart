@@ -248,6 +248,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
   bool worldDetailLoaded = false;
   // Read-only input for Camera composition, populated by the existing refresh.
   WorldDetail? cameraWorldDetail;
+  String? cameraSelfCharacterId;
   final worldCoverImageKeys = <String>{};
   String get clockTime =>
       RegExp(
@@ -504,6 +505,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     mapStyle = null;
     worldDetailLoaded = false;
     cameraWorldDetail = null;
+    cameraSelfCharacterId = null;
     currentTime = '';
     notifications = null;
     people.clear();
@@ -590,6 +592,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     mapStyle = w.mapStyle;
     worldDetailLoaded = true;
     cameraWorldDetail = w;
+    cameraSelfCharacterId = null;
     worldCoverImageKeys
       ..clear()
       ..addAll(GenesisImageResourceRegistry.resolve(w.cover).keys);
@@ -610,6 +613,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
         people[id] = p;
         final playerUid = field(['player_uid', 'user_id', 'uid']);
         if (playerUid.isNotEmpty) {
+          if (playerUid == uid) cameraSelfCharacterId ??= id;
           playerCharIds.add(id);
           messagesController.peerByChar[id] = playerUid;
           users[playerUid] = PhonePerson(playerUid, p.name, p.avatar, type: 1);

@@ -3564,6 +3564,12 @@ abstract class AppLocalizations {
   /// **'Unknown user'**
   String get inboxUnknownUser;
 
+  /// Inbox direct-message list: fixed English badge after the name of an official conversation. Keep the exact label Official in every locale.
+  ///
+  /// In en, this message translates to:
+  /// **'Official'**
+  String get inboxOfficialBadge;
+
   /// 首页 - Inbox → 私聊页，私聊页面的空状态或加载状态
   ///
   /// In en, this message translates to:

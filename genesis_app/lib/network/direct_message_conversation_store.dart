@@ -25,6 +25,7 @@ class DirectMessageConversationRecord {
     this.peerMembershipStatus = 0,
     this.peerMembershipDeluxeStatus = 0,
     this.peerDeleted = false,
+    this.isOfficial = false,
     required this.lastMessage,
     required this.lastMessageAt,
     required this.lastMessageAtTime,
@@ -50,6 +51,7 @@ class DirectMessageConversationRecord {
       avatarUrl: asImageUrl(peer['avatar']),
       peerName: asString(peer['name'], fallback: 'Unknown user'),
       peerDeleted: entityDeleted(peer['deleted']),
+      isOfficial: (json['is_official'] ?? json['isOfficial']) == true,
       lastMessage: decodeGenesisUgcTextForDisplay(
         asString(json['last_message']),
       ),
@@ -72,6 +74,7 @@ class DirectMessageConversationRecord {
   final int peerMembershipStatus;
   final int peerMembershipDeluxeStatus;
   final bool peerDeleted;
+  final bool isOfficial;
   final String lastMessage;
   final String lastMessageAt;
   final DateTime? lastMessageAtTime;
@@ -92,6 +95,7 @@ abstract class DirectMessageConversationStorage {
     required String ownerUid,
     required List<Map<String, dynamic>> conversations,
     required String? nextAfterMessageId,
+    bool preserveOfficialIfMissing = false,
   });
 
   Future<void> clearCache(String ownerUid);
@@ -145,12 +149,29 @@ class SqfliteDirectMessageConversationStorage
     required String ownerUid,
     required List<Map<String, dynamic>> conversations,
     required String? nextAfterMessageId,
+    bool preserveOfficialIfMissing = false,
   }) async {
     final db = await _db;
     await db.transaction((txn) async {
       for (final json in conversations) {
-        final record = DirectMessageConversationRecord.fromJson(json);
-        if (record.conversationId.isEmpty) continue;
+        final conversationId = asString(json['conv_id']);
+        if (conversationId.isEmpty) continue;
+        var payload = json;
+        if (preserveOfficialIfMissing && !_hasOfficialStatus(json)) {
+          final rows = await txn.query(
+            'dm_conversations',
+            columns: const ['raw_json'],
+            where: 'owner_uid = ? AND conv_id = ?',
+            whereArgs: [ownerUid, conversationId],
+            limit: 1,
+          );
+          if (rows.isNotEmpty &&
+              _recordFromRawJson('${rows.single['raw_json']}')?.isOfficial ==
+                  true) {
+            payload = {...json, 'is_official': true};
+          }
+        }
+        final record = DirectMessageConversationRecord.fromJson(payload);
         await txn.insert('dm_conversations', {
           'owner_uid': ownerUid,
           'conv_id': record.conversationId,
@@ -214,15 +235,22 @@ class MemoryDirectMessageConversationStorage
     required String ownerUid,
     required List<Map<String, dynamic>> conversations,
     required String? nextAfterMessageId,
+    bool preserveOfficialIfMissing = false,
   }) async {
     final ownerRecords = _recordsByOwner.putIfAbsent(
       ownerUid,
       () => <String, DirectMessageConversationRecord>{},
     );
     for (final json in conversations) {
-      final record = DirectMessageConversationRecord.fromJson(json);
-      if (record.conversationId.isEmpty) continue;
-      ownerRecords[record.conversationId] = record;
+      final conversationId = asString(json['conv_id']);
+      if (conversationId.isEmpty) continue;
+      final preserveOfficial =
+          preserveOfficialIfMissing &&
+          !_hasOfficialStatus(json) &&
+          ownerRecords[conversationId]?.isOfficial == true;
+      ownerRecords[conversationId] = DirectMessageConversationRecord.fromJson(
+        preserveOfficial ? {...json, 'is_official': true} : json,
+      );
     }
     final cursor = nextAfterMessageId?.trim();
     if (cursor != null && cursor.isNotEmpty) {
@@ -319,6 +347,8 @@ class DirectMessageConversationStore {
       ownerUid: ownerUid,
       conversations: [conversation],
       nextAfterMessageId: null,
+      // Send responses may omit the official status provided by the list API.
+      preserveOfficialIfMissing: true,
     );
     _applyRecords(await _storage.loadConversations(ownerUid));
   }
@@ -458,6 +488,10 @@ List<DirectMessageConversationRecord> _sorted(
   sorted.sort((a, b) => b.sortValue.compareTo(a.sortValue));
   return sorted;
 }
+
+// The V1 transport normalizes keys; raw payloads may still use camelCase.
+bool _hasOfficialStatus(Map<String, dynamic> json) =>
+    json.containsKey('is_official') || json.containsKey('isOfficial');
 
 List<Map<String, dynamic>> _conversationItems(Map<String, dynamic> data) {
   final rawItems = data['list'] is List
