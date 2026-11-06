@@ -660,6 +660,7 @@ class _MiniPhoneCameraPageState extends State<MiniPhoneCameraPage> {
                     context.l10n.miniPhoneCameraStyle,
                 onPressed: _chooseTemplate,
                 showSwitch: true,
+                imageAspectRatio: miniPhoneCameraStyleAspectRatio,
                 child: _albumImage(widget.tasks?.style?.demoImageUrl),
               ),
               MiniPhoneCameraShutter(
