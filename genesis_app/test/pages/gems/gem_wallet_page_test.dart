@@ -64,6 +64,7 @@ void main() {
       final billing = _FakeBillingService();
       addTearDown(wallet.dispose);
       addTearDown(billing.dispose);
+      var gemsLoads = 0;
       final offers = [
         for (final deluxe in [false, true])
           for (final yearly in [false, true])
@@ -87,7 +88,10 @@ void main() {
                   MembershipCatalogData(offers: offers, hasPurchased: true),
               walletStore: wallet,
               billingService: billing,
-              productsLoader: (_) async => _products(),
+              productsLoader: (_) async {
+                gemsLoads++;
+                return _products();
+              },
               tasksLoader: (_) async => _taskGroups(),
             ),
           ),
@@ -224,6 +228,20 @@ void main() {
       final controller = tester
           .widget<WalletPurchaseTabs>(find.byType(WalletPurchaseTabs))
           .controller;
+      final peek = await tester.startGesture(tester.getCenter(cards));
+      await peek.moveBy(const Offset(-40, 0));
+      await peek.moveBy(
+        const Offset(-35, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump();
+      expect(controller.offset, greaterThan(0));
+      expect(find.byType(GemPurchaseTabPlaceholder), findsOneWidget);
+      expect(gemsLoads, 0);
+      await peek.up(timeStamp: const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(controller.index, 0);
+      expect(gemsLoads, 0);
       controller.animateTo(1);
       await tester.pumpAndSettle();
       controller.animateTo(0, duration: const Duration(milliseconds: 300));

@@ -267,13 +267,13 @@ Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurcha
 
 用户端交互 / 提交 Sheet 的公共 Header，总高 68（含正文前留白），标题 18 / 600、行高 24，左对齐，左右边距 16，标题与左右操作在 Header 内垂直居中。普通深色 `GenesisBottomSheetPanel` 自动复用；无固定高度的发帖 / 回复编辑弹层也直接复用，并将右侧关闭接到原有键盘退出动画。允许关闭的弹层使用标准圆形关闭按钮；新用户订阅保留 Skip。
 
-购买 Sheet 使用 `.tabs` 变体，同样高 68，使用 16 / 600 的纯文字 Tab（无图标）与下划线；Subscription 下划线为会员金色、Buy Gems 为品牌红，文字仍用公共一级 / 二级白；Subscription 正文在该容器中设 `topSpacing: 0`，Buy Gems 设 `compactBalance: true`；两个 Tab 正文顶部均与 Header 底部对齐，Wallet 页面仍保留原有余额区布局。Mention、World / Worldo 内容面板和开发工具保留各自 Header。 订阅协议下方统一保留 10px，系统底部安全区由外层处理一次。
+购买 Sheet 使用 `.tabs` 变体，高度 68，采用 16 / 600 的纯文字 Tab 与下划线。Subscription 下划线随会员卡切换，Premium 为金色，Deluxe 为粉色，Buy Gems 为品牌红。文字使用公共一级和二级白。完整支付页和购买 Sheet 的订阅卡片顶边与 My Balance 标题行均距 Tab 内容区顶部 12 个逻辑像素。订阅协议下方统一保留 10px，系统底部安全区由外层处理一次。Mention、World / Worldo 内容面板和开发工具保留各自 Header。
 
 ### GenesisActionSheetBody
 
-交互 / 提交 Sheet 的正文公共布局，左右外边距固定 16。`GenesisActionSheetHeader.inset` 与正文引用同一个常量；普通深色 `GenesisBottomSheetPanel` 自动应用。购买 Tab 和新用户多步骤容器设置 `insetBody: false`，每页正文使用一次 `GenesisActionSheetBody`。发帖 / 回复等独立弹层也直接使用该控件。
+交互 / 提交 Sheet 的正文公共布局，左右外边距固定 16。`GenesisActionSheetHeader.inset` 与正文引用同一个常量；普通深色 `GenesisBottomSheetPanel` 自动应用。购买 Tab 和新用户多步骤容器设置 `insetBody: false`，由各页正文提供一次外边距。发帖 / 回复等独立弹层也直接使用该控件。
 
-标准边界覆盖表单、登录按钮、角色选择区、订阅权益卡、套餐和底部主按钮。订阅内容使用 `horizontalInset: 0` 接受外层布局，Wallet 完整页面使用 `horizontalInset: 16`，正文左右边距为 16。卡片内部留白及卡片间距不受此规范影响。
+标准边界覆盖表单、登录按钮、角色选择区、订阅权益卡、套餐和底部主按钮。标准购买 Sheet 和完整支付页的订阅轮播占满可见宽度，停靠位置和底部控件各留 16 的外边距。自定义订阅内容可使用 `horizontalInset: 0` 接受外层布局。卡片内部留白及卡片间距不受此规范影响。
 
 
 ### Shared chat keyboard layout

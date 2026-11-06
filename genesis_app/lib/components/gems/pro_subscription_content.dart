@@ -62,6 +62,7 @@ class ProSubscriptionContent extends StatefulWidget {
     this.headingSuffix,
     this.sheetScrollController,
     this.sheetExpandedContentHeight = 0,
+    this.loadingPlaceholder,
     this.includeBottomSafeArea = false,
     this.onBenefitsPullDown,
   });
@@ -105,6 +106,7 @@ class ProSubscriptionContent extends StatefulWidget {
 
   /// Keeps the purchase area at the expanded sheet's bottom while it closes.
   final double sheetExpandedContentHeight;
+  final Widget? loadingPlaceholder;
 
   /// Adds the device's bottom inset below the legal links.
   final bool includeBottomSafeArea;
@@ -549,9 +551,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
 
   Widget _buildContent(BuildContext context) {
     if (_loading) {
-      // Match Buy Gems' initial loading indicator in the same tab content area.
       if (widget.sheetScrollController == null) {
-        return const GemPurchaseLoading();
+        return widget.loadingPlaceholder ?? const GemPurchaseLoading();
       }
       return ListView(
         controller: widget.sheetScrollController,
@@ -570,6 +571,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final carousel = MemoryMembershipSubscriptionCarousel(
       hasPurchased: _hasPurchased,
       initialTier: _type,
+      // Sheet hosts already provide the carousel's outer horizontal spacing.
+      horizontalInset: widget.horizontalInset == 0 ? 0 : 16,
       premiumActive: state.activeFor(MembershipType.premium),
       deluxeActive: state.activeFor(MembershipType.deluxe),
       premiumExpiry: state.membership?.expiresAt,
@@ -769,6 +772,15 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final label = subscribed
         ? GenesisL10n.current.premiumSubscribed
         : '$period: ${price ?? GenesisL10n.current.premiumPurchaseUnavailable}';
+    final gradient = switch (deluxeColorProgress) {
+      0 => premiumGradient,
+      1 => deluxeGradient,
+      _ => LinearGradient.lerp(
+        premiumGradient,
+        deluxeGradient,
+        deluxeColorProgress,
+      )!,
+    };
     Widget labelSide(String text, Alignment alignment, {Color? color}) =>
         Expanded(
           child: FittedBox(
@@ -785,29 +797,27 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     return DecoratedBox(
       key: const ValueKey('pro-subscribe-gold-surface'),
       decoration: BoxDecoration(
-        gradient: switch (deluxeColorProgress) {
-          0 => premiumGradient,
-          1 => deluxeGradient,
-          _ => LinearGradient.lerp(
-            premiumGradient,
-            deluxeGradient,
-            deluxeColorProgress,
-          ),
-        },
+        gradient: subscribed ? gradient.scale(.5) : gradient,
         borderRadius: radius,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x3DF5B62E),
-            blurRadius: 18,
-            offset: Offset(0, 4),
-          ),
-        ],
+        boxShadow: subscribed
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x3DF5B62E),
+                  blurRadius: 18,
+                  offset: Offset(0, 4),
+                ),
+              ],
       ),
       child: GenesisPrimaryButton(
         key: const ValueKey('pro-subscribe-button'),
         shrinkLabelToFit: true,
         backgroundColor: Colors.transparent,
         foregroundColor: premiumInkOnGold,
+        disabledBackgroundColor: subscribed ? Colors.transparent : null,
+        disabledForegroundColor: subscribed
+            ? GenesisColors.darkBackground
+            : null,
         label: label,
         labelContent: subscribed || price == null
             ? null
@@ -837,7 +847,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         fontSize: 18,
         fontWeight: FontWeight.w600,
         borderRadius: radius,
-        onPressed: _onSubscribePressed,
+        onPressed: subscribed ? null : _onSubscribePressed,
         isLoading: _checkingCatalog,
       ),
     );

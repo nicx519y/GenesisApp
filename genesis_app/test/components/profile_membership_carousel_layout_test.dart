@@ -209,6 +209,10 @@ void main() {
       Finder premiumText(String text) =>
           find.descendant(of: premium, matching: find.text(text));
       expect(
+        tester.widget<Text>(premiumText('Worldo Premium')).overflow,
+        TextOverflow.ellipsis,
+      );
+      expect(
         tester.getTopLeft(premiumText('Membership Expiry')).dy,
         lessThan(tester.getTopLeft(premiumText('ACTIVE')).dy),
       );

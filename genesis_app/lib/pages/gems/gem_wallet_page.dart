@@ -434,17 +434,19 @@ class _GemWalletPageState extends State<GemWalletPage>
                               closeOnPurchaseSuccess: true,
                               horizontalInset: 16,
                               headingTopSpacing: 10,
+                              loadingPlaceholder:
+                                  const GemPurchaseTabPlaceholder.subscription(),
                               productsLoader: widget.membershipProductsLoader,
                             ),
                           ),
                         )
-                      : const SizedBox.expand(),
+                      : const GemPurchaseTabPlaceholder.subscription(),
                 ),
                 if (widget.showBuyGems)
                   _WalletTabPage(
                     child: _gemsVisited
                         ? _buildBody(_walletStateListenable)
-                        : const SizedBox.expand(),
+                        : const GemPurchaseTabPlaceholder.gems(),
                   ),
               ],
             ),
@@ -461,7 +463,7 @@ class _GemWalletPageState extends State<GemWalletPage>
             ? AppServicesScope.maybeRead(context)?.gemStoreCatalog.cached
             : null);
     if (_primaryLoading && displayProducts == null) {
-      return const GemPurchaseLoading();
+      return const GemPurchaseTabPlaceholder.gems();
     }
     if (!_hasPageData && _productsError != null && _tasksError != null) {
       return Center(

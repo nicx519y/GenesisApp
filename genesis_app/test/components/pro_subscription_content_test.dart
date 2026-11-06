@@ -825,6 +825,10 @@ void main() {
       _testWidgets(
         '$provider membership plan=$raw autoRenew=$autoRenew blocks only the subscribed plan',
         (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
           var purchases = 0;
           final catalog = MembershipCatalogData(
             offers: [
@@ -852,12 +856,16 @@ void main() {
                 autoRenew && raw == (yearly ? 'pro_yearly' : 'pro_monthly');
             await tester.tap(
               find.byKey(
-                ValueKey(yearly ? 'pro-plan-yearly' : 'pro-plan-monthly'),
+                ValueKey('membership-premium-${yearly ? 'yearly' : 'monthly'}'),
               ),
             );
             await tester.pumpAndSettle();
+            final button = tester.widget<GenesisPrimaryButton>(
+              find.byKey(buttonKey),
+            );
+            expect(button.onPressed, subscribed ? isNull : isNotNull);
             expect(
-              tester.widget<GenesisPrimaryButton>(find.byKey(buttonKey)).label,
+              button.label,
               subscribed
                   ? 'Subscribed'
                   : yearly
@@ -865,13 +873,13 @@ void main() {
                   : r'Monthly: $9.99',
             );
             final previous = purchases;
-            await tester.tap(find.byKey(buttonKey));
+            await tester.tap(find.byKey(buttonKey), warnIfMissed: !subscribed);
             await tester.pump(const Duration(milliseconds: 300));
             expect(purchases, previous + (subscribed ? 0 : 1));
             expect(find.text('Notification'), findsNothing);
             expect(
               find.textContaining('You’re already subscribed to Premium'),
-              subscribed ? findsOneWidget : findsNothing,
+              findsNothing,
             );
             await tester.pump(const Duration(seconds: 3));
           }
@@ -1294,6 +1302,10 @@ void main() {
   _testWidgets(
     'renewal cancellation restores the price while preserving styling and checkout',
     (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       var purchases = 0;
       var autoRenew = true;
       final access = accessFor(
@@ -1316,10 +1328,10 @@ void main() {
           .widget<FilledButton>(filledButton)
           .style;
       final originalButtonRect = tester.getRect(find.byKey(buttonKey));
-      await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+      await tester.tap(find.byKey(const ValueKey('membership-premium-monthly')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('pro-plan-yearly')));
+      await tester.tap(find.byKey(const ValueKey('membership-premium-yearly')));
       await tester.pumpAndSettle();
       await tester.pumpWidget(
         page(
@@ -1337,20 +1349,23 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Subscribed'), findsOneWidget);
+      expect(tester.widget<FilledButton>(filledButton).onPressed, isNull);
+      final subscribedSurface = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('pro-subscribe-gold-surface')),
+      ).decoration as BoxDecoration;
+      expect(subscribedSurface.boxShadow, isNull);
       expect(
-        tester.widget<FilledButton>(filledButton).style,
-        originalButtonStyle,
+        (subscribedSurface.gradient! as LinearGradient).colors.first.a,
+        closeTo(.5, .01),
       );
       expect(tester.getRect(find.byKey(buttonKey)), originalButtonRect);
-      expectOriginalContent(tester);
-      await tester.tap(find.byKey(buttonKey));
+      await tester.tap(find.byKey(buttonKey), warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         find.textContaining('You’re already subscribed to Premium'),
-        findsOneWidget,
+        findsNothing,
       );
       expect(purchases, 0);
-      await tester.pump(const Duration(seconds: 3));
       autoRenew = false;
       await access.refresh();
       await tester.pumpAndSettle();
@@ -1365,7 +1380,7 @@ void main() {
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(purchases, 1);
-      await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+      await tester.tap(find.byKey(const ValueKey('membership-premium-monthly')));
       await tester.pumpAndSettle();
       expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
       expect(

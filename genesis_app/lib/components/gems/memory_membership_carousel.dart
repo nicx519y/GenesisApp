@@ -22,6 +22,7 @@ class MemoryMembershipSubscriptionCarousel extends StatefulWidget {
     this.premiumExpiry,
     this.deluxeExpiry,
     this.initialTier,
+    this.horizontalInset = 16,
     required this.footerBuilder,
     required this.benefitsBuilder,
     this.onBenefitsScroll,
@@ -36,6 +37,7 @@ class MemoryMembershipSubscriptionCarousel extends StatefulWidget {
 
   /// The card to open on when the entry asks for one; otherwise the lead card.
   final MemoryMembershipTier? initialTier;
+  final double horizontalInset;
   final Widget Function(double deluxeColorProgress) footerBuilder;
   final List<Widget> Function(MemoryMembershipTier) benefitsBuilder;
   final bool Function(ScrollNotification)? onBenefitsScroll;
@@ -93,6 +95,7 @@ class _SubscriptionCarouselState
   Widget _cards() => _MembershipSlideTrack(
     key: const ValueKey('membership-subscription-pages'),
     selectedIndex: _order.indexOf(_tier),
+    horizontalInset: widget.horizontalInset,
     onChanged: (index) => _selectTier(_order[index]),
     onDragProgress: (progress) => setState(() => _dragColorProgress = progress),
     children: [
@@ -435,6 +438,7 @@ class MemoryMembershipProfileCarousel extends StatefulWidget {
                           tier.title(context),
                           maxLines: 1,
                           softWrap: false,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 16,
                             height: 1.25,
@@ -666,11 +670,13 @@ class _MembershipSlideTrack extends StatefulWidget {
   const _MembershipSlideTrack({
     super.key,
     required this.selectedIndex,
+    required this.horizontalInset,
     required this.onChanged,
     required this.onDragProgress,
     required this.children,
   });
   final int selectedIndex;
+  final double horizontalInset;
   final ValueChanged<int> onChanged;
   final ValueChanged<double?> onDragProgress;
   final List<Widget> children;
@@ -800,10 +806,10 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final cardWidth = memoryMembershipCardWidth(constraints.maxWidth);
-      final step = (cardWidth * 2 + 10 + 32 - constraints.maxWidth).clamp(
-        0.0,
-        double.infinity,
-      );
+      final trackWidth = cardWidth * 2 + 10;
+      final step =
+          (trackWidth + 2 * widget.horizontalInset - constraints.maxWidth)
+              .clamp(0.0, double.infinity);
       final base = -widget.selectedIndex * step;
       var offset = base + _drag;
       if (offset > 0) offset /= 3;
@@ -822,10 +828,10 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
                     ? Duration.zero
                     : membershipTierTransitionDuration,
                 curve: membershipTierTransitionCurve,
-                left: 16 + offset,
+                left: widget.horizontalInset + offset,
                 top: 0,
                 bottom: 0,
-                width: cardWidth * 2 + 10,
+                width: trackWidth,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

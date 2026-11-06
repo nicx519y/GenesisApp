@@ -194,34 +194,31 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
               controller: _tabs,
               children: [
                 _PurchaseSheetPage(
-                  child: GenesisActionSheetBody(
-                    child: PurchaseCatalogEntry(
-                      revision: _entryRevisions[0],
-                      child: _subscriptionVisited
-                          ? widget.subscriptionBuilder?.call(context) ??
-                                ProSubscriptionContent(
-                                  initialMembershipType:
-                                      widget.initialMembershipType,
-                                  onMembershipTypeChanged: (type) {
-                                    if (mounted &&
-                                        _membershipColor != type.accent) {
-                                      setState(
-                                        () => _membershipColor = type.accent,
-                                      );
-                                    }
-                                  },
-                                  refreshMembershipOnOpen: false,
-                                  productsLoader:
-                                      widget.membershipProductsLoader,
-                                  closeOnPurchaseSuccess: true,
-                                  topSpacing: 0,
-                                  horizontalInset: 0,
-                                  // Buy Gems starts its balance at the header
-                                  // boundary; this tab starts there too.
-                                  headingTopSpacing: 0,
-                                )
-                          : const SizedBox.expand(),
-                    ),
+                  child: PurchaseCatalogEntry(
+                    revision: _entryRevisions[0],
+                    child: !_subscriptionVisited
+                        ? const GemPurchaseTabPlaceholder.subscription()
+                        : widget.subscriptionBuilder != null
+                        ? GenesisActionSheetBody(
+                            child: widget.subscriptionBuilder!(context),
+                          )
+                        : ProSubscriptionContent(
+                            initialMembershipType: widget.initialMembershipType,
+                            onMembershipTypeChanged: (type) {
+                              if (mounted && _membershipColor != type.accent) {
+                                setState(() => _membershipColor = type.accent);
+                              }
+                            },
+                            refreshMembershipOnOpen: false,
+                            productsLoader: widget.membershipProductsLoader,
+                            closeOnPurchaseSuccess: true,
+                            topSpacing: 0,
+                            horizontalInset:
+                                GenesisActionSheetBody.horizontalInset,
+                            loadingPlaceholder:
+                                const GemPurchaseTabPlaceholder.subscription(),
+                            headingTopSpacing: 0,
+                          ),
                   ),
                 ),
                 if (widget.showBuyGems)
@@ -232,7 +229,9 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                         revision: _entryRevisions[1],
                         child: _gemsVisited
                             ? Builder(builder: widget.gemsBuilder)
-                            : const SizedBox.expand(),
+                            : const GemPurchaseTabPlaceholder.gems(
+                                horizontalInset: 0,
+                              ),
                       ),
                     ),
                   ),
