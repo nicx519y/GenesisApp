@@ -1286,17 +1286,16 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         const SizedBox(height: _itemGap),
         _DeveloperSectionTitle(l10n.meDailyCheck),
         const SizedBox(height: _itemGap),
-        for (final (index, (label, premium, deluxe, expired)) in [
-          (l10n.developerMembershipNone, false, false, false),
-          (l10n.premiumWorldo, true, false, false),
-          (l10n.memoryMembershipDeluxe, false, true, false),
+        for (final (index, (label, premium, deluxe)) in [
+          (l10n.developerMembershipNone, false, false),
+          (l10n.premiumWorldo, true, false),
+          (l10n.memoryMembershipDeluxe, false, true),
           (
             '${l10n.premiumWorldo} + ${l10n.memoryMembershipDeluxe}',
             true,
             true,
-            false,
           ),
-          (l10n.expiredStatus, false, false, true),
+          (l10n.expiredStatus, false, false),
         ].indexed) ...[
           GenesisPrimaryButton(
             key: ValueKey('developer-daily-check-in-${index + 1}'),
@@ -1312,11 +1311,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                 ),
               ),
             ),
-            onPressed: () => _showDailyCheckInPreview(
-              premium: premium,
-              deluxe: deluxe,
-              expired: expired,
-            ),
+            onPressed: () =>
+                _showDailyCheckInPreview(premium: premium, deluxe: deluxe),
             backgroundColor: GenesisColors.darkFaintFill,
             foregroundColor: GenesisColors.darkTextPrimary,
           ),

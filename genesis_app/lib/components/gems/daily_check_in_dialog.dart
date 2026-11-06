@@ -78,11 +78,7 @@ Future<bool> showDailyCheckInDialog(
     rewardGemsCentPremium: rewardGemsCentPremium,
     rewardGemsCentDeluxe: rewardGemsCentDeluxe,
     showMemberLayout:
-        activeTiers != null &&
-        (activeTiers.premium ||
-            activeTiers.deluxe ||
-            membership!.state.value.isExpired ||
-            membership.state.value.isDeluxeExpired),
+        activeTiers?.premium == true || activeTiers?.deluxe == true,
     canShowOffers: activeTiers != null,
   );
   final tier = switch (action) {
@@ -105,7 +101,7 @@ Future<void> showDailyCheckInPreview(
   required int rewardGemsCent,
   required int rewardGemsCentPremium,
   required int rewardGemsCentDeluxe,
-  required bool hasMembershipHistory,
+  required bool hasActiveMembership,
 }) async {
   final action = await _showDailyCheckInPanel(
     context,
@@ -113,7 +109,7 @@ Future<void> showDailyCheckInPreview(
     rewardGemsCent: rewardGemsCent,
     rewardGemsCentPremium: rewardGemsCentPremium,
     rewardGemsCentDeluxe: rewardGemsCentDeluxe,
-    showMemberLayout: hasMembershipHistory,
+    showMemberLayout: hasActiveMembership,
     canShowOffers: true,
   );
   if (action == _DailyCheckInAction.checkIn && context.mounted) {

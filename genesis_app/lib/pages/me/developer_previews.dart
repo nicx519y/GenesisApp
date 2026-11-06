@@ -286,7 +286,6 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
   Future<void> _showDailyCheckInPreview({
     required bool premium,
     required bool deluxe,
-    bool expired = false,
   }) async {
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {
@@ -303,7 +302,7 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
           (deluxe ? deluxeBonus : 0),
       rewardGemsCentPremium: premiumBonus,
       rewardGemsCentDeluxe: deluxeBonus,
-      hasMembershipHistory: premium || deluxe || expired,
+      hasActiveMembership: premium || deluxe,
     );
   }
 

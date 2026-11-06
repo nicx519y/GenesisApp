@@ -33,8 +33,6 @@ void main() {
         'yearly',
         'deluxe',
         'both',
-        'expired_status',
-        'expired_time',
       ].contains(scenario);
       final noOffers =
           memberLayout || ['unknown', 'missing_membership'].contains(scenario);
