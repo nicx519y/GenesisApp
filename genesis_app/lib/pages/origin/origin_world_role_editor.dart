@@ -241,6 +241,9 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     charId: 'current_user_custom_role',
   );
   final ScrollController _scrollController = ScrollController();
+  late final Uint8List? _initialAvatarPreview;
+  Uint8List? _editedAvatarPreview;
+  bool _avatarInteractionActive = false;
   var _keyboardOverlap = 0.0;
   var _hasContentBelow = false;
 
@@ -253,6 +256,8 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   }
 
   bool get _nameEmpty => _form.name.text.trim().isEmpty;
+  bool get _doneEnabled =>
+      !_nameEmpty && !widget.busy && !_avatarInteractionActive;
 
   int get _nameMaxLength =>
       widget.isPreset ? 128 : originCharacterNameMaxLength;
@@ -266,6 +271,12 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final role = widget.role;
+    _editedAvatarPreview = role.avatarPreviewBytes;
+    _initialAvatarPreview =
+        _editedAvatarPreview ??
+        AppServicesScope.maybeRead(
+          context,
+        )?.profileAvatarCache?.bytesFor(_resolveAssetUrl(role.avatarUrl));
     _seed(_form.avatarUrl, role.avatarUrl.trim());
     _seed(_form.name, role.name.trim(), maxLength: _nameMaxLength);
     _seed(_form.identity, role.identity.trim(), maxLength: _identityMaxLength);
@@ -341,10 +352,11 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   }
 
   void _complete() {
-    if (widget.busy || _nameEmpty) return;
+    if (!_doneEnabled) return;
     widget.onDone(
       OriginCustomRoleDraft(
         avatarUrl: _form.avatarUrl.text,
+        avatarPreviewBytes: _editedAvatarPreview,
         name: _form.name.text,
         identity: _form.identity.text,
         personality: _form.personality.text,
@@ -425,7 +437,7 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
   }
 
   Widget _buildHeader() {
-    final doneEnabled = !_nameEmpty && !widget.busy;
+    final doneEnabled = _doneEnabled;
     return Container(
       height: _headerHeight,
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -609,11 +621,14 @@ class _OriginRoleEditorPanelState extends State<_OriginRoleEditorPanel>
             onChanged: _handleFormChanged,
             onInteractionActiveChanged: (active) {
               if (active) _dismissKeyboard();
+              setState(() => _avatarInteractionActive = active);
             },
+            initialPreviewBytes: _initialAvatarPreview,
+            onPreviewBytesChanged: (bytes) => _editedAvatarPreview = bytes,
+            optimisticCropPreview: true,
             width: _avatarSize,
             height: _avatarSize,
-            previewUrlBuilder: (url) =>
-                buildGenesisCdnResizeUrl(_resolveAssetUrl(url), width: 128),
+            previewUrlBuilder: (url) => _originRoleAvatarUrl(url, _avatarSize),
             iconSize: 24,
             borderRadius: GenesisAvatarRadii.character,
             cropSize: originCharacterAvatarUploadSize,

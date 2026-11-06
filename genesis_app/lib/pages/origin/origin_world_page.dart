@@ -513,25 +513,27 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void _precacheProfileRoleAvatar(OriginCustomRoleDraft profileRole) {
     if (!mounted) return;
     final snapshotSourceKey = _resolveAssetUrl(profileRole.avatarUrl).trim();
-    final avatarUrl = _originRoleCardAvatarUrl(context, snapshotSourceKey);
+    const cardWidth = _OriginSetupRoleSection._cardWidth;
+    final avatarUrl = _originRoleAvatarUrl(snapshotSourceKey, cardWidth);
     if (avatarUrl.isEmpty) return;
 
     final devicePixelRatio = genesisImageDevicePixelRatio(
       MediaQuery.devicePixelRatioOf(context),
       maxDevicePixelRatio: originWorldOpeningRoleAvatarMaxDevicePixelRatio,
     );
-    final outputSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
-        .ceil();
+    final outputSize = (cardWidth * devicePixelRatio).ceil();
     final snapshotSize = math.max(
       1,
       (_originLocationChatRolePillAvatarSize * devicePixelRatio).ceil(),
     );
-    final cacheKey = '$avatarUrl@$outputSize';
+    final previewBytes = profileRole.avatarPreviewBytes;
+    final cacheKey = '$avatarUrl@$outputSize@${identityHashCode(previewBytes)}';
     if (!_preloadedProfileRoleAvatarKeys.add(cacheKey)) return;
 
     final provider = OriginRolePortraitImageProvider.fromUrl(
       imageUrl: avatarUrl,
       outputSize: outputSize,
+      previewBytes: previewBytes,
       snapshotStore: _roleAvatarSnapshots,
       snapshotSourceKey: snapshotSourceKey,
       snapshotSize: snapshotSize,
@@ -823,9 +825,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (mediaQuery == null) return;
     final urls = origin.characters
         .map(
-          (character) => _originRoleCardAvatarUrl(
-            context,
-            _resolveAssetUrl(character.avatar),
+          (character) => _originRoleAvatarUrl(
+            character.avatar,
+            _OriginSetupRoleSection._cardWidth,
           ),
         )
         .where((url) => url.isNotEmpty && !url.startsWith('assets/'))

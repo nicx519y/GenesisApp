@@ -173,7 +173,9 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     if (!mounted) return;
     final avatarSourceKeys = <String>[
       if (widget.profileRole case final profileRole?)
-        _resolveAssetUrl(profileRole.avatarUrl).trim(),
+        profileRole.avatarPreviewBytes == null
+            ? _resolveAssetUrl(profileRole.avatarUrl).trim()
+            : '',
       ..._remainingCharacters
           .where((character) => _characterStableId(character).isNotEmpty)
           .map((character) => _resolveAssetUrl(character.avatar).trim()),
@@ -195,7 +197,10 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final lastIndex = math.min(currentIndex + 2, avatarSourceKeys.length - 1);
     for (var index = currentIndex; index <= lastIndex; index += 1) {
       final avatarSourceKey = avatarSourceKeys[index];
-      final avatarUrl = _originRoleCardAvatarUrl(context, avatarSourceKey);
+      final avatarUrl = _originRoleAvatarUrl(
+        avatarSourceKey,
+        _OriginSetupRoleSection._cardWidth,
+      );
       if (avatarUrl.isEmpty) continue;
       final cacheKey = '$avatarUrl@$decodeSize';
       if (!_preloadedAvatarKeys.add(cacheKey)) continue;
@@ -408,6 +413,7 @@ class _OriginSetupRoleCardContent {
     required this.goal,
     required this.isRecommended,
     required this.isProfile,
+    this.avatarPreviewBytes,
   });
 
   factory _OriginSetupRoleCardContent.fromCharacter(OriginCharacter character) {
@@ -432,6 +438,7 @@ class _OriginSetupRoleCardContent {
       stableId: character?.characterId.trim() ?? 'current-user',
       name: profileRole.name,
       avatar: profileRole.avatarUrl,
+      avatarPreviewBytes: profileRole.avatarPreviewBytes,
       identity: profileRole.identity,
       personality: profileRole.personality,
       bio: profileRole.bio,
@@ -444,6 +451,7 @@ class _OriginSetupRoleCardContent {
   final String stableId;
   final String name;
   final String avatar;
+  final Uint8List? avatarPreviewBytes;
   final String identity;
   final String personality;
   final String bio;
@@ -631,10 +639,7 @@ class _OriginSetupRolePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final stableId = content.stableId;
     final resolvedTopLabel = topLabel;
-    final avatarUrl = _originRoleCardAvatarUrl(
-      context,
-      _resolveAssetUrl(content.avatar),
-    );
+    final avatarUrl = _originRoleAvatarUrl(content.avatar, cardWidth);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -739,6 +744,7 @@ class _OriginSetupRolePortrait extends StatelessWidget {
           url: avatarUrl,
           snapshotSourceKey: _resolveAssetUrl(content.avatar).trim(),
           snapshotStore: roleAvatarSnapshots,
+          previewBytes: content.avatarPreviewBytes,
           name: content.name,
           width: cardWidth,
           height: cardWidth,
@@ -916,6 +922,7 @@ class _OriginSetupRoleImage extends StatelessWidget {
     required this.url,
     required this.snapshotSourceKey,
     required this.snapshotStore,
+    required this.previewBytes,
     required this.name,
     required this.width,
     required this.height,
@@ -924,6 +931,7 @@ class _OriginSetupRoleImage extends StatelessWidget {
   final String url;
   final String snapshotSourceKey;
   final OriginRoleAvatarSnapshotStore snapshotStore;
+  final Uint8List? previewBytes;
   final String name;
   final double width;
   final double height;
@@ -950,6 +958,27 @@ class _OriginSetupRoleImage extends StatelessWidget {
       maxDevicePixelRatio: originWorldOpeningRoleAvatarMaxDevicePixelRatio,
     );
     final outputSize = (math.max(width, height) * devicePixelRatio).ceil();
+    Widget localPreview(Uint8List bytes, Widget placeholder) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.memory(
+            bytes,
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+            cacheWidth: outputSize,
+            cacheHeight: outputSize,
+            errorBuilder: (context, error, stackTrace) => placeholder,
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(gradient: originRolePortraitGradient),
+          ),
+        ],
+      );
+    }
+
+    if (previewBytes case final bytes?) return localPreview(bytes, fallback);
     final snapshotSize = math.max(
       1,
       (_originLocationChatRolePillAvatarSize * devicePixelRatio).ceil(),
@@ -961,27 +990,11 @@ class _OriginSetupRoleImage extends StatelessWidget {
         listenable: profileCache,
         builder: (context, _) {
           final bytes = profileCache.bytesFor(snapshotSourceKey);
-          if (bytes == null) return placeholder;
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.memory(
-                bytes,
-                width: width,
-                height: height,
-                fit: BoxFit.cover,
-                cacheWidth: outputSize,
-                cacheHeight: outputSize,
-                errorBuilder: (context, error, stackTrace) => placeholder,
-              ),
-              const DecoratedBox(
-                decoration: BoxDecoration(gradient: originRolePortraitGradient),
-              ),
-            ],
-          );
+          return bytes == null ? placeholder : localPreview(bytes, placeholder);
         },
       );
     }
+
     return Image(
       image: OriginRolePortraitImageProvider.fromUrl(
         imageUrl: url,
@@ -1004,7 +1017,8 @@ class _OriginSetupRoleImage extends StatelessWidget {
           ),
         );
       },
-      errorBuilder: (context, error, stackTrace) => withProfilePreview(fallback),
+      errorBuilder: (context, error, stackTrace) =>
+          withProfilePreview(fallback),
     );
   }
 }

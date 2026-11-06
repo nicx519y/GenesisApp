@@ -2533,6 +2533,32 @@ class _MeAvatarEditTransport implements HttpTransport {
   }
 }
 
+class _OriginRoleAvatarUploadTransport extends _RecordingV1ListTransport {
+  _OriginRoleAvatarUploadTransport()
+    : super(
+        originCharacters: const [
+          {
+            'char_id': 'c_recommended',
+            'name': 'Scout',
+            'avatar': '',
+            'is_recommend': 1,
+            'initial_location_id': 'l_o_test_1',
+          },
+        ],
+      );
+
+  static const originalAvatar = 'https://cdn.example.com/scout-large.png';
+  final uploads = <Completer<TransportResponse>>[];
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) {
+    if (request.uri.path != '/api/v1/upload/image') return super.send(request);
+    final upload = Completer<TransportResponse>();
+    uploads.add(upload);
+    return upload.future;
+  }
+}
+
 Finder _searchTabCount(String tab, String count) {
   return find.descendant(
     of: find.byKey(ValueKey<String>('search-tab-count-$tab')),
@@ -14337,7 +14363,7 @@ void main() {
         );
         expect(
           preview.imageUrl,
-          '${role.avatarUrl}?x-oss-process=image/resize,w_128/format,webp',
+          '${role.avatarUrl}?x-oss-process=image/resize,w_124/format,webp',
         );
       }
       if (emptyPreset) {
@@ -14446,6 +14472,159 @@ void main() {
       });
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'Origin role keeps its cropped preview and rolls back a failed retake',
+    (tester) async {
+      _mockGenesisKeyboardAnimationEvents();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      debugGenesisStaticNetworkImageCompleter = (_) =>
+          OneFrameImageStreamCompleter(
+            SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+          );
+      addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+      const pickerChannel = MethodChannel('plugins.flutter.io/image_picker');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        pickerChannel,
+        (_) async => 'assets/images/default_list_image.png',
+      );
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(pickerChannel, null),
+      );
+      final transport = _OriginRoleAvatarUploadTransport();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: 'u_me',
+            initialAuthToken: 'backend-token',
+            initialUserInfo: const {
+              'uid': 'u_me',
+              'name': 'Player',
+              'avatar': {
+                'sm_url': 'https://cdn.example.com/scout-small.png',
+                'xl_url': _OriginRoleAvatarUploadTransport.originalAvatar,
+              },
+            },
+          ),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final edit = find.byKey(
+        const ValueKey('origin-setup-role-edit-c_recommended'),
+      );
+      final avatar = find.byKey(
+        const ValueKey('origin-setup-role-inline-avatar-c_recommended'),
+      );
+      final done = find.byKey(
+        const ValueKey('origin-role-editor-done-c_recommended'),
+      );
+      final portrait = find.byKey(
+        const ValueKey('origin-setup-role-portrait-c_recommended'),
+      );
+      ImageProvider<Object> imageIn(Finder parent) => tester
+          .widget<Image>(
+            find.descendant(of: parent, matching: find.byType(Image)).first,
+          )
+          .image;
+      bool canFinish() => tester.widget<GestureDetector>(done).onTap != null;
+      TextEditingController controller() =>
+          tester.widget<CreateUploadBox>(avatar).controller;
+      const originalUrl = _OriginRoleAvatarUploadTransport.originalAvatar;
+      const uploadedUrl = 'https://cdn.example.com/new-scout.png';
+
+      final cardSource =
+          (imageIn(portrait) as OriginRolePortraitImageProvider).sourceProvider
+              as GenesisStaticNetworkImageProvider;
+      expect(
+        cardSource.imageUrl,
+        '$originalUrl?x-oss-process=image/resize,w_480/format,webp',
+      );
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      expect(controller().text, originalUrl);
+      final initialPreview = tester.widget<GenesisStaticNetworkImage>(
+        find.descendant(
+          of: avatar,
+          matching: find.byType(GenesisStaticNetworkImage),
+        ),
+      );
+      expect(
+        initialPreview.imageUrl,
+        '$originalUrl?x-oss-process=image/resize,w_124/format,webp',
+      );
+
+      Future<void> pumpUntil(bool Function() ready) async {
+        for (var i = 0; i < 100; i += 1) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (ready()) return;
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        fail('The role avatar edit did not advance');
+      }
+
+      Future<void> cropAndWaitForUpload(int count) async {
+        final confirm = find.widgetWithIcon(IconButton, Icons.check);
+        await tester.runAsync(() async {
+          await tester.tap(avatar);
+          await pumpUntil(
+            () =>
+                confirm.evaluate().isNotEmpty &&
+                tester.widget<IconButton>(confirm).onPressed != null,
+          );
+          tester.widget<IconButton>(confirm).onPressed!();
+          await pumpUntil(() => transport.uploads.length == count);
+        });
+        await tester.pumpAndSettle();
+      }
+
+      await cropAndWaitForUpload(1);
+      expect(controller().text, originalUrl);
+      expect(canFinish(), isFalse);
+      final preview = imageIn(avatar) as MemoryImage;
+      transport.uploads[0].complete(_v1Response({'url': uploadedUrl}));
+      await tester.runAsync(() => pumpUntil(canFinish));
+      await tester.pumpAndSettle();
+      expect(canFinish(), isTrue);
+      expect(controller().text, uploadedUrl);
+      expect(imageIn(avatar), preview);
+
+      await cropAndWaitForUpload(2);
+      expect(imageIn(avatar), isNot(preview));
+      expect(canFinish(), isFalse);
+      transport.uploads[1].complete(
+        TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({'err_no': 9000, 'err_msg': 'Avatar upload failed'}),
+        ),
+      );
+      await tester.runAsync(() => pumpUntil(canFinish));
+      await tester.pumpAndSettle();
+      expect(canFinish(), isTrue);
+      expect(controller().text, uploadedUrl);
+      expect(imageIn(avatar), preview);
+      await tester.tap(done);
+      await tester.pumpAndSettle();
+      expect((imageIn(portrait) as ResizeImage).imageProvider, preview);
+      expect(transport.requestsFor('/api/v1/user/update'), isEmpty);
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      expect(controller().text, uploadedUrl);
+      expect(imageIn(avatar), preview);
     },
   );
 
@@ -14698,6 +14877,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(scroll, findsOneWidget, reason: 'The form stays open.');
       expect(tester.widget<CreateUploadBox>(avatar).controller.text, isEmpty);
+      // Reopen the keyboard to give the form scrollable overflow again.
+      identityField.focusNode!.requestFocus();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      await tester.pumpAndSettle();
+      expect(controller.position.maxScrollExtent, greaterThan(100));
       final beforeDrag = controller.offset;
       await tester.drag(scroll, const Offset(0, -100));
       await tester.pumpAndSettle();
@@ -16685,6 +16869,22 @@ void main() {
           ),
         );
         expect(memoryImage, findsOneWidget);
+        final edit = find.byKey(
+          const ValueKey('origin-setup-role-edit-current-user'),
+        ).hitTestable();
+        await tester.tap(edit);
+        await tester.pumpAndSettle();
+        final editorAvatar = find.byKey(
+          const ValueKey('origin-setup-role-inline-avatar-current-user'),
+        );
+        expect(
+          tester.widget<CreateUploadBox>(editorAvatar).initialPreviewBytes,
+          same(previewBytes),
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('origin-role-editor-cancel-current-user')),
+        );
+        await tester.pumpAndSettle();
         pendingPortrait.complete(ImageInfo(image: originItemTestImage.clone()));
         await tester.runAsync(() async {
           for (var i = 0; i < 100; i += 1) {

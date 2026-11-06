@@ -180,6 +180,7 @@ HTTP 映射层的图片规则：
 
 - 通用 upload API：`lib/network/v1/upload_api.dart`，`POST /api/v1/upload/image`，multipart 字段名是 `file`。
 - Me 编辑头像在确认裁剪后立即用内存中的裁剪图显示头像，再上传并保存。成功后当前页面继续显示本地预览，上传或保存失败时恢复编辑前的头像，账号切换时清除本地预览。
+- Origin 开场和地点预览的角色编辑面板沿用卡片的头像来源，按面板尺寸生成缩放 URL。确认裁剪后立即显示本地图，上传期间禁用 Done；失败时恢复上一个头像及其预览。上传成功后继续显示本地图，点 Done 后卡片和再次打开的编辑面板都沿用这张图，Launch 仍使用上传返回的 URL。
 - 登录保存用户资料时预热当前头像的 `w_160` 预览，按 API 环境、账号和头像 URL 识别，保存在内存和本地文件。Me 顶部头像及 Origin 开场与 Location 首卡使用当前用户头像时先显示缓存，正式图片解码后替换。Me 保存成功后用本地裁剪数据更新缓存，退出登录清除当前环境的头像缓存。
 - 创建/编辑 Origin 图片：`CreateUploadBox` 在 `lib/pages/create/create_form_widgets.dart`，先进入 `LocalImageCropPage` 裁剪，再上传。成功后 controller 写入上传 URL，失败恢复旧 URL。
 - 讨论图片：`DiscussPostInput` 在 `lib/components/discuss/discuss_post_input.dart`，使用 `native_image_picker.dart` 选图，`resizeImageToMaxWidth` 预处理后上传，最多 6 张并按剩余槽位限制选择。
