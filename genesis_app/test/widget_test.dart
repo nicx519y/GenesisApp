@@ -23531,6 +23531,20 @@ void main() {
   testWidgets('tap Me renders cached profile then refreshes user info', (
     WidgetTester tester,
   ) async {
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      GenesisMethodChannels.device,
+      (call) async => call.method == GenesisMethodChannels.getAppVersion
+          ? {
+              'versionName': '0.4.4',
+              'versionCode': 4040,
+              'packageName': 'com.worldo.ai',
+            }
+          : null,
+    );
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(GenesisMethodChannels.device, null),
+    );
     final userInfoCompleter = Completer<TransportResponse>();
     final transport = _RecordingV1ListTransport(
       userInfoCompleter: userInfoCompleter,
@@ -23595,67 +23609,76 @@ void main() {
     expect(cachedUser?['follower_cnt'], 17);
   });
 
-  testWidgets(
-    'switching back to signed-in Me refreshes selected profile list',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport();
-      await tester.pumpWidget(
-        GenesisApp(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: 'u_cached',
-            initialAuthToken: 'backend-token',
-            initialUserInfo: {
-              'uid': 'u_cached',
-              'name': 'Cached User',
-              'avatar': '',
-              'following_cnt': 7,
-              'follower_cnt': 11,
-            },
-          ),
+  testWidgets('switching back to signed-in Me refreshes all profile data', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    var catalogRequests = 0;
+    final catalog = MembershipCatalog(
+      provider: MembershipProvider.google,
+      loadProducts: (_) async {
+        catalogRequests++;
+        return const MembershipProductList(products: []);
+      },
+    );
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: 'u_cached',
+          initialAuthToken: 'backend-token',
+          membershipCatalog: catalog,
+          initialUserInfo: {
+            'uid': 'u_cached',
+            'name': 'Cached User',
+            'avatar': '',
+            'following_cnt': 7,
+            'follower_cnt': 11,
+          },
         ),
-      );
+      ),
+    );
 
-      await tester.tap(find.text('Me'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
 
-      final userInfoCount = transport.requestsFor('/api/v1/user/info').length;
-      final originListCount = transport
-          .requestsFor('/api/v1/origin/list')
-          .length;
-      final worldListCount = transport.requestsFor('/api/v1/world/list').length;
-      expect(userInfoCount, 1);
+    final userInfoCount = transport.requestsFor('/api/v1/user/info').length;
+    final originListCount = transport.requestsFor('/api/v1/origin/list').length;
+    final walletCount = transport.requestsFor('/api/v1/gem/wallet').length;
+    final catalogCount = catalogRequests;
+    expect(userInfoCount, 1);
 
-      await tester.tap(find.text('Home'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
 
-      expect(
-        transport.requestsFor('/api/v1/origin/list'),
-        hasLength(originListCount),
-      );
-      expect(
-        transport.requestsFor('/api/v1/world/list'),
-        hasLength(worldListCount),
-      );
+    expect(
+      transport.requestsFor('/api/v1/origin/list'),
+      hasLength(originListCount),
+    );
+    final worldListCount = transport.requestsFor('/api/v1/world/list').length;
 
-      await tester.tap(find.text('Me'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
 
-      expect(
-        transport.requestsFor('/api/v1/user/info'),
-        hasLength(userInfoCount + 1),
-      );
-      expect(
-        transport.requestsFor('/api/v1/origin/list'),
-        hasLength(originListCount + 1),
-      );
-      expect(
-        transport.requestsFor('/api/v1/world/list'),
-        hasLength(worldListCount),
-      );
-    },
-  );
+    expect(
+      transport.requestsFor('/api/v1/user/info'),
+      hasLength(userInfoCount + 1),
+    );
+    expect(
+      transport.requestsFor('/api/v1/origin/list'),
+      hasLength(originListCount + 1),
+    );
+    expect(
+      transport.requestsFor('/api/v1/world/list'),
+      hasLength(worldListCount + 1),
+    );
+    expect(
+      transport.requestsFor('/api/v1/gem/wallet'),
+      hasLength(walletCount + 1),
+    );
+    expect(catalogRequests, catalogCount + 1);
+  });
 
   testWidgets('switching back to signed-out Me does not request user info', (
     WidgetTester tester,
@@ -24062,6 +24085,14 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _UserInfoRefreshTransport();
+    var catalogRequests = 0;
+    final catalog = MembershipCatalog(
+      provider: MembershipProvider.google,
+      loadProducts: (_) async {
+        catalogRequests++;
+        return const MembershipProductList(products: []);
+      },
+    );
     var walletLoadCount = 0;
     final gemWallet = GemWalletStore(
       loadWallet: () async {
@@ -24080,6 +24111,7 @@ void main() {
               initialUid: 'u_me_refresh',
               initialAuthToken: 'backend-token',
               gemWallet: gemWallet,
+              membershipCatalog: catalog,
             ),
             child: const MePage(),
           ),
@@ -24091,25 +24123,31 @@ void main() {
     expect(find.text('#Origin Old'), findsOneWidget);
     expect(find.text('#Origin New'), findsNothing);
     expect(walletLoadCount, 1);
+    expect(catalogRequests, 1);
     expect(find.text('430.0'), findsOneWidget);
 
     final pageRefresh = find.descendant(
       of: find.byKey(const ValueKey('profile-page-refresh')),
       matching: find.byType(RefreshIndicator),
     );
-    var refreshFuture = tester
+    final refreshFuture = tester
         .widget<RefreshIndicator>(pageRefresh)
         .onRefresh();
     await tester.pump();
 
     expect(transport.originListRequests, 2);
+    expect(transport.worldListRequests, 2);
+    expect(
+      transport.requests.where((r) => r.uri.path == '/api/v1/user/info'),
+      hasLength(2),
+    );
     expect(walletLoadCount, 2);
+    expect(catalogRequests, 2);
     expect(find.text('#Origin Old'), findsOneWidget);
     expect(find.text('#Origin New'), findsNothing);
 
     transport.completeOriginRefresh();
     await tester.pumpAndSettle();
-    await refreshFuture;
 
     expect(find.text('#Origin Old'), findsNothing);
     expect(find.text('#Origin New'), findsOneWidget);
@@ -24121,21 +24159,13 @@ void main() {
     expect(find.text('World Old'), findsOneWidget);
     expect(find.text('World New'), findsNothing);
 
-    refreshFuture = tester.widget<RefreshIndicator>(pageRefresh).onRefresh();
-    await tester.pump();
-
-    expect(transport.worldListRequests, 2);
-    expect(walletLoadCount, 3);
-    expect(find.text('World Old'), findsOneWidget);
-    expect(find.text('World New'), findsNothing);
-
     transport.completeWorldRefresh();
     await tester.pumpAndSettle();
     await refreshFuture;
 
     expect(find.text('World Old'), findsNothing);
     expect(find.text('World New'), findsOneWidget);
-    expect(find.text('410.0'), findsOneWidget);
+    expect(find.text('420.0'), findsOneWidget);
   });
 
   testWidgets('Me pull gesture refreshes from the whole profile top', (
@@ -24203,6 +24233,7 @@ void main() {
 
     expect(transport.originListRequests, 2);
     transport.completeOriginRefresh();
+    transport.completeWorldRefresh();
     await tester.pumpAndSettle();
     expect(find.text('#Origin New'), findsOneWidget);
   });

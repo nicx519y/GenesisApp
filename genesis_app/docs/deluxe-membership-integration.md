@@ -24,6 +24,7 @@
 - Premium 和 Deluxe 的年付卡片显示折算后的月均价，并标注按年计费。选中年付时，底部按钮显示年付总价。
 - 新用户订阅 Sheet 的顶部名称和皇冠随会员卡切换。订阅套餐卡和底部按钮在没有可显示价格时使用 `--`。
 - Me 使用双会员卡入口，点击某卡定位该组；卡片显示各自状态和到期时间。粉钻以 membership.blue_gems_cent + membership_deluxe.blue_gems_cent 的整数 cent 和展示，普通余额不变。
+- 已登录时，首次进入、切回 Me 或下拉刷新会请求当前用户资料、钱包、Origins 和 Worlds 的第一页，以及受支持平台的会员商品。刷新期间保留已有数据显示，下拉等待这一轮请求结束。
 - 卡片始终按 Premium / Deluxe 排列。Me 初始优先定位有效会员，两档都有效定位 Deluxe；两档都无效才按 has_purchased 定位。Subscription 初始按 has_purchased 定位。使用 has_purchased 时，true 定位第二张 Deluxe，false 定位第一张 Premium。用户已切换的卡片和每组月年选择在刷新期间保留。
 - 名字后的图标仅读取所属用户的两种 status；1 显示，0/2/非法/缺失不显示，删除用户不显示。双图标顺序为 Deluxe / Premium，与卡片排序无关。不新增徽章网络请求，World/Chat/LocationChat 保留原展示范围。
 

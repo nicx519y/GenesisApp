@@ -14,6 +14,7 @@ import '../../ui/theme/genesis_dark_theme.dart';
 import '../../ui/navigation/genesis_dark_page_route.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -74,7 +75,7 @@ class _MePageState extends State<MePage>
     with RouteAware, LanguageDataRefresh<MePage>, LoginSubmissionState<MePage> {
   @override
   Future<void> refreshLanguageData() async {
-    await _refresh();
+    await _refreshAfterPending();
   }
 
   @override
@@ -95,12 +96,10 @@ class _MePageState extends State<MePage>
   late final MeCollectionController<UserProfileOriginItem> _originsState;
   late final MeCollectionController<UserProfileWorldItem> _worldsState;
   int _loadGeneration = 0;
-  bool _isActivationRefreshing = false;
-  bool _hasPendingActivationRefresh = false;
+  Future<void>? _pageRefresh;
   int _selectedCollectionTabIndex = 0;
   ValueListenable<int>? _sessionRevisionListenable;
   PageRoute<dynamic>? _subscribedRoute;
-  bool _initialWalletRefreshStarted = false;
   // Extension method tear-offs are not equal across reads, so listener
   // registration and removal must reuse these stable callback objects.
   late final VoidCallback _tabActivatedListener;
@@ -172,10 +171,6 @@ class _MePageState extends State<MePage>
       _sessionRevisionListenable = sessionRevision;
       sessionRevision.addListener(_sessionChangedListener);
     }
-    if (!_initialWalletRefreshStarted && _isTabActive) {
-      _initialWalletRefreshStarted = true;
-      _refreshGemWallet();
-    }
   }
 
   @override
@@ -203,9 +198,22 @@ class _MePageState extends State<MePage>
 
   void _updateState(VoidCallback callback) => setState(callback);
 
-  void _refreshGemWallet() {
-    if (!mounted || !_isTabActive) return;
-    unawaited(AppServicesScope.read(context).gemWallet.refresh());
+  Future<void> _refreshMembershipData(AppServices services) async {
+    await Future.wait<void>([
+      services.membership.refresh(),
+      if (services.membershipCatalog.provider != null)
+        _refreshMembershipCatalog(services),
+    ]);
+  }
+
+  Future<void> _refreshMembershipCatalog(AppServices services) async {
+    try {
+      await services.membershipCatalog.loadForEntry();
+    } catch (error) {
+      debugPrint(
+        '[MePage] membership catalog refresh failed: ${error.runtimeType}',
+      );
+    }
   }
 
   @override
@@ -236,7 +244,7 @@ class _MePageState extends State<MePage>
                     ),
                     const SizedBox(height: 8),
                     FilledButton(
-                      onPressed: _refresh,
+                      onPressed: _refreshPage,
                       child: Text(GenesisL10n.current.homeRetry),
                     ),
                   ],
@@ -364,7 +372,7 @@ class _MePageState extends State<MePage>
                           isActiveListenable: widget.isActiveListenable,
                           onEditAvatar: _editAvatar,
                           onEditDisplayName: _editNickName,
-                          onRefresh: _refreshCurrentCollection,
+                          onRefresh: _refreshPage,
                           onRefreshOrigins: _refreshOrigins,
                           onRefreshWorlds: _refreshWorlds,
                           onLoadMoreOrigins: _loadMoreOrigins,
@@ -395,12 +403,5 @@ class _MePageState extends State<MePage>
     // Reload page one after removal: both the total and subsequent page
     // boundaries come from the server, rather than the number of loaded cards.
     unawaited(_refreshWorlds());
-  }
-
-  Future<void> _refreshCurrentCollection() async {
-    await Future.wait<void>([
-      _selectedCollectionTabIndex == 0 ? _refreshOrigins() : _refreshWorlds(),
-      AppServicesScope.read(context).gemWallet.refresh(),
-    ]);
   }
 }

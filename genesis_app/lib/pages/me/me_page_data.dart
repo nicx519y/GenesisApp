@@ -4,7 +4,7 @@ extension _MePageData on _MePageState {
   Future<_MePageContent> _loadData() async {
     final generation = ++_loadGeneration;
     final signedIn = await _hasLocalLoginSession();
-    if (!_canUpdateAsyncState || generation != _loadGeneration) {
+    if (!mounted || !_canUpdateAsyncState || generation != _loadGeneration) {
       return const _MePageContent.signedOut();
     }
     if (!signedIn) {
@@ -13,14 +13,14 @@ extension _MePageData on _MePageState {
       _worldsState.reset();
       return const _MePageContent.signedOut();
     }
-    return _MePageContent.signedIn(
-      await _loadProfileData(refreshAllCollections: true),
-    );
+    if (_isTabActive) {
+      unawaited(_refreshMembershipData(AppServicesScope.read(context)));
+    }
+    return _MePageContent.signedIn(await _loadProfileData());
   }
 
   Future<UserProfileData> _loadProfileData({
-    int? refreshCollectionTabIndex = 0,
-    bool refreshAllCollections = false,
+    bool waitForRefresh = false,
   }) async {
     final generation = _loadGeneration + 1;
     _loadGeneration = generation;
@@ -62,15 +62,10 @@ extension _MePageData on _MePageState {
       generation: generation,
     );
 
-    if (_canUpdateAsyncState && generation == _loadGeneration && _isTabActive) {
-      if (refreshAllCollections) {
-        unawaited(
-          Future.wait<void>([_originsState.refresh(), _worldsState.refresh()]),
-        );
-      } else if (refreshCollectionTabIndex != null) {
-        unawaited(_refreshCollectionTab(refreshCollectionTabIndex));
-      }
-    }
+    final collections =
+        _canUpdateAsyncState && generation == _loadGeneration && _isTabActive
+        ? Future.wait<void>([_originsState.refresh(), _worldsState.refresh()])
+        : Future<void>.value();
 
     final data = UserProfileData(
       avatarUrl: resolvedAvatarUrl,
@@ -96,11 +91,17 @@ extension _MePageData on _MePageState {
     _publishProfileData(data);
     _avatarUrl.value = data.avatarUrl;
     _displayName.value = data.displayName;
-    unawaited(
+    final refresh = Future.wait<void>([
       remoteUserFuture.then((remoteUser) {
         _applyRemoteUserInfo(generation, data, remoteUser);
       }),
-    );
+      collections,
+    ]);
+    if (waitForRefresh) {
+      await refresh;
+    } else {
+      unawaited(refresh);
+    }
     return data;
   }
 
@@ -115,9 +116,7 @@ extension _MePageData on _MePageState {
       checkLanguageData();
       return;
     }
-    _initialWalletRefreshStarted = true;
-    _refreshGemWallet();
-    unawaited(_refreshDataOnActivation());
+    unawaited(_refreshAfterPending());
   }
 
   void _handleSessionChanged() {
@@ -128,6 +127,7 @@ extension _MePageData on _MePageState {
       _isUpdatingProfile.value = false;
     }
     _loadGeneration += 1;
+    _pageRefresh = null;
     _originsState.reset();
     _worldsState.reset();
     if (_profileData.value != null) {
@@ -153,53 +153,60 @@ extension _MePageData on _MePageState {
       });
       return;
     }
-    await _loadProfileData(refreshAllCollections: true);
+    await _loadProfileData();
   }
 
-  Future<void> _refreshDataOnActivation() async {
-    if (!mounted || !_isTabActive) return;
-    if (_isActivationRefreshing) {
-      _hasPendingActivationRefresh = true;
+  Future<void> _refreshAfterPending() async {
+    final pending = _pageRefresh;
+    if (pending != null) await pending;
+    await _refreshPage();
+  }
+
+  Future<void> _refreshPage() {
+    if (!_canUpdateAsyncState || !_isTabActive) return Future<void>.value();
+    final pending = _pageRefresh;
+    if (pending != null) return pending;
+    late final Future<void> refresh;
+    refresh = _reloadPage().whenComplete(() {
+      if (identical(_pageRefresh, refresh)) _pageRefresh = null;
+    });
+    return _pageRefresh = refresh;
+  }
+
+  Future<void> _reloadPage() async {
+    final generation = _loadGeneration;
+    final signedIn = await _hasLocalLoginSession();
+    if (!mounted ||
+        !_canUpdateAsyncState ||
+        !_isTabActive ||
+        generation != _loadGeneration) {
       return;
     }
-    _isActivationRefreshing = true;
-    try {
-      do {
-        _hasPendingActivationRefresh = false;
-        if (!_isTabActive) return;
-        final generation = _loadGeneration;
-        final signedIn = await _hasLocalLoginSession();
-        if (!_canUpdateAsyncState || generation != _loadGeneration) return;
-        if (!signedIn) {
-          _loadGeneration += 1;
-          _profileData.value = null;
-          _originsState.reset();
-          _worldsState.reset();
-          _updateState(() {
-            _future = SynchronousFuture<_MePageContent>(
-              const _MePageContent.signedOut(),
-            );
-          });
-          return;
-        }
-        final hadProfileData = _profileData.value != null;
-        final data = await _loadProfileData(
-          refreshCollectionTabIndex: _selectedCollectionTabIndex,
-          refreshAllCollections:
-              !_originsState.hasLoaded || !_worldsState.hasLoaded,
+    if (!signedIn) {
+      _loadGeneration += 1;
+      _profileData.value = null;
+      _originsState.reset();
+      _worldsState.reset();
+      _updateState(() {
+        _future = SynchronousFuture<_MePageContent>(
+          const _MePageContent.signedOut(),
         );
-        if (!_canUpdateAsyncState || _loadGeneration != generation + 1) return;
-        if (!hadProfileData) {
-          _updateState(() {
-            _future = SynchronousFuture<_MePageContent>(
-              _MePageContent.signedIn(data),
-            );
-          });
-        }
-      } while (_hasPendingActivationRefresh && mounted);
-    } finally {
-      _isActivationRefreshing = false;
+      });
+      return;
     }
+    final hadProfileData = _profileData.value != null;
+    final membership = _refreshMembershipData(AppServicesScope.read(context));
+    final data = await _loadProfileData(waitForRefresh: true);
+    if (_canUpdateAsyncState &&
+        _loadGeneration == generation + 1 &&
+        !hadProfileData) {
+      _updateState(() {
+        _future = SynchronousFuture<_MePageContent>(
+          _MePageContent.signedIn(data),
+        );
+      });
+    }
+    await membership;
   }
 
   bool get _isTabActive => widget.isActiveListenable?.value ?? true;
@@ -276,7 +283,7 @@ extension _MePageData on _MePageState {
     try {
       await api.ensureUid();
       final userInfo = await api.v1.user.info();
-      return cacheCurrentUserInfoResponse(
+      return await cacheCurrentUserInfoResponse(
         sessionStore: sessionStore,
         response: userInfo,
         fallbackUid: fallbackUid,
@@ -314,13 +321,6 @@ extension _MePageData on _MePageState {
     final current = _profileData.value;
     if (current != null && _sameRenderedUserInfo(current, data)) return;
     _profileData.value = data;
-  }
-
-  Future<void> _refresh() async {
-    _updateState(() {
-      _future = _loadData();
-    });
-    await _future;
   }
 
   Future<void> _refreshOrigins() => _refreshCollectionTab(0);
