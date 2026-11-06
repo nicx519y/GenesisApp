@@ -2685,6 +2685,8 @@ World：
 来源：[Apifox 会员商品列表](https://app.apifox.com/link/project/8297783/apis/api-512137864)。2026-09-17 按用户确认增加 has_subscription_order；本次不编辑在线 Apifox。
 
 - 商品响应为 `{err_no, err_msg, data: {list: [...], last_account_uuid: "...", has_subscription_order: false}}`，不携带客户端使用的会员状态；成功但无配置时 `list=[]`。业务错误沿用统一处理。
+- 订阅卡片使用 `list_premium` 和 `list_deluxe`，展示各自全部 `benefits`。月度总额、月赠和签到卡片分别读取 `monthly_gems_total`、`monthly_bonus_gems`、`daily_check_in_bonus_gems`，配置为 null 时隐藏对应区域。图标按 `icon_key` 映射，月度总额标题按 `amount` 加粗，展示文案直接取接口。
+
 - 每项提供 `title`、`benefits`、`plan_code`（`pro_monthly`/`pro_yearly`）、`provider`、`store_product_id`、`billing_months`（1/12）、`monthly_gems_cent`、`price_currency_code`、`price_amount`。Google 还必含 `base_plan_id`，可选 `offer_id`；Apple 不返回 base plan。标题、权益、价格继续按当前契约解析，不填默认商品。
 - `last_account_uuid` 与 list 平级；非空时是所有套餐优先使用的购买身份，空/null 时游客 prepare、登录用户读取本人 UUID。商品项不再解析 can_purchase、purchase_block_reason、purchase_action、account_uuid、purchase_token。该 UUID 不表示会员权益。
 - `has_subscription_order` 为与 `list`、`last_account_uuid` 平级的布尔值。未登录用户点击购买时，当前商品响应中该值为 true 则结束本次购买并弹出已有登录弹窗，不获取购买 UUID、不调用 prepare、不调起商店、不 report；登录成功或关闭弹窗均不自动购买。已登录用户继续原购买流程。旧响应缺失/null 按 false 兼容，非布尔值视为契约错误。页面加载、商品预热和套餐切换不会因此弹登录窗。
@@ -2979,7 +2981,7 @@ Gems 与会员的 Apple／Google 商品详情统一由原生支付插件缓存�
 
 ### Deluxe 独立会员扩展（2026-11-04）
 
-- `/api/v1/membership/products` 保留 Premium `list`，新增同结构 `list_deluxe`；固定 Premium 在前、Deluxe 在后；`has_purchased=true` 时默认定位第二张 Deluxe，否则定位第一张 Premium。该标志包括会员与 Gems 的成功购买历史，不能用于判断当前会员权益。
+- `/api/v1/membership/products` 客户端使用新版 Premium `list_premium` 和 Deluxe `list_deluxe`；固定 Premium 在前、Deluxe 在后；`has_purchased=true` 时默认定位第二张 Deluxe，否则定位第一张 Premium。该标志包括会员与 Gems 的成功购买历史，不能用于判断当前会员权益。
 - Premium 使用 `last_account_uuid`，Deluxe 使用 `last_account_uuid_deluxe`，禁止跨组回退购买身份；两项均不持久化到展示缓存。
 - `plan_code` 新增 `deluxe_monthly`、`deluxe_yearly`；两组商品统一查询平台，商店价格与币种白名单沿用现有实现。
 - `/api/v1/gem/wallet` 新增 `membership_deluxe`，结构与原 `membership` 一致。Me 粉钻为两项 `blue_gems_cent` 相加；不通过状态或余额推断另一组会员。

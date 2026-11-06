@@ -21,6 +21,19 @@ class SubscriptionBenefitIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gemAsset = switch (iconKey) {
+      'pink_gem' => roseGemIconAsset,
+      'red_gem' => gemIconAsset,
+      _ => null,
+    };
+    if (gemAsset != null) {
+      return SvgPicture.asset(
+        gemAsset,
+        width: size * 2 / 3,
+        height: size,
+        excludeFromSemantics: true,
+      );
+    }
     final asset = switch (iconKey) {
       'gem' => gemDiamondIconAsset,
       'inspiration' => inspirationIconAsset,

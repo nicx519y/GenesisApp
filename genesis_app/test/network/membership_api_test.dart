@@ -259,7 +259,7 @@ void main() {
       final transport = _Transport()
         ..response = {
           'err_no': 0,
-          'data': {'list': []},
+          'data': {'list_premium': []},
         };
       final api = MembershipV1Api(
         ApiClient(baseUrl: 'https://test.invalid/api/', transport: transport),
@@ -282,7 +282,7 @@ void main() {
       ..response = {
         'err_no': 0,
         'data': {
-          'list': [membershipProduct(yearly: true).toJson()],
+          'list_premium': [membershipProduct(yearly: true).toJson()],
           'last_account_uuid': uuid,
           'has_subscription_order': true,
         },

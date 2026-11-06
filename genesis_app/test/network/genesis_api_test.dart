@@ -636,7 +636,7 @@ void main() {
               'err_no': 0,
               'err_msg': 'succ',
               'data': {
-                'list': [
+                'list_premium': [
                   {
                     'title': 'Server yearly title',
                     'benefits': [

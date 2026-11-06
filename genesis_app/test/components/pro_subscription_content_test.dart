@@ -1326,7 +1326,9 @@ void main() {
           .widget<FilledButton>(filledButton)
           .style;
       final originalButtonRect = tester.getRect(find.byKey(buttonKey));
-      await tester.tap(find.byKey(const ValueKey('membership-premium-monthly')));
+      await tester.tap(
+        find.byKey(const ValueKey('membership-premium-monthly')),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('membership-premium-yearly')));
@@ -1348,9 +1350,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Subscribed'), findsOneWidget);
       expect(tester.widget<FilledButton>(filledButton).onPressed, isNull);
-      final subscribedSurface = tester.widget<DecoratedBox>(
-        find.byKey(const ValueKey('pro-subscribe-gold-surface')),
-      ).decoration as BoxDecoration;
+      final subscribedSurface =
+          tester
+                  .widget<DecoratedBox>(
+                    find.byKey(const ValueKey('pro-subscribe-gold-surface')),
+                  )
+                  .decoration
+              as BoxDecoration;
       expect(subscribedSurface.boxShadow, isNull);
       expect(
         (subscribedSurface.gradient! as LinearGradient).colors.first.a,
@@ -1378,7 +1384,9 @@ void main() {
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(purchases, 1);
-      await tester.tap(find.byKey(const ValueKey('membership-premium-monthly')));
+      await tester.tap(
+        find.byKey(const ValueKey('membership-premium-monthly')),
+      );
       await tester.pumpAndSettle();
       expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
       expect(
@@ -1449,6 +1457,61 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'structured gems use server copy and only bold the configured amount',
+    (tester) async {
+      final product = MembershipProduct.fromJson({
+        ...membershipProduct(yearly: true).toJson(),
+        'monthly_gems_total': {
+          'title': '30 days: 3,500 gems',
+          'amount': '3,500',
+          'icon_key': 'gem',
+        },
+        'monthly_bonus_gems': {
+          'value': '2,000',
+          'title': 'Server monthly title',
+          'description': 'Server monthly note',
+          'icon_key': 'pink_gem',
+        },
+        'daily_check_in_bonus_gems': {
+          'value': '+50',
+          'value_suffix': '/day',
+          'title': 'Server daily title',
+          'description': 'Server daily note',
+          'icon_key': 'red_gem',
+        },
+      });
+      await tester.pumpWidget(
+        page(
+          () async => MembershipCatalogData(
+            offers: [MembershipOffer(product: product)],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final total = tester.widget<Text>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.textSpan?.toPlainText() == '30 days: 3,500 gems',
+        ),
+      );
+      final spans = (total.textSpan! as TextSpan).children!.cast<TextSpan>();
+      expect(
+        spans
+            .singleWhere((span) => span.style?.fontWeight == FontWeight.w800)
+            .text,
+        '3,500',
+      );
+      expect(find.text('Server monthly title'), findsOneWidget);
+      expect(find.text('Server monthly note'), findsOneWidget);
+      expect(find.text('Server daily title'), findsOneWidget);
+      expect(find.text('Server daily note'), findsOneWidget);
+      expect(find.text('+50 /day', findRichText: true), findsOneWidget);
+      expect(find.text('Also included'), findsOneWidget);
+    },
+  );
 
   testWidgets('server titles, order and status drive the existing benefit rows', (
     tester,

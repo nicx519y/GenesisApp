@@ -1305,7 +1305,7 @@ class LocalMockGenesisTransport implements HttpTransport {
         });
       }
       return _v1Ok({
-        'list': <Object?>[],
+        'list_premium': <Object?>[],
         'last_account_uuid': '',
         'last_account_uuid_deluxe': '',
         'list_deluxe': <Object?>[],

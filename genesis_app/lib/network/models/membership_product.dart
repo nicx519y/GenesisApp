@@ -17,7 +17,7 @@ class MembershipProductList {
   });
 
   factory MembershipProductList.fromJson(Map<String, dynamic> json) {
-    final list = json['list'];
+    final list = json['list_premium'];
     if (list is! List || list.any((item) => item is! Map)) {
       throw const FormatException('Invalid membership product list');
     }
@@ -82,7 +82,7 @@ class MembershipProductList {
 
   /// Display cache only. Checkout fields must come from a live catalog load.
   Map<String, Object?> toJson() => {
-    'list': [for (final product in products) product.toJson()],
+    'list_premium': [for (final product in products) product.toJson()],
     if (deluxeProducts.isNotEmpty)
       'list_deluxe': [for (final product in deluxeProducts) product.toJson()],
     if (hasPurchased) 'has_purchased': true,
@@ -93,6 +93,9 @@ class MembershipProduct extends MembershipOrderProduct {
   const MembershipProduct({
     required this.title,
     required this.benefits,
+    this.monthlyGemsTotal,
+    this.monthlyBonusGems,
+    this.dailyCheckInBonusGems,
     required super.planCode,
     required super.provider,
     required super.storeProductId,
@@ -154,6 +157,13 @@ class MembershipProduct extends MembershipOrderProduct {
     }
     return MembershipProduct(
       title: title,
+      monthlyGemsTotal: MembershipGemsTotal.fromJson(
+        json['monthly_gems_total'],
+      ),
+      monthlyBonusGems: MembershipGemsCard.fromJson(json['monthly_bonus_gems']),
+      dailyCheckInBonusGems: MembershipGemsCard.fromJson(
+        json['daily_check_in_bonus_gems'],
+      ),
       benefits: List.unmodifiable(benefits),
       planCode: planCode,
       provider: provider,
@@ -168,6 +178,9 @@ class MembershipProduct extends MembershipOrderProduct {
   }
 
   final String title;
+  final MembershipGemsTotal? monthlyGemsTotal;
+  final MembershipGemsCard? monthlyBonusGems;
+  final MembershipGemsCard? dailyCheckInBonusGems;
   final List<MembershipBenefit> benefits;
   final int billingMonths;
   final int monthlyGemsCent;
@@ -179,6 +192,12 @@ class MembershipProduct extends MembershipOrderProduct {
   /// Display metadata only; checkout uses credentials from the page's API load.
   Map<String, Object?> toJson() => {
     'title': title,
+    if (monthlyGemsTotal != null)
+      'monthly_gems_total': monthlyGemsTotal!.toJson(),
+    if (monthlyBonusGems != null)
+      'monthly_bonus_gems': monthlyBonusGems!.toJson(),
+    if (dailyCheckInBonusGems != null)
+      'daily_check_in_bonus_gems': dailyCheckInBonusGems!.toJson(),
     'benefits': [for (final benefit in benefits) benefit.toJson()],
     'provider': provider.name,
     'plan_code': planCode,
@@ -194,4 +213,68 @@ class MembershipProduct extends MembershipOrderProduct {
   @override
   bool get isYearly => billingMonths == 12;
   String get label => isYearly ? 'Yearly' : 'Monthly';
+}
+
+class MembershipGemsTotal {
+  const MembershipGemsTotal({
+    required this.title,
+    required this.amount,
+    required this.iconKey,
+  });
+
+  static MembershipGemsTotal? fromJson(Object? value) {
+    if (value == null) return null;
+    final json = asJsonMap(value);
+    return MembershipGemsTotal(
+      title: asString(json['title']),
+      amount: asString(json['amount']),
+      iconKey: asString(json['icon_key']),
+    );
+  }
+
+  final String title;
+  final String amount;
+  final String iconKey;
+
+  Map<String, Object?> toJson() => {
+    'title': title,
+    'amount': amount,
+    'icon_key': iconKey,
+  };
+}
+
+class MembershipGemsCard {
+  const MembershipGemsCard({
+    required this.value,
+    this.valueSuffix = '',
+    required this.title,
+    required this.description,
+    required this.iconKey,
+  });
+
+  static MembershipGemsCard? fromJson(Object? value) {
+    if (value == null) return null;
+    final json = asJsonMap(value);
+    return MembershipGemsCard(
+      value: asString(json['value']),
+      valueSuffix: asString(json['value_suffix']),
+      title: asString(json['title']),
+      description: asString(json['description']),
+      iconKey: asString(json['icon_key']),
+    );
+  }
+
+  final String value;
+  final String valueSuffix;
+  final String title;
+  final String description;
+  final String iconKey;
+
+  Map<String, Object?> toJson() => {
+    'value': value,
+    if (valueSuffix.isNotEmpty) 'value_suffix': valueSuffix,
+    'title': title,
+    'description': description,
+    'icon_key': iconKey,
+  };
 }
