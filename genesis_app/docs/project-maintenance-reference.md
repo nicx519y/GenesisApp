@@ -131,7 +131,7 @@ WebSocket 当前协议规则：
 - `HomePage`：首页 feed 和我的 world 卡片入口，默认 App 首屏。列表/卡片展示字段来自 `GenesisApi` 对 v1/home 和 world/origin 数据的映射。
 - `OriginPage`：Origin 模板列表和模板卡片入口。卡片组件在 `lib/components/origin/origin_item_card.dart`，列表组合在 `lib/pages/origin/origin_page.dart`。
 - `OriginWorldPage`：Origin 详情/预览页，不等同于已加入 world。复用 `WorldDetailsPageScaffold`、`WorldDetailsShell`、`WorldMap`、`WorldTickEventItem`；Launch 通过 `showOriginRoleLaunchSheet` 选择角色后创建/进入 world。Origin inline chat 是 launch-only 预览，不应显示真实连接状态。
-- Origin 开场面板及地点预览复用同一角色卡片组件和编辑交互控制器。首卡始终是可编辑的自定义角色，优先用 `precharacter` 预填，缺失时用当前用户资料。推荐角色保留在后续的模板卡中。卡片正面的 Identity 最多 3 行，详情在卡内完整滚动。自定义角色表单对预填、键入和粘贴统一按可见字符截断，名称、身份、个性、Setting 的上限分别为 30、100、100、500。
+- Origin 开场面板及地点预览复用同一角色卡片组件和编辑交互控制器。登录后首卡是可编辑的自定义角色，优先用 `precharacter` 预填，缺失时用当前用户资料。未登录时只展示模板角色，推荐角色在模板卡内优先。卡片正面的 Identity 最多 3 行，详情在卡内完整滚动。自定义角色表单对预填、键入和粘贴统一按可见字符截断，名称、身份、个性、Setting 的上限分别为 30、100、100、500。
 - Origin 开场面板及地点预览的 Your Persona 编辑表单打开时不默认聚焦或弹出键盘。从输入框外拖动表单收起键盘，从输入框内开始的拖动保留输入焦点和键盘。两种拖动都不退出编辑，也不传给背后的面板。非编辑态保留原有拖动收起键盘行为。
 - Your Persona 的 Setting 下方复用 Launch Custom 的红色 `Fill from my profile` 文字操作。成功读取资料后仅带入头像和姓名，清空 Identity、Personality 和 Setting；资料头像或姓名缺失时对应留空。姓名按当前表单的字符上限截断，点 Done 后才应用。
 - `WorldPage`：监听账号会话变更，登录后重新读取当前 UID 和 World Detail，以服务端 `relation_status` 更新底部操作；交互登录不自动申请或 Tick。旧账号详情响应不得覆盖新会话，进行中的详情请求结束后补做会话刷新；同时释放旧聊天室和小手机会话，重新获取当前账号的音乐租约，避免引用已释放的播放器。已创建/加入的 world 详情页。使用同一套 floating map + panel scaffold。进入页面后先拉 world detail，只有 `relation_status` 为 `owner` 或 `joined` 才启动长期 chatroom WebSocket；`approved` 只用于 Launch 流，不代表已连接。
@@ -146,7 +146,7 @@ WebSocket 当前协议规则：
 - `PostDetailPage`：单条讨论详情和回复分页。不要把“进入详情”和“直接打开回复 sheet”混在一起；详情页自己负责回复 composer。
 - `CreateOriginPage`：创建 Origin 的多步骤 flow。草稿存储在 `CreateOriginDraftStore`，缓存 key 是 `create_origin_draft_v1`；最终 payload 由 draft 转为 `/api/v1/origin/create` 所需结构。
 - `EditOriginPage`：编辑已有 Origin。先拉详情并转换成 `MemoryOriginDraftRepository`，复用 origin editor 页和 create flow 外壳，保存走 update 接口。
-- `SearchPage`：全局搜索，结果按 origin/world/user 分流，历史记录在 `SearchHistoryStore`。
+- `SearchPage`：全局搜索，结果按 origin/world/user 分流，历史记录在 `SearchHistoryStore`。点击搜索历史标签会填入关键词并触发搜索，不自动聚焦搜索框。
 - `MePage/UserInfoPage/FollowsPage`：当前用户、他人资料、关注/粉丝。Me 优先使用本地 session/cache，避免入口被网络阻塞。
 - `SettingsPage/DeveloperPage`：设置和开发维护入口。开发页包含 direct message cache 清理、Gateway host 覆盖、清空 Gateway auth、本地签名诊断等调试功能；Gateway 细节见 `docs/gateway-auth.md`。
 

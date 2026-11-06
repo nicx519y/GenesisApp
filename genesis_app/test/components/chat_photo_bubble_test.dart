@@ -95,6 +95,83 @@ void main() {
     },
   );
 
+  testWidgets(
+    'decoded photo fades over the previous image before replacing it',
+    (tester) async {
+      const first = 'https://cdn.worldo.ai/photo-first.png';
+      const next = 'https://cdn.worldo.ai/photo-next.png';
+      const failed = 'https://cdn.worldo.ai/photo-failed.png';
+      final frames = {
+        for (final url in [first, next, failed]) url: Completer<ImageInfo>(),
+      };
+      debugGenesisStaticNetworkImageCompleter = (key) =>
+          _ControlledCompleter(frames[key.imageUrl.split('?').first]!.future);
+      addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+
+      Finder layer(String url) => find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            (widget.image as GenesisStaticNetworkImageProvider).imageUrl
+                .startsWith(url),
+      );
+      double opacity(String url) => tester
+          .widget<Opacity>(
+            find.descendant(of: layer(url), matching: find.byType(Opacity)),
+          )
+          .opacity;
+
+      await tester.pumpWidget(_photoHost(imageUrl: first));
+      frames[first]!.complete(ImageInfo(image: _frame(20, 30)));
+      await tester.pump();
+      expect(opacity(first), 0);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(opacity(first), inExclusiveRange(0, 1));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(_photoHost(imageUrl: next));
+      expect(layer(first), findsOneWidget);
+      expect(layer(next), findsOneWidget);
+      expect(
+        find.descendant(of: layer(next), matching: find.byType(RawImage)),
+        findsNothing,
+      );
+      frames[next]!.complete(ImageInfo(image: _frame(20, 30)));
+      await tester.pump();
+      await tester.pump();
+      expect(opacity(next), 0);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(opacity(next), inExclusiveRange(0, 1));
+      expect(
+        tester.widgetList<Image>(find.byType(Image)).map((image) => image.key),
+        [
+          tester.widget<Image>(layer(first)).key,
+          tester.widget<Image>(layer(next)).key,
+        ],
+      );
+      expect(
+        find.descendant(of: layer(first), matching: find.byType(Opacity)),
+        findsNothing,
+      );
+      await tester.pumpAndSettle();
+      expect(layer(first), findsNothing);
+      expect(layer(next), findsOneWidget);
+
+      await tester.pumpWidget(_photoHost(imageUrl: failed));
+      frames[failed]!.completeError(StateError('controlled image failure'));
+      await tester.pumpAndSettle();
+      expect(layer(next), findsOneWidget);
+      expect(
+        find.descendant(of: layer(failed), matching: find.byType(RawImage)),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final failFullImage in [false, true]) {
     testWidgets(
       'photo preview retains clicked frame through flight, cache eviction and full-image ${failFullImage ? 'failure' : 'load'}',
@@ -398,7 +475,10 @@ ui.Image _frame(int width, int height) {
   return image;
 }
 
-Widget _photoHost({double? availableWidth}) => MaterialApp(
+Widget _photoHost({
+  double? availableWidth,
+  String imageUrl = 'https://cdn.worldo.ai/photo.png',
+}) => MaterialApp(
   home: Scaffold(
     body: SingleChildScrollView(
       child: SizedBox(
@@ -412,12 +492,12 @@ Widget _photoHost({double? availableWidth}) => MaterialApp(
             status: 'sent',
             senderType: 'image',
             text: '',
-            imageUrl: 'https://cdn.worldo.ai/photo.png',
-            photo: const ChatPhoto(
+            imageUrl: imageUrl,
+            photo: ChatPhoto(
               taskId: 'task',
               requestId: '',
               status: ChatPhotoStatus.succeeded,
-              imageUrl: 'https://cdn.worldo.ai/photo.png',
+              imageUrl: imageUrl,
             ),
           ),
           style: kLocationChatStyle,

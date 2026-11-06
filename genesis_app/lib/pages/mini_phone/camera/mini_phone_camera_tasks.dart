@@ -120,7 +120,11 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
       )
       .firstOrNull;
 
-  Future<void> submit(PhoneCameraRequest draft) async {
+  String? recordCaptureClick() => _disposed || requests.uid == null
+      ? null
+      : generationMonitor?.call()?.recordClick('camera');
+
+  Future<void> submit(PhoneCameraRequest draft, {String? attemptId}) async {
     if (submitting || requests.uid == null || _disposed) return;
     if (hasConflict(draft)) {
       throw ApiException(
@@ -153,7 +157,7 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
       }
       if (!_current(generation)) return;
       monitor = generationMonitor?.call();
-      monitor?.start('camera', write.id);
+      monitor?.start('camera', write.id, attemptId: attemptId);
       final receipt = await api.createCameraPhoto(request);
       if (!_current(generation)) return;
       if (receipt.worldId != worldId ||
@@ -161,13 +165,13 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
               receipt.photo.requestId != write.id) {
         throw const FormatException('Camera receipt identity mismatch');
       }
-      monitor?.observe('camera', receipt.photo, requestId: write.id);
+      monitor?.acceptReceipt('camera', write.id, receipt.photo);
       accept(receipt.photo, requestId: write.id);
       await saveJournal();
     } catch (error) {
       if (!_current(generation)) return;
       if (error is ApiException && error.kind == ApiExceptionKind.business) {
-        monitor?.finish('camera', write.id);
+        monitor?.reject('camera', write.id, errorCode: error.code);
       }
       // A push can confirm acceptance while the HTTP response is lost.
       if (!write.accepted) {
@@ -278,8 +282,25 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
           final match = wanted[notice['obj_id']];
           if (match == null) continue;
           final task = match.task;
-          if (notice['notice_type'] == 'photo_failed') {
-            monitor?.finish('camera', match.requestId);
+          final status = switch (notice['notice_type']) {
+            'photo_failed' => PhotoTaskStatus.failed,
+            'photo_succeeded' => PhotoTaskStatus.succeeded,
+            _ => null,
+          };
+          if (status == null) continue;
+          if (status == PhotoTaskStatus.succeeded) {
+            successAssets[photoTaskId(target['asset_id'])] = task;
+          }
+          monitor?.observe(
+            'camera',
+            PhotoTask(
+              taskId: task.taskId,
+              requestId: task.requestId,
+              status: status,
+            ),
+            requestId: match.requestId,
+          );
+          if (status == PhotoTaskStatus.failed) {
             accept(
               PhotoTask(
                 taskId: task.taskId,
@@ -299,12 +320,8 @@ class MiniPhoneCameraTasks extends ChangeNotifier {
                     .id,
               );
             }
-            wanted.remove(task.taskId);
-          } else if (notice['notice_type'] == 'photo_succeeded') {
-            successAssets[photoTaskId(target['asset_id'])] = task;
-            monitor?.finish('camera', match.requestId);
-            wanted.remove(task.taskId);
           }
+          wanted.remove(task.taskId);
         }
         read += list.length;
         final total = response['total'];

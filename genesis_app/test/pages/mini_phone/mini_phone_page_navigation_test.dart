@@ -19,6 +19,7 @@ import 'package:genesis_flutter_android/pages/mini_phone/mini_phone.dart';
 import 'package:genesis_flutter_android/network/mini_phone/mini_phone_models.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera.dart';
+import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_cast.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/camera/mini_phone_camera_widgets.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/photos/mini_phone_photos_page.dart';
 import 'package:genesis_flutter_android/pages/mini_phone/posts/mini_phone_create_post_page.dart';
@@ -143,6 +144,48 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
+
+  testWidgets('camera shows the current account character first', (
+    tester,
+  ) async {
+    final backend = PhoneBackend();
+    final session = await mount(
+      tester,
+      TargetPlatform.android,
+      initialScreen: MiniPhoneScreen.camera,
+      store: MiniPhoneStore(
+        api: backend.api,
+        worldId: 'w',
+        namespace: 'camera-cast-order',
+        readUid: () async => backend.uid,
+        accountRevision: backend.revision,
+        cacheStorage: MemoryMiniPhoneCacheStorage(),
+        loadWorld: () async => WorldDetail.fromJson({
+          'characters': [
+            {'char_id': 'other', 'name': 'Other player', 'player_uid': 'v'},
+            {'char_id': 'c', 'name': 'Character'},
+            {'char_id': 'own', 'name': 'My character', 'player_uid': 'u'},
+          ],
+        }),
+      ),
+    );
+    final choices = tester.widgetList<MiniPhoneCameraCastChoice>(
+      find.byType(MiniPhoneCameraCastChoice),
+    );
+    expect(choices.map((choice) => choice.person.id), ['own', 'other', 'c']);
+    expect(choices.map((choice) => choice.label), [
+      'You',
+      'Other player',
+      'Character',
+    ]);
+
+    await tester.tap(find.text('You'));
+    await tester.tap(find.text('Other player'));
+    expect(session.camera!.selectedPeople.map((person) => person.id), [
+      'other',
+      'own',
+    ]);
+  });
 
   testWidgets(
     'phone entry refreshes cached camera options without blocking captures',

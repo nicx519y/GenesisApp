@@ -1426,9 +1426,9 @@ Query：
 `preset_character_id` 与 `custom_role` 必须二选一；两者都为空或都非空会返回 `4004`。
 `preset_character_override` 只能用于 preset 模式，并且至少包含一个允许覆盖的字段；custom 模式携带时服务端忽略。
 
-Origin 详情的 Opening 和地点预览固定以自定义角色作为首卡。优先显示当前页已保存的编辑，其次整体使用 `origin/detail.precharacter`，缺失或无效才使用当前用户资料。两种来源都没有时仍展示可编辑的空白首卡。预设 `name/identity/personality/bio` 中的 `{{user}}` 在用户资料加载后替换为用户名，`bio` 对应 Setting。预设有头像时沿用，头像为空时补用户头像，其余空文本保留为空。使用用户头像时先显示本地缓存，卡片尺寸的 CDN 图片解码后替换。用户显式删除头像后不再补回，账号切换会清理旧账号的草稿和预填结果。
+Origin 详情的 Opening 和地点预览在登录后以自定义角色作为首卡。未登录时只展示模板角色。自定义首卡优先显示当前页已保存的编辑，其次整体使用 `origin/detail.precharacter`，缺失或无效才使用当前用户资料。两种来源都没有时仍展示可编辑的空白首卡。预设 `name/identity/personality/bio` 中的 `{{user}}` 在用户资料加载后替换为用户名，`bio` 对应 Setting。预设有头像时沿用，头像为空时补用户头像，其余空文本保留为空。使用用户头像时先显示本地缓存，卡片尺寸的 CDN 图片解码后替换。用户显式删除头像后不再补回，账号切换会清理旧账号的草稿和预填结果。
 
-模板角色排在自定义首卡后，推荐角色在模板卡内优先并保留推荐标记。预览对白保留原角色身份。发送开场消息时，自定义角色通过 `custom_role` 提交，模板角色通过 `preset_character_id` 提交。Origin 模板和用户资料均不回写。
+推荐角色在模板卡内优先并保留推荐标记。预览对白保留原角色身份。发送开场消息时，自定义角色通过 `custom_role` 提交，模板角色通过 `preset_character_id` 提交。Origin 模板和用户资料均不回写。
 
 Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；详情预览可显示完整设定，角色编辑表单中的 Setting 按 500 个可见字符截断，草稿保留原 `goal`。请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
 
@@ -2339,7 +2339,7 @@ query：
 - `target_id*`: string，举报对象业务 id；`message` 当前按 `global_message_id` 原样记录，不做存在性校验
 - `content*`: string，举报内容；服务端 trim 后不能为空，最长 1000 字符
 
-客户端 MiniPhone 接入约定（2026-11-05）：手机消息复用此接口，提交 `target_type=message`、`target_id=手机 message_id 的十进制字符串`。该 ID 与 LocationChat 的 `global_message_id` 属于不同消息空间，不做客户端互转；此约定已确认用于客户端接入，服务端准确定位手机消息仍待真实联调验收，不将受控测试视为后端已支持的证据。
+MiniPhone 客户端复用此接口，提交 `target_type=message` 和 `target_id=<world_id>_<message_id>`，由当前 World ID、下划线及手机消息 ID 的十进制字符串拼接。LocationChat 提交 `global_message_id`。服务端准确定位手机消息仍待真实联调验收。
 
 请求示例：
 
@@ -2597,7 +2597,7 @@ query：
 | `GET /api/v1/message/unread` | `MessagesV1Api.unreadSummary` 已改用消息页未读统计接口，响应消费 `world_apply_unread/follow_unread/interaction_unread/direct_message_unread/total_unread`。 |
 | `GET /api/v1/message/notifications` | `MessagesV1Api.notifications` 已改为必传 `block` query，枚举 `world_apply/follow/interaction`；页面入口已从旧 `system/follower/comment` 映射为 Apifox 的三个 block。 |
 | `POST /api/v1/message/read` | `MessagesV1Api.markNotificationsRead` 已改为 `/message/read`，body 使用 `block` 或 `notification_id`，不再提交旧 `category/notification_ids`。 |
-| `POST /api/v1/report/create` | 已新增 `ReportV1Api.create`，body 使用 `target_type/target_id/content`，响应消费 `report_id`；World、Worldo、用户详情页和 location chat 长按菜单已接入，其中 message report 的 `target_id` 使用 `global_message_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验 `target_type`、空 `target_id/content` 与 1000 字符长度限制，并为用户详情页 report 补充接受 `target_type=user`。 |
+| `POST /api/v1/report/create` | 已新增 `ReportV1Api.create`，body 使用 `target_type/target_id/content`，响应消费 `report_id`；LocationChat 消息举报的 `target_id` 使用 `global_message_id`，MiniPhone 私聊使用 `<world_id>_<message_id>`；World、Worldo 和用户详情页也已接入；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验 `target_type`、空 `target_id/content` 与 1000 字符长度限制，并为用户详情页 report 补充接受 `target_type=user`。 |
 | `POST /api/v1/feedback/create` | 已新增 `FeedbackV1Api.create`，body 支持可选 `content` / `rating`（1–5），至少一项有效，响应消费 `feedback_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验空 `content` 与 1000 字符长度限制。 |
 | `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |
 | `POST /api/v1/direct_message/unblock` | 已新增 `DmV1Api.unblock`，body 使用 `target_uid`。 |

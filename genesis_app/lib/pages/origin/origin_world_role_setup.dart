@@ -32,7 +32,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
   final List<OriginCharacter> characters;
   final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool launchBusy;
-  final OriginCustomRoleDraft profileRole;
+  final OriginCustomRoleDraft? profileRole;
   final int profileRoleRevision;
   final String selectedRoleId;
   final ValueChanged<String> onSelectedRoleChanged;
@@ -98,7 +98,8 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   }
 
   List<String> get _roleIds => <String>[
-    _OriginWorldPageState._profileLocationChatRoleId,
+    if (widget.profileRole != null)
+      _OriginWorldPageState._profileLocationChatRoleId,
     for (final character in _remainingCharacters)
       if (_characterStableId(character).isNotEmpty)
         _characterStableId(character),
@@ -161,10 +162,12 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
 
   void _precacheUpcomingRoleAvatars(int currentIndex) {
     if (!mounted) return;
+    final profileRole = widget.profileRole;
     final avatarSourceKeys = <String>[
-      widget.profileRole.avatarPreviewBytes == null
-          ? _resolveAssetUrl(widget.profileRole.avatarUrl).trim()
-          : '',
+      if (profileRole != null)
+        profileRole.avatarPreviewBytes == null
+            ? _resolveAssetUrl(profileRole.avatarUrl).trim()
+            : '',
       ..._remainingCharacters
           .where((character) => _characterStableId(character).isNotEmpty)
           .map((character) => _resolveAssetUrl(character.avatar).trim()),
@@ -226,6 +229,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final profileRole = widget.profileRole;
     final profileRoleRevision = widget.profileRoleRevision;
     final cardCount = _cardCount;
+    if (cardCount == 0) return const SizedBox.shrink();
     final currentCardIndex = _currentCardIndex.clamp(0, cardCount - 1);
     final cardsController = _cardsController;
     if (cardsController == null) return const SizedBox.shrink();
@@ -272,7 +276,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
               itemCount: cardCount,
               itemBuilder: (context, index) {
                 final selected = index == currentCardIndex;
-                if (index == 0) {
+                if (profileRole != null && index == 0) {
                   return Center(
                     child: SizedBox(
                       width: cardWidth,
@@ -303,7 +307,8 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                     ),
                   );
                 }
-                final character = characters[index - 1];
+                final character =
+                    characters[index - (profileRole == null ? 0 : 1)];
                 final stableId = _characterStableId(character);
                 return Center(
                   child: SizedBox(

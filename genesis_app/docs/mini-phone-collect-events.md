@@ -6,7 +6,7 @@
 
 所有事件调用 `GenesisTelemetry.collectLog`，复用现有 SQLite 队列和批量上传器。默认端点为 `https://collect.worldo.ai/api/v1/collect`，受公共配置和上传策略控制。默认每 5 秒尝试上传，每批最多 100 条且不超过 256 KiB；未确认成功的事件按原 `event_id` 重试。
 
-下表覆盖核心访问和操作，以及 Send 和生图超时监控。不采集曝光、停留、刷新、分页、滚动、后台恢复或 AI 回复终态。预览不采集；自动音乐行为不计为用户操作。`collectLogAndWait` 的返回值只表示入队结果，不表示服务端入库。
+下表覆盖核心访问和操作、生图业务事件，以及 Send 和生图超时监控。恢复查询只为当前 World 会话内实际提交的生图补记终态。不采集曝光、停留、刷新、分页、滚动或 AI 文本回复终态。预览不采集；自动音乐行为不计为用户操作。`collectLogAndWait` 的返回值只表示入队结果，不表示服务端入库。
 
 ## 公共字段
 
@@ -47,6 +47,7 @@
 | `mini_phone_open` | event | 手机路由首次实际展示；每次打开一次，直达私聊也记录 | 实际首屏 | open | 空 | open_id、source、is_restored |
 | `mini_phone_page` | pageview | 页面首次可见、切换或返回后重新可见；聊天角色/评论帖子切换也记录 | 页面枚举 | view | 空 | open_id、source、from_page、navigation_type；chat 带 char_id，comments 带 post_id |
 | `mini_phone_send_lock_timeout` | chat_timeout | 普通 Send 等待连续 15 秒无有效进展；同操作一次，20 秒释放不追加上报 | char_id | phone_dm / phone_dm_prepare | 累计等待毫秒 | operation_id、client_request_id（准备阶段省略）、reason=wait_stalled、phase、idle_duration_ms、report_after_ms=15000、release_after_ms=20000；其余字段同共用 SendGate |
+| `photo_generation` | event | 聊天相机按钮或手机快门点击、create 受理、生成终态、余额不足拒绝 | chat / camera | click / accepted / succeeded / failed / rejected | attempt_id | client_request_id、task_id（已知时）、failure_code（已知时），聊天另带 location_id 及已知的 conversation_round_id、card_id |
 | `photo_generation_timeout` | monitor | 聊天或相机 create 发出 120 秒后仍未收到终态 | chat / camera | client_request_id | task_id（已知时） | timeout_ms=120000、location_id（仅聊天） |
 | `mini_phone_dm_send` | event | 有效发送提交及该次 HTTP 返回结果 | char_id | 提交阶段 | attempt_id | open_id、source=chat、client_request_id、is_retry、dm_session_id、peer_type；失败时错误字段 |
 | `mini_phone_post_publish` | event | 有效点击 Post，在图片上传前记录 submit；上传/提交返回时记录结果 | new | 提交阶段 | attempt_id | open_id、source=create、has_image、is_retry、client_request_id（已分配时）；失败时错误字段 |
@@ -59,6 +60,10 @@
 | `mini_phone_wallpaper_save` | event | 有效提交保存及保存结果 | wallpaper | 壁纸阶段 | attempt_id | open_id、source=settings、wallpaper_type=preset/custom；失败时错误字段 |
 | `mini_phone_model_change` | event | 模型提交成功且值改变；失败不记成功事件 | model | changed | 空 | open_id、source=models、previous_model、model_code、scope=server |
 | `mini_phone_memory_change` | event | Token 提交成功且值改变；失败不记成功事件 | memory_tokens | changed | 空 | open_id、source=models、previous_tokens（已知时）、memory_tokens、scope=server |
+
+### 生图业务事件
+
+`photo_generation` 的两处入口共用 World 会话的追踪状态。点击按 `attempt_id` 记录，受理与终态按 `client_request_id` 去重并沿用首次提交的 `attempt_id`。收到的推送终态可以早于 HTTP 受理。余额不足的提交拒绝记录 `rejected`，任务失败记录 `failed`。完整字段及示例见[生图 Collect 埋点方案与字段表](photo-generation-collect-plan.md)。
 
 <a id="photo-generation-timeout"></a>
 

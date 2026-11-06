@@ -44,8 +44,9 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../create/create_form_widgets.dart';
 import '../../platform/keyboard/genesis_keyboard_animation.dart';
-import '../../platform/session/user_session_store.dart';
 import '../../platform/session/profile_avatar_cache.dart';
+import '../../platform/session/session_revision_subscription.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -216,6 +217,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   String _launchedPresetRolesCacheKey = '';
   String _launchedPresetRolesPreloadScheduledForOriginId = '';
   ValueListenable<int>? _userInfoRevisionListenable;
+  late final _sessionRevisionSubscription = SessionRevisionSubscription(
+    _handleRoleSessionChanged,
+  );
+  bool _canUseCustomRole = false;
   OriginCustomRoleDraft? _cachedProfileRole;
   OriginCustomRoleDraft? _cachedPrecharacterRole;
   OriginCustomRoleDraft? _localProfileRoleOverride;
@@ -235,6 +240,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   OriginCustomRoleDraft get _openingProfileRole =>
       _prefilledCustomRole ?? const OriginCustomRoleDraft();
+
+  OriginCustomRoleDraft? get _visibleCustomRole =>
+      _canUseCustomRole ? _openingProfileRole : null;
 
   void _refreshPrecharacterRole() {
     final template = _origin?.precharacter;
@@ -324,14 +332,19 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nextRevisionListenable = AppServicesScope.read(
-      context,
-    ).sessionStore.userInfoRevision;
+    final services = AppServicesScope.of(context);
+    _sessionRevisionSubscription.bind(services.sessionRevision);
+    final nextRevisionListenable = services.sessionStore.userInfoRevision;
     if (identical(_userInfoRevisionListenable, nextRevisionListenable)) return;
+    final replacingSessionStore = _userInfoRevisionListenable != null;
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _userInfoRevisionListenable = nextRevisionListenable;
     nextRevisionListenable.addListener(_handleCachedUserInfoChanged);
-    unawaited(_refreshCachedProfileRole());
+    if (replacingSessionStore) {
+      _handleRoleSessionChanged();
+    } else {
+      unawaited(_refreshCachedProfileRole());
+    }
   }
 
   @override
@@ -391,6 +404,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     unawaited(_initialRenderPerformanceOperation?.cancel());
     _originLoadGeneration += 1;
     _cachedProfileRoleLoadGeneration += 1;
+    _sessionRevisionSubscription.dispose();
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _locationChatBackgroundPreloader.dispose();
     _roleAvatarSnapshots.dispose();
@@ -405,6 +419,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _locationComposerFocused.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     super.dispose();
+  }
+
+  void _handleRoleSessionChanged() {
+    _canUseCustomRole = false;
+    _handleCachedUserInfoChanged();
   }
 
   void _handleCachedUserInfoChanged() {
@@ -431,6 +450,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     try {
       final services = AppServicesScope.read(context);
       final uid = await services.sessionStore.readLoginUid();
+      if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
+      final canUseCustomRole = uid != null;
+      if (canUseCustomRole != _canUseCustomRole) {
+        setState(() => _canUseCustomRole = canUseCustomRole);
+      }
       OriginCustomRoleDraft? nextRole;
       if (uid != null) {
         final userInfo = await services.sessionStore.readUserInfo();
@@ -779,7 +803,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _precacheRoleCardAvatarImages(OriginDetail origin) {
-    _precacheProfileRoleAvatar(_openingProfileRole);
+    final customRole = _visibleCustomRole;
+    if (customRole != null) _precacheProfileRoleAvatar(customRole);
     final mediaQuery = MediaQuery.maybeOf(context);
     if (mediaQuery == null) return;
     final urls = origin.characters
@@ -1142,7 +1167,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           if (worldId.isEmpty) return;
           _enterLaunchedWorld(worldId);
         },
-        profileRole: _openingProfileRole,
+        profileRole: _visibleCustomRole,
         profileRoleRevision: profileRoleRevision,
         onFillFromProfile: _loadRoleProfileForFill,
         onSaveProfileRole: (role) =>

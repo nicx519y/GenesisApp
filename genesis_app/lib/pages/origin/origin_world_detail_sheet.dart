@@ -122,7 +122,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final OriginLaunchSource? activeLaunchSource;
   final List<OriginMyLaunchPresetCharacter>? launchedPresetRoles;
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
-  final OriginCustomRoleDraft profileRole;
+  final OriginCustomRoleDraft? profileRole;
   final int profileRoleRevision;
   final OriginRoleProfileLoader onFillFromProfile;
   final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
@@ -1549,14 +1549,15 @@ class _OriginDetailDraggableSheetState
                           bottom: 0,
                           child: _buildCollapsedOpeningRoleAction(bottomInset),
                         ),
-                        Positioned.fill(
-                          child: _OriginRoleEditorHost(
-                            interaction: _roleEditorInteraction,
-                            role: widget.profileRole,
-                            busy: widget.activeLaunchSource != null,
-                            onFillFromProfile: widget.onFillFromProfile,
+                        if (widget.profileRole case final profileRole?)
+                          Positioned.fill(
+                            child: _OriginRoleEditorHost(
+                              interaction: _roleEditorInteraction,
+                              role: profileRole,
+                              busy: widget.activeLaunchSource != null,
+                              onFillFromProfile: widget.onFillFromProfile,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),

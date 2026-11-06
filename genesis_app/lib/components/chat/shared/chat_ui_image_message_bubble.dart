@@ -89,21 +89,14 @@ class ChatImageMessage extends StatelessWidget {
                     ? Stack(
                         fit: StackFit.expand,
                         children: [
-                          GenesisImageViewerSourceAnchor(
-                            previewImageProvider: preview,
-                            fit: BoxFit.cover,
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: (source) =>
-                                _showImageViewer(context, source),
-                            child: Image(
-                              image: preview,
-                              fit: BoxFit.cover,
-                              frameBuilder: (_, child, frame, synchronous) =>
-                                  synchronous || frame != null
-                                  ? child
-                                  : const SizedBox.expand(),
-                              errorBuilder: (_, _, _) =>
-                                  const SizedBox.expand(),
+                          _ChatPhotoPreview(
+                            key: ValueKey(message.localId),
+                            imageUrl: photo.imageUrl,
+                            provider: preview,
+                            onTap: (source, imageUrl) => _showImageViewer(
+                              context,
+                              source,
+                              displayedPhotoUrl: imageUrl,
                             ),
                           ),
                           if (!photo.terminal)
@@ -183,7 +176,11 @@ class ChatImageMessage extends StatelessWidget {
     );
   }
 
-  void _showImageViewer(BuildContext context, GenesisImageViewerSource source) {
+  void _showImageViewer(
+    BuildContext context,
+    GenesisImageViewerSource source, {
+    String? displayedPhotoUrl,
+  }) {
     final sourceMessages = imageViewerMessages.isEmpty
         ? <ChatMessageVm>[message]
         : imageViewerMessages;
@@ -214,12 +211,85 @@ class ChatImageMessage extends StatelessWidget {
     showGenesisImageViewer(
       context,
       imageUrls: [
-        for (final entry in indexedMessages) _rawImageUrl(entry.message),
+        for (final entry in indexedMessages)
+          if (entry.message.localId == message.localId &&
+              displayedPhotoUrl != null)
+            displayedPhotoUrl
+          else
+            _rawImageUrl(entry.message),
       ],
       source: source,
       initialIndex: viewerInitialIndex,
     );
   }
+}
+
+typedef _ChatPhotoImage = ({String url, ImageProvider<Object> provider});
+
+class _ChatPhotoPreview extends StatefulWidget {
+  const _ChatPhotoPreview({
+    super.key,
+    required this.imageUrl,
+    required this.provider,
+    required this.onTap,
+  });
+
+  final String imageUrl;
+  final ImageProvider<Object> provider;
+  final void Function(GenesisImageViewerSource, String imageUrl) onTap;
+
+  @override
+  State<_ChatPhotoPreview> createState() => _ChatPhotoPreviewState();
+}
+
+class _ChatPhotoPreviewState extends State<_ChatPhotoPreview> {
+  _ChatPhotoImage? _displayedImage;
+
+  _ChatPhotoImage get _target =>
+      (url: widget.imageUrl, provider: widget.provider);
+
+  @override
+  Widget build(BuildContext context) {
+    final target = _target;
+    final displayed = _displayedImage;
+    final viewerImage = displayed ?? target;
+    return GenesisImageViewerSourceAnchor(
+      previewImageProvider: viewerImage.provider,
+      fit: BoxFit.cover,
+      borderRadius: BorderRadius.circular(8),
+      onTap: (source) => widget.onTap(source, viewerImage.url),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (displayed != null) _imageLayer(displayed),
+          if (displayed != target) _imageLayer(target, reveal: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _imageLayer(_ChatPhotoImage image, {bool reveal = false}) => Image(
+    // Keep the decoded Image mounted as the incoming layer becomes the base.
+    key: ValueKey(image),
+    image: image.provider,
+    fit: BoxFit.cover,
+    excludeFromSemantics: reveal,
+    frameBuilder: (_, child, frame, _) {
+      if (!reveal) return child;
+      if (frame == null) return const SizedBox.expand();
+      return TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        onEnd: () {
+          if (_target == image) setState(() => _displayedImage = image);
+        },
+        builder: (_, opacity, child) => Opacity(opacity: opacity, child: child),
+        child: child,
+      );
+    },
+    errorBuilder: (_, _, _) => const SizedBox.expand(),
+  );
 }
 
 /// The caption under a generated photo: a record of the shot, not narration,

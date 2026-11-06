@@ -1,3 +1,6 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/edit/edit.dart';
@@ -10,8 +13,96 @@ import 'package:genesis_flutter_android/pages/chat/location_chat_reply_card_swit
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_layout_bridge.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/network/chatroom/chat_photo.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
 void main() {
+  testWidgets('committing a card switch keeps the incoming photo visible', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.red, BlendMode.src);
+    final picture = recorder.endRecording();
+    final frame = picture.toImageSync(20, 30);
+    picture.dispose();
+    addTearDown(frame.dispose);
+    const url = 'https://cdn.worldo.ai/reply-card-switch-photo.png';
+    debugGenesisStaticNetworkImageCompleter = (_) =>
+        OneFrameImageStreamCompleter(
+          SynchronousFuture(ImageInfo(image: frame.clone())),
+        );
+    addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+    final photo = ChatMessageVm(
+      localId: 'card-switch-photo',
+      senderId: '',
+      senderName: '',
+      text: '',
+      isMe: false,
+      status: 'sent',
+      senderType: 'image',
+      photo: const ChatPhoto(
+        taskId: 'card-switch-photo',
+        requestId: '',
+        status: ChatPhotoStatus.succeeded,
+        imageUrl: url,
+      ),
+    );
+    final cards = [
+      LocationChatReplyCard(id: 1, messages: [photo]),
+      LocationChatReplyCard(id: 2, messages: [_message('regenerated', 2)]),
+    ];
+    final history = List.generate(12, (i) => _message('photo-history-$i', 3));
+    var current = 2;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 300,
+            child: StatefulBuilder(
+              builder: (context, update) => LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                topTitle: '',
+                messages: [...history, ...cards[current - 1].messages],
+                replyCards: cards,
+                replyCurrentCardId: current,
+                replyActionsIdentity: 'photo-switch-round',
+                replyCardCount: 2,
+                replyCardIndex: current - 1,
+                onReplyCardSelected: (id) {
+                  update(() => current = id);
+                  return true;
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final switcher = tester.state<LocationChatReplyCardSwitcherState>(
+      find.byType(LocationChatReplyCardSwitcher),
+    );
+    final photoFrame = find.descendant(
+      of: find.byType(ChatImageMessage),
+      matching: find.byType(RawImage),
+    );
+    switcher.switchBy(-1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 384));
+    await tester.pump();
+    expect(current, 2);
+    final incomingFrame = tester.element(photoFrame);
+
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump();
+    expect(current, 1);
+    expect(tester.takeException(), isNull);
+    expect(identical(tester.element(photoFrame), incomingFrame), isTrue);
+  });
+
   testWidgets('stable rows still render in-place message mutations', (
     tester,
   ) async {

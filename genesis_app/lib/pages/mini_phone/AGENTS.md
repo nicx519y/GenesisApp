@@ -27,7 +27,7 @@
 
 ## 必须保持的约束
 
-- Messages 收到的真实 AI／其他玩家消息长按复用公共 Copy / Report 消息菜单及举报浮层；本人消息、本地开场提示与 AI 免责声明不新增菜单。举报提交 `target_type=message` 与手机 `message_id`，不冒用 `global_message_id`；服务端定位验收边界见集成文档 Required client behavior。
+- Messages 收到的真实 AI／其他玩家消息长按复用公共 Copy / Report 消息菜单及举报浮层；本人消息、本地开场提示与 AI 免责声明不新增菜单。举报提交 `target_type=message` 和 `target_id=<world_id>_<message_id>`；服务端定位验收边界见集成文档 Required client behavior。
 
 - 应用首页返回桌面时，左上角返回、Android 系统返回及内部 Navigator 的 maybePop 统一交给 AppLaunchTransitionHost 收起；根页面拦截普通路由 pop，保持挂载至动画完成，不能先侧滑退出再直接结束缩放。
 
@@ -113,9 +113,10 @@
 
 - Camera 已接入真实 options/create 与 source=camera 结果事件，独立任务不写聊天或 World History。Camera 与 LocationChat 的实时生图成功/失败提示统一复用公共 `GenesisPushBanner` 顶部横幅，与 New Location / New Character 共用表面和动画；默认 5 秒自动收起，不阻断页面操作，余额不足仍串行进入公共购买面板。草稿随账号/环境/World 清理，关闭相机不取消已提交任务；结果与原请求参数保存在共用手机写请求日志中。LocationChat 拍照能力依据当前 conversation/card，不前置查询 cards；无卡组的正式回复省略 card_id，候选卡使用已知真实卡 ID，已确认后仅选中卡可拍照；通过公共按钮状态接口独立解析，不依赖 Regenerate 的可用性；Regenerate/Go on/Edit/Inspiration busy时拍照仅disabled并保留相机图标，不继承其他操作的loading。聊天 create 请求期间相机 busy，其余回复操作图标 disabled；已记住则直接提交且不询价，否则原地打开说明并异步填价，不跳转 Camera。
 - 每次进入 MiniPhone 后台刷新一次 Camera options，按环境/账号/World 缓存 world_id/price_cent/free_status/styles（name/label/demo_image_url）；打开相机、拍照前后均复用缓存，有缓存时不等待刷新，无缓存时禁用快门并允许从风格入口主动重试。账号切换清理并刷新；生成请求不传价格或免费资格。
-- Camera 与 LocationChat 共用 World 会话生图监控。实际发出 create 后两分钟无终态上报一次 Collect，关闭手机或返回地图继续计时，退出 World 或切换会话取消。
+- Camera 与 LocationChat 共用 World 会话生图埋点。`photo_generation` 记录有效点击、create 受理、生成终态及余额不足拒绝。实际发出 create 后两分钟无终态仍上报一次 `photo_generation_timeout`。关闭手机或返回地图继续追踪，退出 World 或切换会话取消。字段见 [Collect 埋点表](../../../docs/mini-phone-collect-events.md#生图业务事件)。
 - Camera 风格 label 与相片比例在设备本地全局持久化，不按环境/账号/World 隔离：首次 options 成功后保存默认选中值，重进优先恢复，手动切换立即更新；options 刷新保留有效选择，风格已下架时回退并保存当前首个可用风格；每次进入相机重新读取全局选择，账号切换丢弃旧恢复回调但保留全局偏好。
 - MiniPhone Camera 以服务端 price_cent/free_status/styles 展示费用与风格，1–4 个角色、描述可空；价格/资格变化重新确认，偏好独立于聊天和旧预览。失败不重生成、相册重进隐藏旧失败；Inbox 失败不可点击，成功定位相册资产并打开大图。普通 HTTPS 超时处理与原请求幂等重试、恢复及验收边界见 `docs/mini-phone-camera-integration.md`。
 - Camera页面底部不显示基本价格，也不为价格行占位；费用仍在拍照确认弹窗展示。免费资格说明及两行入口名称从首帧保留布局空间；options迟到、价格/资格刷新或风格名称换行不得改变取景框和快门位置，未取得真实配置时不显示免费资格。
 - Camera取景框复用固定封面2:3比例，World封面模糊加暗色遮罩；框内状态与描述用玻璃表面，头像与外部角色条共用48px圆形尺寸。选人仅走下方角色条，无All弹窗。白色细聚焦角线，底部左右分别为风格/相册，中央白色快门。
+- Camera 底部角色条将当前账号在 World 中的角色放在最左侧，其余角色保持原相对顺序。本人由 World Detail 的 `player_uid` 匹配当前账号 UID。
 - Camera键盘弹起隐藏底部操作及角色条并保留布局尺寸，单独关闭Scaffold键盘重排，不影响其他App；描述输入聚焦后仅上移输入框至实际键盘顶边之上，主图位置及尺寸保持不变，禁止通过滚动主图避让。键盘高度或多行输入变化后重新定位，输入框与键盘顶边至少留12逻辑像素间距，键盘收起后恢复原位。描述输入保留回车换行，不额外添加键盘操作栏；超出可见行数时，输入框内触摸滚动保持焦点和键盘，不因滚动通知冒泡触发收键盘。点击输入框外部仍收起键盘并保留草稿。共享MiniGlass可选highlight/tint默认保持其他调用原样。当前UI细节和验证见docs/changes/2026-10-30-camera-role-release.md；历次设计记录见camera-viewfinder文档。

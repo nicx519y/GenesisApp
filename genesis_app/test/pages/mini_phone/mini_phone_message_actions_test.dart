@@ -128,7 +128,7 @@ void main() {
       expect(find.text('Report submitted'), findsOneWidget);
       expect(backend.body(backend.calls('report/create').last), {
         'target_type': 'message',
-        'target_id': '$messageId',
+        'target_id': 'w_$messageId',
         'content': 'Phone message reason',
       });
       await delivery.closeChat(tester, store);

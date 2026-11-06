@@ -2505,6 +2505,11 @@ class _LocationChatAnchoredMessageListState
         locationChatReplyMessagesEqual(cached.snapshot, message)) {
       return cached.child;
     }
+    // The preview becomes a tracked row on commit. Move the photo subtree
+    // with it so the decoded frame and any in-progress fade stay mounted.
+    final imageKey = message.photo == null
+        ? null
+        : cached?.imageKey ?? GlobalKey();
     final child = _TrackedMessageRow(
       mountedRows: currentRole ? _mountedMessageRows : null,
       layoutId: _messageLayoutId(message),
@@ -2516,6 +2521,7 @@ class _LocationChatAnchoredMessageListState
           : ValueKey('preview-${message.localId}'),
       child: _messageRow(
         key: ValueKey(message.localId),
+        imageKey: imageKey,
         visibilityKey: currentRole
             ? _messageVisibilityKeys.putIfAbsent(
                 _messageLayoutId(message),
@@ -2555,6 +2561,7 @@ class _LocationChatAnchoredMessageListState
     rows[message.localId] = (
       identity: identity,
       snapshot: freezeLocationChatReplyMessage(message),
+      imageKey: imageKey,
       child: child,
     );
     return child;
@@ -4562,6 +4569,7 @@ class _LocationChatAnchoredMessageListState
     _rowChildren[layoutId] = (
       identity: identity,
       snapshot: freezeLocationChatReplyMessage(current),
+      imageKey: null,
       child: child,
     );
     return child;
@@ -4572,6 +4580,7 @@ class _LocationChatAnchoredMessageListState
   Widget _messageRow({
     required Key key,
     required Key? visibilityKey,
+    Key? imageKey,
     required Object streamIdentity,
     required ValueGetter<double> streamOrder,
     int? streamCardId,
@@ -4612,6 +4621,7 @@ class _LocationChatAnchoredMessageListState
       key: key,
       applyListHorizontalPadding: true,
       visibilityKey: visibilityKey,
+      imageKey: imageKey,
       message: message,
       imageViewerMessages: imageViewerMessages,
       style: compact
@@ -4950,6 +4960,7 @@ class _RenderReplyControlsLayoutReporter extends RenderProxyBox {
 typedef _CachedMessageRow = ({
   Object identity,
   ChatMessageVm snapshot,
+  GlobalKey? imageKey,
   Widget child,
 });
 

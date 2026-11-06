@@ -6,6 +6,7 @@
 
 - `GenesisApi.miniPhone` 复用既有 Chatroom HTTP 客户端、认证、语言、签名和公共业务错误处理。`cameraOptions` 请求 `phone/photo/options`；`createCameraPhoto` 请求 `phone/photo/create`，不引入第二套传输或超时调度。
 - 创建正文只有 `client_request_id/world_id/character_ids/aspect_ratio/style` 与非空时的 `prompt`，不传价格或免费资格字段。最多选择四个真实 World 角色；描述可空，五种既有比例默认 2:3；风格展示服务端 name，发送 label。
+- 底部角色条将 World Detail 中 `player_uid` 匹配当前账号的角色放到最左侧，其余角色保留原相对顺序。这一排序仅应用于底部角色条，拍照请求仍沿用原角色顺序。
 - `PhotoTask` 保存共享三态、真实图片和结构化失败。聊天解析仍严格要求聊天消息 ID；camera 解析不要求该字段。ID 不经过浮点数。
 - World 的 `MiniPhoneStore.cameraTasks` 持有任务，`MiniPhoneCameraController` 仅持有草稿。正式入口不使用模拟任务队列。关闭相机、相册或手机不取消已提交任务；World 释放停止监听，原请求日志仍保留。
 - 相机复用 World 会话的 [生图超时监控](mini-phone-collect-events.md#photo-generation-timeout)。关闭手机继续计时，退出 World 停止计时。
