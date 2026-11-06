@@ -236,7 +236,6 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
   }
 
   Widget _buildInlineLocationRoles(OriginDetail origin) {
-    final profileRoleRevision = _profileRoleRevision;
     return _OriginSetupRoleSection(
       title: GenesisL10n.current.originStartBySelectingRole,
       bottomPadding: 4,
@@ -247,57 +246,34 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       roleAvatarSnapshots: _roleAvatarSnapshots,
       launchBusy: _launching,
       profileRole: _openingProfileRole,
-      profileRoleRevision: profileRoleRevision,
+      profileRoleRevision: _profileRoleRevision,
       mergedCharacter: _recommendedRole?.character,
       selectedRoleId: _effectiveLocationChatRoleId(origin),
       onSelectedRoleChanged: _selectLocationChatRole,
-      onSaveProfileRole: (role) {
-        if (profileRoleRevision != _profileRoleRevision) return;
-        _saveProfileRoleLocally(role, profileRevision: profileRoleRevision);
-        _setPreviewRoleEditing(false);
-      },
       profileCardPositionKey: _previewRoleCardPositionKey,
-      profileRoleEditing: _previewRoleEditing,
-      onBeginProfileRoleEditing: _editPreviewLocationRole,
-      onCancelProfileRoleEditing: () {
-        _setPreviewRoleEditing(false);
-      },
-      onProfileRoleFocusChanged: (_) {},
-      onProfileRoleInternalInteractionChanged: (_) {},
-      onResumeProfileRoleInternalInteraction: (resume) {
-        // Use the role card's normal next-frame focus/scroll recovery after
-        // the picker returns, including cancellation without a new avatar.
-        WidgetsBinding.instance.addPostFrameCallback((_) => resume());
-        WidgetsBinding.instance.ensureVisualUpdate();
-      },
+      editorInteraction: _previewRoleEditorInteraction,
     );
   }
 
-  Future<void> _editPreviewLocationRole() async {
-    final profileRoleRevision = _profileRoleRevision;
-    final origin = _origin;
-    if (origin == null || _launching) return;
-    if (_recommendedRole != null) {
-      _setPreviewRoleEditing(true);
-      return;
-    }
-    final selection = await showOriginRoleLaunchSheet(
-      context: context,
-      characters: origin.characters,
-      initialCustomTab: true,
-      onFillFromProfile: _customRoleFromProfile,
-      resolveAvatarUrl: _resolveAssetUrl,
+  double _previewKeyboardInset() {
+    final view = View.of(context);
+    return view.viewInsets.bottom / view.devicePixelRatio;
+  }
+
+  double _previewKeyboardSafeAreaInset() {
+    final view = View.of(context);
+    return view.viewPadding.bottom / view.devicePixelRatio;
+  }
+
+  _OriginRoleEditorLayout? _readPreviewRoleEditorLayout() {
+    final card = _previewRoleCardPositionKey.currentContext?.findRenderObject();
+    if (card is! RenderBox || !card.attached || !card.hasSize) return null;
+    final view = View.of(context);
+    return _OriginRoleEditorLayout(
+      viewHeight: view.physicalSize.height / view.devicePixelRatio,
+      bottomSafeAreaInset: _previewKeyboardSafeAreaInset(),
+      cardBottom: card.localToGlobal(Offset.zero).dy + card.size.height,
     );
-    if (!mounted ||
-        profileRoleRevision != _profileRoleRevision ||
-        selection?.customRole == null) {
-      return;
-    }
-    _saveProfileRoleLocally(
-      selection!.customRole!,
-      profileRevision: profileRoleRevision,
-    );
-    _selectLocationChatRole(_OriginWorldPageState._profileLocationChatRoleId);
   }
 
   void _openStoryOpeningLocation() {
@@ -388,97 +364,137 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       key: ValueKey('origin-location-content-${descriptor.locationId}'),
       controller: _locationPreviewScrollController,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      physics: _previewRoleEditorInteraction.contentScrollEnabled
+          ? const ClampingScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
       slivers: [
-        if (descriptor.openingPreviewMessages.isEmpty)
-          SliverToBoxAdapter(
-            child: _OriginLocationChatEmptyState(
-              origin: _origin!,
-              onStart: _openStoryOpeningLocation,
+        AnimatedBuilder(
+          animation: Listenable.merge([
+            _previewRoleEditorInteraction.frameListenable,
+            _locationPreviewScrollController,
+          ]),
+          builder: (context, child) => _OriginSliverPaintTranslation(
+            translation: Offset(
+              0,
+              _previewRoleEditorInteraction.contentTranslation(
+                _locationPreviewScrollController.hasClients
+                    ? _locationPreviewScrollController.offset
+                    : 0,
+              ),
             ),
-          )
-        else
-          SliverPadding(
-            padding: kLocationChatStyle.messageListPadding,
-            sliver: SliverList.list(
-              children: [
-                for (final message in messages)
-                  ChatMessageRow(
-                    message: message,
-                    imageViewerMessages: messages,
-                    style: kLocationChatStyle,
-                    showDateDivider: false,
-                  ),
-              ],
-            ),
+            sliver: child!,
           ),
-        SliverLayoutBuilder(
-          builder: (context, constraints) {
-            final keyboardInset =
-                context
-                    .dependOnInheritedWidgetOfExactType<
-                      LocationChatKeyboardInsetScope
-                    >()
-                    ?.effectiveInset ??
-                0;
-            // Keep the role-card anchor on the unfocused viewport while the
-            // composer moves above the keyboard.
-            final remainingHeight = math.max(
-              0.0,
-              constraints.viewportMainAxisExtent +
-                  keyboardInset -
-                  constraints.precedingScrollExtent,
-            );
-            return SliverToBoxAdapter(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: remainingHeight),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      top: originOpeningDialogueRoleGapForTesting,
-                      bottom:
-                          _originLocationChatRoleRegionExtent(context) +
-                          _originLocationChatRoleDockGap,
+          child: SliverMainAxisGroup(
+            slivers: [
+              if (descriptor.openingPreviewMessages.isEmpty)
+                SliverToBoxAdapter(
+                  child: _OriginLocationChatEmptyState(
+                    origin: _origin!,
+                    onStart: _openStoryOpeningLocation,
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: kLocationChatStyle.messageListPadding.copyWith(
+                    left: 0,
+                    right: 0,
+                  ),
+                  sliver: SliverList.list(
+                    children: [
+                      for (final message in messages)
+                        ChatMessageRow(
+                          message: message,
+                          applyListHorizontalPadding: true,
+                          imageViewerMessages: messages,
+                          style: kLocationChatStyle,
+                          showDateDivider: false,
+                        ),
+                    ],
+                  ),
+                ),
+              SliverLayoutBuilder(
+                builder: (context, constraints) {
+                  final keyboardInset =
+                      context
+                          .dependOnInheritedWidgetOfExactType<
+                            LocationChatKeyboardInsetScope
+                          >()
+                          ?.effectiveInset ??
+                      0;
+                  // Keep the role-card anchor on the unfocused viewport while the
+                  // composer moves above the keyboard.
+                  final remainingHeight = math.max(
+                    0.0,
+                    constraints.viewportMainAxisExtent +
+                        keyboardInset -
+                        constraints.precedingScrollExtent,
+                  );
+                  return SliverToBoxAdapter(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: remainingHeight),
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            top: originOpeningDialogueRoleGapForTesting,
+                            bottom:
+                                _originLocationChatRoleRegionExtent(context) +
+                                _originLocationChatRoleDockGap,
+                          ),
+                          child: Builder(
+                            builder: (context) {
+                              return ValueListenableBuilder<bool>(
+                                valueListenable: _locationComposerFocused,
+                                builder: (context, inputFocused, child) {
+                                  final keyboardOpen =
+                                      MediaQuery.viewInsetsOf(context).bottom >
+                                      0;
+                                  return IgnorePointer(
+                                    ignoring:
+                                        !_previewRoleEditing &&
+                                        (inputFocused || keyboardOpen),
+                                    child: AnimatedOpacity(
+                                      key: const ValueKey<String>(
+                                        'origin-location-role-cards-visibility',
+                                      ),
+                                      // Like Opening Sheet, reveal the cards as soon
+                                      // as the composer loses focus, while keeping
+                                      // them inactive until the keyboard closes.
+                                      opacity:
+                                          !_previewRoleEditing &&
+                                              inputFocused &&
+                                              keyboardOpen
+                                          ? 0
+                                          : 1,
+                                      duration: const Duration(
+                                        milliseconds: 250,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: _buildInlineLocationRoles(_origin!),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Builder(
-                      builder: (context) {
-                        return ValueListenableBuilder<bool>(
-                          valueListenable: _locationComposerFocused,
-                          builder: (context, inputFocused, child) {
-                            final keyboardOpen =
-                                MediaQuery.viewInsetsOf(context).bottom > 0;
-                            return IgnorePointer(
-                              ignoring:
-                                  !_previewRoleEditing &&
-                                  (inputFocused || keyboardOpen),
-                              child: AnimatedOpacity(
-                                key: const ValueKey<String>(
-                                  'origin-location-role-cards-visibility',
-                                ),
-                                // Like Opening Sheet, reveal the cards as soon
-                                // as the composer loses focus, while keeping
-                                // them inactive until the keyboard closes.
-                                opacity:
-                                    !_previewRoleEditing &&
-                                        inputFocused &&
-                                        keyboardOpen
-                                    ? 0
-                                    : 1,
-                                duration: const Duration(milliseconds: 250),
-                                curve: Curves.easeOutCubic,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: _buildInlineLocationRoles(_origin!),
-                        );
-                      },
-                    ),
+                  );
+                },
+              ),
+              AnimatedBuilder(
+                animation: _previewRoleEditorInteraction.frameListenable,
+                builder: (context, _) => SliverToBoxAdapter(
+                  child: SizedBox(
+                    height:
+                        _previewRoleEditorInteraction.additionalScrollExtent,
                   ),
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ],
     );
@@ -532,58 +548,85 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                   onBack: _closeLocationChat,
                   showComposer: true,
                   extendComposerBackground: false,
-                  composerTopOverlay: SizedBox(
-                    height: _originLocationChatRoleRegionExtent(context),
-                    child: _OriginLocationChatRoleRegion(
-                      role: _locationChatRoleOption(_origin!),
-                      roleAvatarSnapshots: _roleAvatarSnapshots,
-                      enabled: !_launching,
-                      onTap: _focusLocationRoleCards,
-                      style: _originDetailSheetChatComposerStyle,
-                      foregroundColor: originWorldDetailSheetPrimaryTextColor,
-                      mutedColor: originWorldDetailSheetTertiaryTextColor,
-                      backgroundColor: kLocationChatStyle.inputBackgroundColor,
-                      borderRadius: 8,
+                  composerTopOverlay: IgnorePointer(
+                    ignoring: _previewRoleEditorInteraction.transitionActive,
+                    child: Opacity(
+                      opacity: _previewRoleEditorInteraction.transitionActive
+                          ? 0
+                          : 1,
+                      child: SizedBox(
+                        height: _originLocationChatRoleRegionExtent(context),
+                        child: _OriginLocationChatRoleRegion(
+                          role: _locationChatRoleOption(_origin!),
+                          roleAvatarSnapshots: _roleAvatarSnapshots,
+                          enabled: !_launching,
+                          onTap: _focusLocationRoleCards,
+                          style: _originDetailSheetChatComposerStyle,
+                          foregroundColor:
+                              originWorldDetailSheetPrimaryTextColor,
+                          mutedColor: originWorldDetailSheetTertiaryTextColor,
+                          backgroundColor:
+                              kLocationChatStyle.inputBackgroundColor,
+                          borderRadius: 8,
+                        ),
+                      ),
                     ),
                   ),
-                  composerReplacement: _OriginLocationChatLaunchComposer(
-                    key: ValueKey(
-                      'origin-location-composer-${descriptor.locationId}',
+                  composerReplacement: IgnorePointer(
+                    key: const ValueKey<String>(
+                      'origin-location-composer-role-edit-visibility',
                     ),
-                    launching: _launching,
-                    sending:
-                        _activeLaunchSource ==
-                        OriginLaunchSource.openingMessage,
-                    role: _locationChatRoleOption(_origin!),
-                    roleAvatarSnapshots: _roleAvatarSnapshots,
-                    mentionCatalog: _originLocationChatMentionCatalog(
-                      _origin!,
-                      selectedRoleId: _effectiveLocationChatRoleId(_origin!),
-                    ),
-                    onSelectRole: _focusLocationRoleCards,
-                    onFocusChanged: (hasFocus) =>
-                        _handleLocationComposerFocusChanged(
-                          descriptor.locationId,
-                          hasFocus,
+                    ignoring: _previewRoleEditorInteraction.transitionActive,
+                    child: Opacity(
+                      opacity: _previewRoleEditorInteraction.transitionActive
+                          ? 0
+                          : 1,
+                      child: _OriginLocationChatLaunchComposer(
+                        key: ValueKey(
+                          'origin-location-composer-${descriptor.locationId}',
                         ),
-                    onSend: (message, mentions) => _launchLocationChatMessage(
-                      _origin!,
-                      locationId: descriptor.locationId,
-                      message: message,
-                      mentionCatalog: mentions,
+                        launching: _launching,
+                        sending:
+                            _activeLaunchSource ==
+                            OriginLaunchSource.openingMessage,
+                        role: _locationChatRoleOption(_origin!),
+                        roleAvatarSnapshots: _roleAvatarSnapshots,
+                        mentionCatalog: _originLocationChatMentionCatalog(
+                          _origin!,
+                          selectedRoleId: _effectiveLocationChatRoleId(
+                            _origin!,
+                          ),
+                        ),
+                        onSelectRole: _focusLocationRoleCards,
+                        onFocusChanged: (hasFocus) =>
+                            _handleLocationComposerFocusChanged(
+                              descriptor.locationId,
+                              hasFocus,
+                            ),
+                        onSend: (message, mentions) =>
+                            _launchLocationChatMessage(
+                              _origin!,
+                              locationId: descriptor.locationId,
+                              message: message,
+                              mentionCatalog: mentions,
+                            ),
+                        style: _originDetailSheetChatComposerStyle.copyWith(
+                          composerBackdropBlurSigma: 0,
+                        ),
+                        showRoleRegion: false,
+                        roleForegroundColor:
+                            originWorldDetailSheetPrimaryTextColor,
+                        roleMutedColor: originWorldDetailSheetTertiaryTextColor,
+                        roleBackgroundColor:
+                            kLocationChatStyle.inputBackgroundColor,
+                        roleBorderRadius: 8,
+                        showShortcuts: false,
+                        enableMentionSheet: false,
+                        bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(
+                          context,
+                        ),
+                      ),
                     ),
-                    style: _originDetailSheetChatComposerStyle.copyWith(
-                      composerBackdropBlurSigma: 0,
-                    ),
-                    showRoleRegion: false,
-                    roleForegroundColor: originWorldDetailSheetPrimaryTextColor,
-                    roleMutedColor: originWorldDetailSheetTertiaryTextColor,
-                    roleBackgroundColor:
-                        kLocationChatStyle.inputBackgroundColor,
-                    roleBorderRadius: 8,
-                    showShortcuts: false,
-                    enableMentionSheet: false,
-                    bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
                   ),
                 ),
               ),

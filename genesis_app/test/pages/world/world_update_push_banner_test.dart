@@ -114,10 +114,10 @@ void main() {
       findsNothing,
     );
     final locationBannerRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-update-push-banner')),
+      find.byKey(const ValueKey<String>('genesis-push-banner')),
     );
     final shadow = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('world-update-push-shadow')),
+      find.byKey(const ValueKey<String>('genesis-push-shadow')),
     );
     final shadowDecoration = shadow.decoration as BoxDecoration;
     expect(shadowDecoration.borderRadius, BorderRadius.circular(12));
@@ -130,14 +130,14 @@ void main() {
       findsNothing,
     );
     final backdropBlur = tester.widget<BackdropFilter>(
-      find.byKey(const ValueKey<String>('world-update-push-backdrop-blur')),
+      find.byKey(const ValueKey<String>('genesis-push-backdrop-blur')),
     );
     expect(
       backdropBlur.filterConfig,
       const ImageFilterConfig.blur(sigmaX: 14, sigmaY: 14, bounded: false),
     );
     final bannerMaterial = tester.widget<Material>(
-      find.byKey(const ValueKey<String>('world-update-push-banner')),
+      find.byKey(const ValueKey<String>('genesis-push-banner')),
     );
     expect(bannerMaterial.color, const Color(0x33FFFFFF));
     expect(bannerMaterial.shape, isNull);
@@ -215,7 +215,7 @@ void main() {
     expect(identitySpan.style?.fontWeight, FontWeight.w500);
     expect(identitySpan.style?.color, const Color(0xB8FFFFFF));
     final bannerRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-update-push-banner')),
+      find.byKey(const ValueKey<String>('genesis-push-banner')),
     );
     final avatarRect = tester.getRect(
       find.byKey(const ValueKey<String>('world-update-push-character-avatar')),
@@ -239,7 +239,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(const ValueKey<String>('world-update-push-banner')),
+      find.byKey(const ValueKey<String>('genesis-push-banner')),
       findsNothing,
     );
   });
@@ -576,7 +576,7 @@ void main() {
   testWidgets('world update push enters from above', (
     WidgetTester tester,
   ) async {
-    const bannerKey = ValueKey<String>('world-update-push-banner');
+    const bannerKey = ValueKey<String>('genesis-push-banner');
     const transitionDuration = Duration(milliseconds: 200);
 
     await tester.pumpWidget(
@@ -657,7 +657,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
 
     final tapTarget = find.byKey(
-      const ValueKey<String>('world-update-push-tap-target'),
+      const ValueKey<String>('genesis-push-tap-target'),
     );
     expect(tapTarget, findsOneWidget);
 
@@ -668,7 +668,7 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey<String>('world-update-push-banner')),
+      find.byKey(const ValueKey<String>('genesis-push-banner')),
       findsNothing,
     );
   });
@@ -734,7 +734,7 @@ void main() {
     expect(find.text('First Location'), findsNothing);
     expect(find.text('Second Character'), findsNothing);
     expect(
-      find.byKey(const ValueKey<String>('world-update-push-banner')),
+      find.byKey(const ValueKey<String>('genesis-push-banner')),
       findsNothing,
     );
   });

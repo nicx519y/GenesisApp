@@ -18,14 +18,8 @@ class _OriginSetupRoleSection extends StatefulWidget {
     this.mergedCharacter,
     required this.selectedRoleId,
     required this.onSelectedRoleChanged,
-    required this.onSaveProfileRole,
     required this.profileCardPositionKey,
-    required this.profileRoleEditing,
-    required this.onBeginProfileRoleEditing,
-    required this.onCancelProfileRoleEditing,
-    required this.onProfileRoleFocusChanged,
-    required this.onProfileRoleInternalInteractionChanged,
-    required this.onResumeProfileRoleInternalInteraction,
+    required this.editorInteraction,
   });
 
   static const double _cardWidth = 240;
@@ -45,14 +39,8 @@ class _OriginSetupRoleSection extends StatefulWidget {
   final OriginCharacter? mergedCharacter;
   final String selectedRoleId;
   final ValueChanged<String> onSelectedRoleChanged;
-  final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
   final GlobalKey profileCardPositionKey;
-  final bool profileRoleEditing;
-  final VoidCallback onBeginProfileRoleEditing;
-  final VoidCallback onCancelProfileRoleEditing;
-  final ValueChanged<bool> onProfileRoleFocusChanged;
-  final ValueChanged<bool> onProfileRoleInternalInteractionChanged;
-  final ValueChanged<VoidCallback> onResumeProfileRoleInternalInteraction;
+  final _OriginRoleEditorInteractionController editorInteraction;
 
   @override
   State<_OriginSetupRoleSection> createState() =>
@@ -68,6 +56,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   @override
   void initState() {
     super.initState();
+    widget.editorInteraction.addListener(_handleEditorChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _precacheUpcomingRoleAvatars(_currentCardIndex);
@@ -100,6 +89,10 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   @override
   void didUpdateWidget(covariant _OriginSetupRoleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.editorInteraction != widget.editorInteraction) {
+      oldWidget.editorInteraction.removeListener(_handleEditorChanged);
+      widget.editorInteraction.addListener(_handleEditorChanged);
+    }
     final nextIndex = _selectedCardIndex;
     _currentCardIndex = nextIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -142,8 +135,21 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
 
   @override
   void dispose() {
+    widget.editorInteraction.removeListener(_handleEditorChanged);
     _cardsController?.dispose();
     super.dispose();
+  }
+
+  void _handleEditorChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _beginEditing() {
+    if (widget.editorInteraction.beginEditing()) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.editorInteraction.beginEditing();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _handleCardChanged(int nextIndex) {
@@ -184,10 +190,10 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   }
 
   bool _handleCardsScrollStart(ScrollStartNotification notification) {
-    if (widget.profileRoleEditing &&
+    if (widget.editorInteraction.editing &&
         notification.metrics.axis == Axis.horizontal &&
         notification.dragDetails != null) {
-      widget.onCancelProfileRoleEditing();
+      widget.editorInteraction.cancelEditing();
     }
     return false;
   }
@@ -331,15 +337,19 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                               busy: widget.launchBusy,
                               editableRole: profileRole,
                               positionKey: widget.profileCardPositionKey,
-                              editing: widget.profileRoleEditing,
-                              onBeginEditing: widget.onBeginProfileRoleEditing,
+                              editing: widget.editorInteraction.editing,
+                              onBeginEditing: _beginEditing,
                               onCancelEditing:
-                                  widget.onCancelProfileRoleEditing,
-                              onFocusChanged: widget.onProfileRoleFocusChanged,
+                                  widget.editorInteraction.cancelEditing,
+                              onFocusChanged: widget
+                                  .editorInteraction
+                                  .handleFieldFocusChanged,
                               onInternalInteractionChanged: widget
-                                  .onProfileRoleInternalInteractionChanged,
-                              onResumeInternalInteraction:
-                                  widget.onResumeProfileRoleInternalInteraction,
+                                  .editorInteraction
+                                  .setInternalInteractionActive,
+                              onResumeInternalInteraction: widget
+                                  .editorInteraction
+                                  .resumeAfterInternalInteraction,
                               onEditedRoleChanged: (draft) {
                                 // Discard delayed saves from an old account's
                                 // form even if the new account is editing now.
@@ -348,7 +358,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                                         widget.profileRoleRevision) {
                                   return;
                                 }
-                                widget.onSaveProfileRole(draft);
+                                widget.editorInteraction.confirmEditing(draft);
                               },
                             ),
                           ),
@@ -1039,7 +1049,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    final editor = ColoredBox(
       color: originWorldDetailSheetSurfaceColor,
       child: AbsorbPointer(
         absorbing: busy,
@@ -1048,6 +1058,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
             'origin-setup-role-inline-editor-scroll-$stableId',
           ),
           controller: scrollController,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
           physics: interactionLayoutFrozen
               ? const NeverScrollableScrollPhysics()
               : const ClampingScrollPhysics(),
@@ -1176,6 +1187,14 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
           ),
         ),
       ),
+    );
+    // Keep user scroll updates inside the editor so ancestor scroll views do
+    // not dismiss its keyboard. Start/end notifications still reach the sheet.
+    // Do not toggle the outer ScrollView's dismissal behavior: that reparents
+    // its Scrollable and can briefly attach two positions to the sheet controller.
+    return NotificationListener<ScrollUpdateNotification>(
+      onNotification: (notification) => notification.dragDetails != null,
+      child: editor,
     );
   }
 }
@@ -1501,6 +1520,8 @@ class _OriginSetupRoleDetails extends StatelessWidget {
                 padding: EdgeInsets.only(right: content.isProfile ? 36 : 0),
                 child: Text(
                   content.name.trim().isEmpty ? '—' : content.name.trim(),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.start,
                   style: const TextStyle(
                     fontSize: 14,
@@ -1576,6 +1597,8 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
             Text(
               displayValue,
               softWrap: true,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.start,
               style: const TextStyle(
                 fontSize: 13,

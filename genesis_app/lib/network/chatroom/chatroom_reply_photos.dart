@@ -1,27 +1,35 @@
 part of 'chatroom_reply_actions_controller.dart';
 
-/// Photo updates share card storage and projection, never formal history.
+/// Resolve local photo targets; candidate updates stay outside formal history.
 extension ChatroomReplyPhotos on ChatroomReplyActionsController {
-  Future<({int roundId, int cardId})> preparePhotoTarget(
+  Future<({int roundId, int? cardId})> preparePhotoTarget(
     String location,
-  ) async {
-    _checkCurrent();
-    final state = stateFor(location);
-    if (state == null || !state._eligible || state.busy || state.generating) {
+  ) async => _resolvePhotoTarget(location);
+
+  /// Revalidate a new write after confirmation/storage without changing its
+  /// target. Uncertain writes instead replay their saved identity unchanged.
+  void validatePhotoTarget(
+    String location,
+    ({int roundId, int? cardId}) target,
+  ) {
+    if (_resolvePhotoTarget(location) != target) {
       throw StateError(GenesisL10n.current.chatReplyActionUnavailable);
     }
-    final requestedCard = state.viewedCardId;
-    if (state.provisional || !state.hasCardGroup) {
-      await _loadCards(state, force: true);
-    }
+  }
+
+  ({int roundId, int? cardId}) _resolvePhotoTarget(String location) {
     _checkCurrent();
-    final card = requestedCard > 0
-        ? state._card(requestedCard)
-        : state.viewedCard;
-    if (!state.isLatest ||
-        !_completeCard(card) ||
-        card!.cardId <= 0 ||
-        (state.confirmed && state.selectedCardId != card.cardId)) {
+    final state = stateFor(location);
+    if (state == null || !state.canTakePhoto) {
+      throw StateError(GenesisL10n.current.chatReplyActionUnavailable);
+    }
+    // Formal replies do not need a card group. Never query cards merely to
+    // turn a formal photo request into a candidate request.
+    if (!state.hasCardGroup) {
+      return (roundId: state.roundId, cardId: null);
+    }
+    final card = state.viewedCard;
+    if (!_completeCard(card) || card!.cardId <= 0) {
       throw StateError(GenesisL10n.current.chatReplyActionUnavailable);
     }
     return (roundId: state.roundId, cardId: card.cardId);

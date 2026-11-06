@@ -67,6 +67,10 @@ MiniPhone Messages 的发送和手动重试复用上述两条本地化提示：�
 
 MiniPhone 的 Toast 通过 `shared/mini_phone_toast.dart` 复用公共组件，并在展示层过滤通用 `Request failed` 文本；合并错误时先逐项过滤。错误状态与恢复流程保留，明确的断网、连接失败及其他业务提示不受影响。本次按用户要求不更新飞书文档。
 
+## 消息长按菜单
+
+`showGenesisMessageActionMenu`（`genesis_message_actions.dart`）共用于 LocationChat 与 MiniPhone Messages，接收可选 `copyText`、`reportTargetId`；null 省略对应操作，均缺失时不显示菜单。统一复用横向消息菜单样式、Copy / Report 文案与图标、复制成功 Toast 和 `showGenesisReportDialog`，举报固定使用 `target_type=message`。页面负责消息资格与正确 ID：地点消息使用 `global_message_id`，手机消息使用独立 `message_id`，图片不传 `copyText`。
+
 ## 聊天输入栏高度通知
 
 共享 `ChatComposer` 的 `onHeightChanged` 报告整个输入栏的布局高度，包含自身内边距及底部安全区。仅在有监听者时，从实际布局中读取尺寸；首次布局和后续高度变化均在本帧结束时通知外层，同帧多次布局只报告最终高度。未变化的高度不重复通知。
@@ -84,6 +88,8 @@ MiniPhone 的 Toast 通过 `shared/mini_phone_toast.dart` 复用公共组件，�
 大图 URL 按实际展示宽度 × 受限 DPR 经共享 `resizeGenesisImageUrl` 匹配 `45/90/180/360/720/1080/2160` 宽度阶梯，沿用下一较大档规则，不生成任意精确宽度请求；相近宽度落到同一档时复用同一 CDN URL。
 
 多图浏览在打开和当前页变化时预加载前后各一张大图，首尾不循环。预加载按最终页面的完整宽度（不除以 PageView 的分页间隔系数）、同一 DPR 和 CDN 规则选择图片；网络图片的解码宽度及 `BoxFit.fitWidth` 与显示组件一致，以复用同一个内存缓存键。预加载失败不打断浏览或弹出提示。
+
+大图放大后，单指滑动用于拖动当前图片，暂停左右切图、下滑关闭和 iOS 边缘返回；双指缩放期间同样暂停切图和手势关闭。缩回原始大小后恢复左右切图及原有关闭手势。未放大的长图仍可上下滚动，只有回到顶部时才允许下滑关闭。
 
 提供 `bottomBuilder` 时，底部内容与图片区域按实际高度纵向布局：操作在上，多图圆点在下，两者相隔 16 逻辑像素，底部保留安全区且至少留白 16；单图隐藏圆点。关闭按钮、下滑和边缘返回共用一次性关闭入口，动画期间重复回调不得继续退出下层路由。
 
@@ -288,3 +294,7 @@ mention-sheet behavior. MiniPhone uses the same layout with its private-chat
 style and `LocationChatScrollCoordinator`, keeps keyboard focus on Send, and
 disables reply-reserve positioning. Scroll notifications must be routed to the
 coordinator to preserve a detached reader when new bubbles arrive.
+
+### 顶部结果横幅
+
+`lib/components/common/genesis_push_banner.dart` 提供 `GenesisPushBanner` 表面与 `GenesisPushBannerTransition` 动画，New Location / New Character 和 LocationChat / MiniPhone Camera 的生图成功、失败提示共用。生图结果通过 `showGenesisPushBanner` 放入根 Overlay，顶部安全区下方 8、左右沿用地点聊天外边距；默认展示 5 秒，可点击提前收起，无模态遮罩。返回的 handle 供所属会话在后台、释放及账号变化时移除横幅；`closed` 用于继续队列及余额提示。标题和正文沿用服务端 `title/summary`，不新增本地文案。

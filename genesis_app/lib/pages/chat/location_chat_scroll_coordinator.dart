@@ -2391,7 +2391,14 @@ class _LocationChatAnchoredMessageListState
               currentRole: currentRole,
               style: style,
             ),
-          if (card.status != null) card.status!,
+          if (card.status != null)
+            Padding(
+              padding: EdgeInsets.only(
+                left: style.messageListPadding.left,
+                right: style.messageListPadding.right,
+              ),
+              child: card.status!,
+            ),
         ],
       ),
     );
@@ -3854,19 +3861,15 @@ class _LocationChatAnchoredMessageListState
                 ),
               ),
             if (widget.readOnlyArchive)
-              SliverPadding(
-                padding: horizontalPadding,
-                sliver: LocationChatVirtualSlivers(
-                  rows: _buildTimelineSlivers(entries, style),
-                  extentCache: widget.viewportCache?.archiveExtents,
-                ),
+              LocationChatVirtualSlivers(
+                rows: _buildTimelineSlivers(entries, style),
+                extentCache: widget.viewportCache?.archiveExtents,
               )
             else
               for (final row in _buildTimelineSlivers(entries, style))
-                SliverPadding(
+                KeyedSubtree(
                   key: ValueKey(('sliver', row.identity)),
-                  padding: horizontalPadding,
-                  sliver: row,
+                  child: row,
                 ),
           ],
         ),
@@ -4008,7 +4011,16 @@ class _LocationChatAnchoredMessageListState
         final gapLoader = data == null
             ? null
             : widget.historyGapLoaders[data.localId];
-        final row = _buildEntry(entry, style);
+        final content = _buildEntry(entry, style);
+        final row = entry < 0 && entry != -2
+            ? Padding(
+                padding: EdgeInsets.only(
+                  left: style.messageListPadding.left,
+                  right: style.messageListPadding.right,
+                ),
+                child: content,
+              )
+            : content;
         return gapLoader == null
             ? row
             : Column(
@@ -4490,6 +4502,7 @@ class _LocationChatAnchoredMessageListState
         _liveRevealMessageIds.contains(_receiptIdentity(message)),
     child: ChatMessageRow(
       key: key,
+      applyListHorizontalPadding: true,
       visibilityKey: visibilityKey,
       message: message,
       imageViewerMessages: imageViewerMessages,

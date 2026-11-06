@@ -1,6 +1,12 @@
 part of 'location_chat_page.dart';
 
-enum _LocationChatReplyConnectionAction { regenerate, goOn, edit, inspiration }
+enum _LocationChatReplyConnectionAction {
+  regenerate,
+  goOn,
+  edit,
+  inspiration,
+  camera,
+}
 
 final class _LocationChatReplyActionTransaction {
   const _LocationChatReplyActionTransaction({
@@ -24,6 +30,8 @@ extension on _LocationChatReplyConnectionAction {
       GenesisL10n.current.chatEditFailure,
     _LocationChatReplyConnectionAction.inspiration =>
       GenesisL10n.current.chatInspirationFailure,
+    _LocationChatReplyConnectionAction.camera =>
+      GenesisL10n.current.chatPhotoFailed,
   };
 }
 

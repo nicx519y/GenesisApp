@@ -1,6 +1,13 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatPhotos on _LocationChatPanelState {
+  Future<void> _takeScenePhoto() => _submitReplyAction(
+    _LocationChatReplyActionTransaction(
+      action: _LocationChatReplyConnectionAction.camera,
+      commit: _submitScenePhoto,
+    ),
+  );
+
   void _resetPhotoVisit() {
     _photoVisitService?.releaseMessageWindow(_photoNavigationOwner);
     _photoReveal = null;
@@ -183,8 +190,9 @@ extension _LocationChatPhotos on _LocationChatPanelState {
     final services = AppServicesScope.read(context);
     final revision = services.sessionRevision.value;
     final world = _modelWorldId;
+    final operation = _LocationChatReplyOperationScope(this);
     bool current() =>
-        mounted &&
+        operation.canApplyToReply &&
         widget.active &&
         revision == services.sessionRevision.value &&
         identical(service, _service) &&
@@ -197,10 +205,11 @@ extension _LocationChatPhotos on _LocationChatPanelState {
       FocusManager.instance.primaryFocus?.unfocus();
       final environment = services.config.chatroomHttpBaseUrl;
       var store = ChatPhotoRequestStore(environment, uid, world, location);
-      // Preserve legacy uncertain writes exactly; all new writes target a card.
+      // Formal writes use the location journal; candidate writes use their card.
+      // Preserve all uncertain writes exactly, including older request shapes.
       var pending = await store.read();
       // Resolve an acknowledged legacy write before choosing a new card target.
-      // Otherwise clearing it below would leave a new write without card IDs.
+      // Otherwise clearing it below would leave a new write without a target.
       if (pending != null &&
           (service.state.messagesByLocation[location] ??
                   const <WorldChatroomMessage>[])
@@ -236,15 +245,8 @@ extension _LocationChatPhotos on _LocationChatPanelState {
         pending = null;
       }
       if (!mounted || !current()) return;
-      if (pending == null &&
-          target != null &&
-          (controller
-                  .stateForRound(location, target.roundId)
-                  ?.messagesForCard(target.cardId)
-                  .any((m) => m.photo?.status == ChatPhotoStatus.generating) ??
-              false)) {
-        return;
-      }
+      // As with Edit, user confirmation is not a connection preparation wait.
+      _replyPreparationWait?.finish();
       final confirmed = await confirmCameraMoment(
         context,
         preferenceScope:
@@ -253,6 +255,9 @@ extension _LocationChatPhotos on _LocationChatPanelState {
         recovering: pending != null,
       );
       if (!current() || !confirmed) return;
+      if (pending == null && target != null) {
+        controller.validatePhotoTarget(location, target);
+      }
       final request =
           pending ??
           ChatPhotoRequest(
@@ -263,7 +268,19 @@ extension _LocationChatPhotos on _LocationChatPanelState {
             cardId: target?.cardId,
           );
       await store.save(request);
-      if (!mounted || !current()) return;
+      if (!mounted || !current()) {
+        if (pending == null) await store.clear(request.requestId);
+        return;
+      }
+      if (pending == null && target != null) {
+        try {
+          controller.validatePhotoTarget(location, target);
+        } catch (_) {
+          // Nothing was sent: do not leave an invalid new write for recovery.
+          await store.clear(request.requestId);
+          rethrow;
+        }
+      }
       _setLocationChatState(() {
         _takingScenePhoto = true;
         _photoArrivalRequests.add(request.requestId);

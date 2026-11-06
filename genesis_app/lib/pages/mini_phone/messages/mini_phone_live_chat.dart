@@ -1,5 +1,6 @@
 import '../../../l10n/genesis_localizations.dart';
 import 'dart:async';
+import '../../../components/common/genesis_message_actions.dart';
 import 'package:flutter/material.dart';
 import '../shared/mini_phone_toast.dart';
 import '../../../components/chat/shared/chat_keyboard_inset_layout.dart';
@@ -383,6 +384,21 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
     super.dispose();
   }
 
+  void _showMessageActionMenu(
+    BuildContext menuContext,
+    ChatMessageVm message,
+    LongPressStartDetails details,
+  ) {
+    final messageId = message.messageId;
+    if (message.isMe || messageId == null || messageId <= 0) return;
+    showGenesisMessageActionMenu(
+      context: context,
+      globalPosition: details.globalPosition,
+      copyText: message.text,
+      reportTargetId: '$messageId',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final person = widget.person, waiting = store.waiting(person.id);
@@ -405,6 +421,8 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
                 m.requestId != null
             ? 'phone:request:${store.messagesController.bubbleRequestId(m.requestId!)}'
             : 'phone:${m.id}',
+        messageId: m.id,
+        senderType: m.senderType,
         clientMsgId: m.requestId ?? '',
         senderId: m.senderId,
         senderName: m.senderId == store.uid
@@ -511,6 +529,7 @@ class _MiniPhoneLiveChatState extends State<MiniPhoneLiveChat>
                   child: LocationChatAnchoredMessageList(
                     coordinator: coordinator,
                     messages: rows,
+                    onMessageLongPressStart: _showMessageActionMenu,
                     onFailedMessageTap: _resendFailedMessage,
                     messageDecorator: (message, previous, child) {
                       if (message.localId !=

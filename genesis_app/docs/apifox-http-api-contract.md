@@ -1428,7 +1428,7 @@ Query：
 
 2026-10-29 详情页推荐角色与用户卡合并：推荐角色保留原 `char_id`，名字为空或 `{{user}}` 时补用户名，图片为空时独立补用户头像；其余角色顺序保持。推荐卡编辑和补齐资料通过 preset override 提交；无推荐角色的用户身份仍使用 `custom_role`。Origin 模板和用户资料均不回写。开场预览按推荐角色 ID 使用自己的消息气泡；进入 Launch 页面后仅实际选择的 preset ID 被视为用户。
 
-2026-11-05 自定义首卡预填：有推荐角色时保持上述逻辑，不使用 `precharacter`；无推荐角色时，自定义首卡优先整体使用 `origin/detail.precharacter`，缺失或 null 才回退用户资料。预设对象中的空字段保持为空，不逐项混入用户资料；`bio` 对应 Setting。用户在当前页保存的编辑优先于初始预填，profile 异步加载不会覆盖预设；Launch 通过 `custom_role` 提交当前卡片内容，不生成 preset 角色 ID，不回写模板或用户资料。
+2026-11-05 自定义首卡预填：有推荐角色时保持上述逻辑，不使用 `precharacter`；无推荐角色时，自定义首卡优先整体使用 `origin/detail.precharacter`，缺失或 null 才回退用户资料。预设 `name/identity/personality/bio` 中所有 `{{user}}` 均替换为当前用户的 user name；头像 URL 为空时使用用户 profile 头像，有模板头像时保留模板头像。其他空文本字段保持为空；`bio` 对应 Setting。profile 尚未加载时保留原占位符，加载后刷新未保存的初始预填；用户在当前页保存的编辑优先，显式删除头像后不再自动补回。账号资料变更时清理旧用户的替换结果，再按新资料解析；Launch 通过 `custom_role` 提交当前卡片内容，不生成 preset 角色 ID，不回写模板或用户资料。
 
 Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；草稿、本地编辑和详情预览保留全文及原 `goal`，请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
 
@@ -2338,6 +2338,8 @@ query：
 - `target_type*`: string，举报对象类型，枚举 `origin`、`world`、`tick`、`message`、`discuss`
 - `target_id*`: string，举报对象业务 id；`message` 当前按 `global_message_id` 原样记录，不做存在性校验
 - `content*`: string，举报内容；服务端 trim 后不能为空，最长 1000 字符
+
+客户端 MiniPhone 接入约定（2026-11-05）：手机消息复用此接口，提交 `target_type=message`、`target_id=手机 message_id 的十进制字符串`。该 ID 与 LocationChat 的 `global_message_id` 属于不同消息空间，不做客户端互转；此约定已确认用于客户端接入，服务端准确定位手机消息仍待真实联调验收，不将受控测试视为后端已支持的证据。
 
 请求示例：
 

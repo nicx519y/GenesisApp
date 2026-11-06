@@ -13,6 +13,7 @@ class ChatMessageRow extends StatelessWidget {
     this.onCharactersMovedLocationTap,
     this.selfMessageBubbleMaxWidthCap,
     this.otherMessageBubbleMaxWidthCap,
+    this.applyListHorizontalPadding = false,
     this.style,
   });
 
@@ -26,10 +27,23 @@ class ChatMessageRow extends StatelessWidget {
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
   final double? selfMessageBubbleMaxWidthCap;
   final double? otherMessageBubbleMaxWidthCap;
+
+  /// Keeps all message rows within the same outer avatar boundaries.
+  final bool applyListHorizontalPadding;
   final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final content = _buildContent(context);
+    if (!applyListHorizontalPadding) return content;
+    final padding = (style ?? ChatUiStyleConfig.standard).messageListPadding;
+    return Padding(
+      padding: EdgeInsets.only(left: padding.left, right: padding.right),
+      child: content,
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
     Widget trackVisibility(Widget child) => visibilityKey == null
         ? child

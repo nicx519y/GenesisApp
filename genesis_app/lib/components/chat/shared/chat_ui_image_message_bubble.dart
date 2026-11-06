@@ -17,11 +17,7 @@ class ChatImageMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(
-        left: style.avatarSideSpacerWidth,
-        right: style.systemMessageMargin.right,
-        bottom: style.rowBottomPadding,
-      ),
+      padding: EdgeInsets.only(bottom: style.rowBottomPadding),
       child: Align(
         alignment: Alignment.centerLeft,
         child: LayoutBuilder(
@@ -31,7 +27,14 @@ class ChatImageMessage extends StatelessWidget {
                 : MediaQuery.sizeOf(context).width;
             return ChatBubbleGeometry(
               child: message.photo != null
-                  ? _photoCard(context, maxWidth)
+                  ? GestureDetector(
+                      onLongPressStart:
+                          message.photo!.status == ChatPhotoStatus.succeeded &&
+                              message.photo!.imageUrl.isNotEmpty
+                          ? onLongPressStart
+                          : null,
+                      child: _photoCard(context, maxWidth),
+                    )
                   : ChatThumbnailImage(
                       key: ValueKey<String>(
                         'chat-image-message-${message.localId}',
@@ -59,7 +62,7 @@ class ChatImageMessage extends StatelessWidget {
     final hasImage = photo.imageUrl.isNotEmpty;
     final succeeded = photo.status == ChatPhotoStatus.succeeded;
     final failed = photo.status == ChatPhotoStatus.failed;
-    final width = math.min(maxWidth, 280.0);
+    final width = maxWidth;
     // Quantize the responsive card width at DPR=2 using the same CDN tiers as
     // the full-screen viewer, so nearby layout widths reuse a URL/cache entry.
     late final ImageProvider<Object> preview =

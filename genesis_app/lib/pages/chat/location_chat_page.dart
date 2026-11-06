@@ -46,7 +46,7 @@ import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
-import '../../components/common/genesis_report_actions.dart';
+import '../../components/common/genesis_message_actions.dart';
 import '../../components/gems/memory_model_entry_button.dart';
 import '../../features/location_chat_reply/edit/edit.dart';
 import '../../features/location_chat_reply/go_on/go_on.dart';

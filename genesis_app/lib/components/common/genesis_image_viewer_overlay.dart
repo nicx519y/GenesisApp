@@ -210,6 +210,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
   final Set<int> _activePointers = <int>{};
   final Set<String> _preloadedImageUrls = <String>{};
   bool _pinchGestureActive = false;
+  bool _isZoomed = false;
   Offset? _dragStart;
   double _dragOffsetY = 0;
   bool _dismissing = false;
@@ -241,7 +242,8 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     );
     _transformationControllers = List<TransformationController>.generate(
       widget.imageUrls.length,
-      (_) => TransformationController(),
+      (_) =>
+          TransformationController()..addListener(_handleTransformationChanged),
     );
   }
 
@@ -249,6 +251,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
   void dispose() {
     _pageController.dispose();
     for (final controller in _transformationControllers) {
+      controller.removeListener(_handleTransformationChanged);
       controller.dispose();
     }
     super.dispose();
@@ -263,12 +266,27 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
 
   void _handlePageChanged(int index) {
     _reportImageViewed(index);
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+      _isZoomed = _currentImageIsZoomed;
+    });
     for (var i = 0; i < _transformationControllers.length; i += 1) {
       if (i == index) continue;
       _transformationControllers[i].value = Matrix4.identity();
     }
     _precacheAdjacentImages(centerIndex: index);
+  }
+
+  bool get _currentImageIsZoomed =>
+      _transformationControllers[_currentIndex].value.getMaxScaleOnAxis() >
+      1.001;
+
+  void _handleTransformationChanged() {
+    final isZoomed = _currentImageIsZoomed;
+    if (_isZoomed == isZoomed) return;
+    // Keep the pager out of the gesture arena for subsequent one-finger pans,
+    // including after the fingers that performed the pinch have been lifted.
+    setState(() => _isZoomed = isZoomed);
   }
 
   void _precacheAdjacentImages({int? centerIndex}) {
@@ -365,6 +383,8 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
         value: _kGenesisImageViewerSystemUiOverlayStyle,
         child: GenesisEdgeSwipeBack(
           onBack: _dismiss,
+          enabled: !_isZoomed && !_pinchGestureActive,
+          maintainStackWhenDisabled: true,
           child: Material(
             key: const ValueKey('genesis-image-viewer-surface'),
             color: Color.lerp(
@@ -420,7 +440,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
                                   'genesis-image-viewer-page-view',
                                 ),
                                 controller: _pageController,
-                                physics: _pinchGestureActive
+                                physics: _pinchGestureActive || _isZoomed
                                     ? const NeverScrollableScrollPhysics()
                                     : null,
                                 itemCount: widget.imageUrls.length,

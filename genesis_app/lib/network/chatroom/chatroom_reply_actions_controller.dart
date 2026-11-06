@@ -233,8 +233,10 @@ class ChatroomReplyRoundState {
       _isOwnSupportedRound &&
       (!confirmed || selectedCardId > 0);
   bool get canTakePhoto =>
+      canStartTakePhoto && _controller._isReady(locationId);
+  bool get canStartTakePhoto =>
       supportsPhoto &&
-      _eligible &&
+      _eligibleWithoutConnection &&
       !busy &&
       !frozen &&
       !generating &&

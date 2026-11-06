@@ -62,19 +62,24 @@ extension _WorldPageSheets on _WorldPageState {
         barrierColor: Colors.black.withValues(alpha: 0.18),
         builder: (context) {
           _worldBottomSheetContext = context;
-          return WorldSingleSectionBottomSheet(
-            selectionListenable: _worldBottomSheetSelection,
-            services: services,
-            initialWorld: world,
-            worldListenable: _sectionsWorldNotifier,
-            newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
-            eventsCache: _sectionsEventsCache,
-            recapCache: _recapCache,
-            historyCache: _historyViewCache,
-            currentUid: _currentUid,
-            recentChatLocationIds: _recentChatLocationIds,
-            onLocationTap: _handleBottomSheetLocationTap,
-            onDeleteWorld: _confirmAndDeleteWorldFromDetail,
+          return MiniPhoneSessionScope(
+            session: _miniPhoneSession,
+            worldDetailReady: _world != null,
+            mapStyle: _world?.mapStyle,
+            child: WorldSingleSectionBottomSheet(
+              selectionListenable: _worldBottomSheetSelection,
+              services: services,
+              initialWorld: world,
+              worldListenable: _sectionsWorldNotifier,
+              newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
+              eventsCache: _sectionsEventsCache,
+              recapCache: _recapCache,
+              historyCache: _historyViewCache,
+              currentUid: _currentUid,
+              recentChatLocationIds: _recentChatLocationIds,
+              onLocationTap: _handleBottomSheetLocationTap,
+              onDeleteWorld: _confirmAndDeleteWorldFromDetail,
+            ),
           );
         },
       ).whenComplete(() {

@@ -1,8 +1,6 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatPhoneNavigation on _LocationChatPanelState {
-  Future<void> _takeScenePhoto() => _submitScenePhoto();
-
   Future<void> _openPhoneFromRoom({
     MiniPhoneSession? session,
     PhonePerson? contact,

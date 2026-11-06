@@ -13,52 +13,18 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
     ChatMessageVm message,
     LongPressStartDetails details,
   ) {
-    final items = <GenesisActionMenuItem>[
-      GenesisActionMenuItem(
-        label: GenesisL10n
-            .current
-            .chatCopy,
-        iconData: Icons.copy_outlined,
-        onSelected: () => _copyMessageText(message),
-      ),
-      if (locationChatMessageCanReportForTesting(message))
-        GenesisActionMenuItem(
-          label: GenesisL10n
-              .current
-              .chatReport,
-          iconAsset: genesisReportIconAsset,
-          onSelected: () {
-            showGenesisReportDialog(
-              context: context,
-              targetType: 'message',
-              targetId: _messageReportTargetId(message),
-            );
-          },
-        ),
-    ];
-    showGenesisActionMenuAt(
-      context: menuContext,
+    showGenesisMessageActionMenu(
+      context: context,
       globalPosition: details.globalPosition,
-      items: items,
-      appearance: GenesisActionMenuAppearance.message,
+      copyText: message.isImage
+          ? null
+          : message.isTick
+          ? chatTickMessageCopyText(message)
+          : message.text,
+      reportTargetId: locationChatMessageCanReportForTesting(message)
+          ? locationChatMessageReportTargetIdForTesting(message)
+          : null,
     );
-  }
-
-  Future<void> _copyMessageText(ChatMessageVm message) async {
-    final text = message.isTick
-        ? chatTickMessageCopyText(message)
-        : message.text;
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!mounted) return;
-    showGenesisToast(
-      context,
-      GenesisL10n.current.chatCopied,
-      brightness: Brightness.dark,
-    );
-  }
-
-  String _messageReportTargetId(ChatMessageVm message) {
-    return locationChatMessageReportTargetIdForTesting(message);
   }
 
   /// Everyone standing in the room, including AI characters. Self is inserted
@@ -131,5 +97,9 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
 
 @visibleForTesting
 bool locationChatMessageCanReportForTesting(ChatMessageVm message) {
-  return !message.isMe && message.globalMessageId > 0;
+  return !message.isMe &&
+      message.globalMessageId > 0 &&
+      (message.photo == null ||
+          message.photo!.status == ChatPhotoStatus.succeeded &&
+              message.photo!.imageUrl.isNotEmpty);
 }

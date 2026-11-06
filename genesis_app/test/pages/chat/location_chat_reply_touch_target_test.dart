@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/edit/edit.dart';
@@ -45,12 +46,13 @@ void main() {
     Widget child, {
     ScrollController? controller,
     VoidCallback? onHeaderTap,
+    double width = 320,
   }) => MaterialApp(
     home: Scaffold(
       body: Align(
         alignment: Alignment.topLeft,
         child: SizedBox(
-          width: 320,
+          width: width,
           height: 500,
           child: LocationChatReplyTouchScope(
             child: SingleChildScrollView(
@@ -77,7 +79,27 @@ void main() {
     tester,
   ) async {
     final calls = <String>[];
-    await tester.pumpWidget(host(actions(calls)));
+    await tester.pumpWidget(
+      host(
+        Column(
+          children: [
+            ChatSelfMessageBubble(
+              message: ChatMessageVm(
+                localId: 'reference-user',
+                senderId: 'user',
+                senderName: 'User',
+                text: 'A user message.',
+                isMe: true,
+                status: 'sent',
+              ),
+              style: kLocationChatStyle,
+            ),
+            actions(calls),
+          ],
+        ),
+        width: 390,
+      ),
+    );
     final row = find.byKey(
       const ValueKey('location-chat-reply-actions-four-icons'),
     );
@@ -89,7 +111,18 @@ void main() {
       final rect = tester.getRect(button);
       final previousCalls = calls.where((call) => call == id).length;
       expect(rect.size, const Size(32, 32));
-      expect(rect.center.dx, index < 4 ? 66.0 + 50 * index : 288.0);
+      if (index < 4) {
+        expect(rect.center.dx, 66.0 + 50 * index);
+      } else {
+        final icon = find.descendant(
+          of: button,
+          matching: find.byType(SvgPicture),
+        );
+        final bubble = find.byKey(
+          const ValueKey('chat-message-bubble-reference-user'),
+        );
+        expect(tester.getRect(icon).right, tester.getRect(bubble).right);
+      }
       for (final offset in [
         const Offset(0, -23),
         const Offset(0, 23),
@@ -193,6 +226,14 @@ void main() {
                 replyActionsMessageId: 'reply',
                 messages: [
                   ChatMessageVm(
+                    localId: 'narrow-user',
+                    senderId: 'user',
+                    senderName: 'User',
+                    text: 'A user message.',
+                    isMe: true,
+                    status: 'sent',
+                  ),
+                  ChatMessageVm(
                     localId: 'reply',
                     senderId: 'character',
                     senderName: 'Character',
@@ -206,6 +247,18 @@ void main() {
                   state: LocationChatReplyActionState.idle,
                   onInvoke: () {},
                 ),
+                goOnFeature: LocationChatGoOnFeature(
+                  state: LocationChatReplyActionState.idle,
+                  onInvoke: () {},
+                ),
+                editFeature: LocationChatEditFeature(
+                  state: LocationChatReplyActionState.idle,
+                  onInvoke: () {},
+                ),
+                inspirationFeature: const LocationChatInspirationFeature(
+                  state: LocationChatReplyActionState.idle,
+                  messages: [],
+                ),
                 cameraState: LocationChatReplyActionState.idle,
                 onTakePhoto: () => opens++,
               ),
@@ -216,6 +269,18 @@ void main() {
       await tester.pumpAndSettle();
       final camera = find.byKey(const ValueKey('location-chat-take-photo'));
       expect(tester.getSize(camera), const Size(32, 32));
+      expect(
+        tester
+            .getRect(
+              find.descendant(of: camera, matching: find.byType(SvgPicture)),
+            )
+            .right,
+        tester
+            .getRect(
+              find.byKey(const ValueKey('chat-message-bubble-narrow-user')),
+            )
+            .right,
+      );
       await tester.tapAt(tester.getCenter(camera) + const Offset(0, -23));
       await tester.tapAt(tester.getCenter(camera) + const Offset(0, 23));
       expect(opens, 2);
