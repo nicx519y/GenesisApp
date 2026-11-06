@@ -278,6 +278,9 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get membershipExpiry => 'Validade da assinatura';
+
+  @override
   String get activeStatus => 'ATIVA';
 
   @override

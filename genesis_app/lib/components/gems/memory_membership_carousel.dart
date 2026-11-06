@@ -396,9 +396,14 @@ class MemoryMembershipProfileCarousel extends StatefulWidget {
       ),
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
-    )..layout(maxWidth: 82 - 16);
-    final buttonHeight = (buttonText.height + 12).clamp(30.0, double.infinity);
+    )..layout(maxWidth: 96 - 16);
+    final buttonHeight = (buttonText.height + 12).clamp(28.0, double.infinity);
     buttonText.dispose();
+    final body = TextStyle(
+      fontSize: 12,
+      height: 16 / 12,
+      color: tier.bodyColor,
+    );
     return Semantics(
       button: true,
       label: context.l10n.memoryMembershipDetails(
@@ -410,82 +415,81 @@ class MemoryMembershipProfileCarousel extends StatefulWidget {
         child: MemoryMembershipSurface(
           tier: tier,
           kind: MemoryMembershipSurfaceKind.profile,
+          // Three bands, bottoms aligned across cards: crown and name, two
+          // lines of status or offer, then the ACTIVE tag or Subscribe.
           child: Container(
-            constraints: const BoxConstraints(minHeight: 82),
-            padding: const EdgeInsets.fromLTRB(16, 8, 14, 8),
-            child: Row(
+            constraints: const BoxConstraints(minHeight: 126),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          SvgPicture.asset(
-                            tier.crownAsset,
-                            width: 26,
-                            height: 17,
+                Row(
+                  children: [
+                    SvgPicture.asset(tier.crownAsset, width: 26, height: 17),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: ShaderMask(
+                        shaderCallback: tier.foreground.createShader,
+                        blendMode: BlendMode.srcIn,
+                        child: Text(
+                          tier.title(context),
+                          maxLines: 1,
+                          softWrap: false,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            height: 1.25,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -.08,
+                            color: Colors.white,
                           ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: ShaderMask(
-                              shaderCallback: tier.foreground.createShader,
-                              blendMode: BlendMode.srcIn,
-                              child: Text(
-                                tier.title(context),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  height: 1.25,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -.08,
-                                  color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 32),
+                  child: active
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.l10n.membershipExpiry,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: body,
+                            ),
+                            if (expiry != null)
+                              Text(
+                                memoryMembershipDate(expiry),
+                                style: body.copyWith(
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ),
-                          if (active) ...[
-                            const SizedBox(width: 8),
-                            MemoryMembershipStatus(tier: tier),
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      if (active || expired) ...[
-                        Wrap(
-                          spacing: 6,
+                        )
+                      : expired
+                      ? Wrap(
+                          spacing: 8,
                           runSpacing: 3,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            if (!active)
-                              MemoryMembershipStatus(tier: tier, expired: true),
+                            MemoryMembershipStatus(tier: tier, expired: true),
                             if (expiry != null)
-                              Text(
-                                active
-                                    ? context.l10n.expiresOn(
-                                        date: memoryMembershipDate(expiry),
-                                      )
-                                    : memoryMembershipDate(expiry),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  height: 1.25,
-                                  color: tier.bodyColor,
-                                ),
-                              ),
+                              Text(memoryMembershipDate(expiry), style: body),
                           ],
-                        ),
-                      ] else
-                        MemoryMembershipOfferText(
+                        )
+                      : MemoryMembershipOfferText(
                           premium
                               ? premiumOfferText ??
                                     context.l10n.proSubscriptionTagline
                               : deluxeOfferText ??
                                     context.l10n.memoryMembershipDeluxeTagline,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.25,
-                            color: tier.bodyColor,
-                          ),
+                          style: body,
+                          maxLines: 2,
                           figureStyle: TextStyle(
                             fontWeight: FontWeight.w800,
                             color: premium
@@ -494,15 +498,20 @@ class MemoryMembershipProfileCarousel extends StatefulWidget {
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
-                    ],
-                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(height: 8),
+                const Spacer(),
                 if (active)
-                  Icon(Icons.chevron_right, size: 16, color: tier.accent)
+                  SizedBox(
+                    height: buttonHeight,
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: MemoryMembershipStatus(tier: tier),
+                    ),
+                  )
                 else
                   SizedBox(
-                    width: 82,
+                    width: 96,
                     height: buttonHeight,
                     child: MemoryMembershipButton(
                       key: ValueKey('membership-subscribe-${tier.name}'),
@@ -556,7 +565,7 @@ class _MemoryMembershipProfileCarouselState
     builder: (context, constraints) {
       _positionDefault();
       final tiers = memoryMembershipOrder();
-      final width = memoryMembershipCardWidth(constraints.maxWidth);
+      final width = memoryMembershipProfileCardWidth(constraints.maxWidth);
       return NotificationListener<ScrollStartNotification>(
         onNotification: (event) {
           if (event.dragDetails != null &&

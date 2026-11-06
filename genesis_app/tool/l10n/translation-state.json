@@ -6076,6 +6076,12 @@
           "text_hash": "5e9d4ece2db68af5eed422eaa8c51602c1a5ed3c02340f4435d853bef3ea4689",
           "status": "ai",
           "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "9dcac987f3213294f1b996b36c974fbc7e10b70a844376b31c83f69ad03b0a6c",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -12153,6 +12159,12 @@
           "text_hash": "7d09c46b58e70b602a499f1e5a402ffa75fa62b72cfb7acc9bebd07be4b02512",
           "status": "ai",
           "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "ef6189efbfc1b650561e6477fe78d753a9ea94ed3a81563aada5d1691dbbc2db",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -18230,6 +18242,12 @@
           "text_hash": "f59f1241d0af00b9ba9fe458630c0889f2c298077841a1cd18515ebeb2ccb11c",
           "status": "ai",
           "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "bd47c8ca906056d965da74a1df663c616aed1690b117f8fa94241781563cde58",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -24307,6 +24325,12 @@
           "text_hash": "41c2c402f6eb20e98eff71030dfc1db88ccf22bba7f216ea54806530ee2978df",
           "status": "ai",
           "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "a18f74df1bf2bdf22f60f1c7036adc8acb6918fef565c0e5140f71bd48edba3d",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -30384,6 +30408,12 @@
           "text_hash": "b3c737c4cb4490e83b872931ebe67123e8909c615c951a1a17367b07530fdffd",
           "status": "ai",
           "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "b4a019d08b2112108bcdf5ffda2bb0b64db1a810b3271bdb56075c4c5c7a3ab6",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -36461,6 +36491,12 @@
           "text_hash": "c44952861e6322b3e7c98af4b18baaa0fb15a6f2e2562992a4c1c97b36f5ea46",
           "status": "ai",
           "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "cfd6424fd301a4fb573dfa9483652e9fecc404132be1aa716f3170fb62e49ae2",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -42538,6 +42574,12 @@
           "text_hash": "866d0a58e77cd1dd75eea3983d92fbdca8024bcc77eab199b29faa45f06696c6",
           "status": "ai",
           "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "4f796e632078221cba50d2952c25e52d6922aa3f1a6bc6664d072c970e11a13c",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     },
@@ -48615,6 +48657,12 @@
           "text_hash": "7e1fe827cdabc73f3fb6331ed08c90f122cf39dd92cc8347be278506af2c50d2",
           "status": "ai",
           "note": "Matches the guest membership claim sheet and preserves the Deluxe tier name."
+        },
+        "membershipExpiry": {
+          "source_hash": "83f449795b874169f2846e2f7d242d3c085d19fd5df91bc4aada0d112c6168b2",
+          "text_hash": "52b17382ecf23d2391bcc4834516953af9dade4c7d75dc8c1fbf67e6ab5432fe",
+          "status": "ai",
+          "note": "Migrated the source branch wording for the active membership card expiry label."
         }
       }
     }

@@ -198,14 +198,20 @@ void main() {
       await tester.pumpAndSettle();
       final premiumRect = tester.getRect(premium);
       final deluxeRect = tester.getRect(deluxe);
-      final expectedWidth = width >= 360 ? 314.0 : width - 76;
+      final expectedWidth = (width - 104).clamp(180.0, 216.0);
       expect(premiumRect.left, 16);
       expect(premiumRect.width, expectedWidth);
       expect(deluxeRect.width, expectedWidth);
-      expect(premiumRect.height, 82);
+      expect(premiumRect.height, 126);
       expect(deluxeRect.height, premiumRect.height);
       expect(deluxeRect.left - premiumRect.right, 10);
       expect(deluxeRect.left, lessThan(width));
+      Finder premiumText(String text) =>
+          find.descendant(of: premium, matching: find.text(text));
+      expect(
+        tester.getTopLeft(premiumText('Membership Expiry')).dy,
+        lessThan(tester.getTopLeft(premiumText('ACTIVE')).dy),
+      );
       final gems = tester.getRect(
         find.byKey(const ValueKey('user-profile-gems-background')),
       );

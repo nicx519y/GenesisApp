@@ -270,6 +270,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get membershipExpiry => 'メンバーシップ有効期限';
+
+  @override
   String get activeStatus => '有効';
 
   @override

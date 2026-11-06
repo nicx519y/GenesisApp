@@ -278,6 +278,9 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get membershipExpiry => 'Mitgliedschaft bis';
+
+  @override
   String get activeStatus => 'AKTIV';
 
   @override

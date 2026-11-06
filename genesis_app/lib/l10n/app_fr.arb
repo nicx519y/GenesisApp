@@ -5051,5 +5051,9 @@
   "meSignUpClaimDeluxe": "Inscrivez-vous pour obtenir Deluxe",
   "@meSignUpClaimDeluxe": {
     "description": "Login sheet title after a guest buys Deluxe, prompting them to sign up to link the purchased subscription to their account. Deluxe is the membership name."
+  },
+  "membershipExpiry": "Expiration de l’abonnement",
+  "@membershipExpiry": {
+    "description": "Label above the expiry date on an active membership card on the Me page."
   }
 }
