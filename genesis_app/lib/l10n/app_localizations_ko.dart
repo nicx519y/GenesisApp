@@ -270,6 +270,9 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get membershipExpiry => '멤버십 만료일';
+
+  @override
   String get activeStatus => '활성';
 
   @override

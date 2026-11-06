@@ -277,6 +277,9 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String get membershipExpiry => 'Scadenza abbonamento';
+
+  @override
   String get activeStatus => 'ATTIVO';
 
   @override

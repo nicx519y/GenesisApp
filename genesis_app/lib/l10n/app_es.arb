@@ -362,6 +362,10 @@
       }
     }
   },
+  "membershipExpiry": "Membresía válida hasta",
+  "@membershipExpiry": {
+    "description": "Label above the expiry date on an active membership card on the Me page."
+  },
   "activeStatus": "ACTIVA",
   "@activeStatus": {
     "description": "Active Premium membership status."

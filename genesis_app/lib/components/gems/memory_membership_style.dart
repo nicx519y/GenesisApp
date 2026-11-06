@@ -158,6 +158,7 @@ class MemoryMembershipSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final subscription = kind == MemoryMembershipSurfaceKind.subscription;
     final offer = kind == MemoryMembershipSurfaceKind.offer;
+    final profile = kind == MemoryMembershipSurfaceKind.profile;
     final radius = subscription ? 18.0 : 16.0;
     Widget sheen() => DecoratedBox(
       decoration: BoxDecoration(gradient: tier.cardBackground(kind)),
@@ -219,8 +220,16 @@ class MemoryMembershipSurface extends StatelessWidget {
                 ),
               ),
             Positioned(
-              right: offer ? -22 : -24,
-              top: offer ? -28 : -26,
+              right: offer
+                  ? -22
+                  : profile
+                  ? -30
+                  : -24,
+              top: offer
+                  ? -28
+                  : profile
+                  ? -22
+                  : -26,
               child: IgnorePointer(
                 child: ExcludeSemantics(
                   child: Opacity(
@@ -267,12 +276,12 @@ class MemoryMembershipSurface extends StatelessWidget {
                   ),
                 ),
               ),
-            if (kind == MemoryMembershipSurfaceKind.profile)
+            if (profile)
               Positioned(
                 left: 0,
                 right: 0,
                 top: 0,
-                height: 41,
+                height: 56,
                 child: IgnorePointer(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -310,19 +319,28 @@ class MemoryMembershipOfferText extends StatelessWidget {
     required this.style,
     required this.figureStyle,
     this.gem = false,
+    this.maxLines,
   });
   final String text;
   final TextStyle style;
   final TextStyle figureStyle;
   final bool gem;
 
+  /// Ends in an ellipsis past this many lines; null lets the copy run on.
+  final int? maxLines;
+
   static final _figure = RegExp(r'\d[\d,.\s\u00A0\u202F]*\d');
 
   @override
   Widget build(BuildContext context) {
+    final overflow = maxLines == null ? null : TextOverflow.ellipsis;
     final figure = _figure.firstMatch(text);
-    if (figure == null) return Text(text, style: style);
+    if (figure == null) {
+      return Text(text, style: style, maxLines: maxLines, overflow: overflow);
+    }
     return Text.rich(
+      maxLines: maxLines,
+      overflow: overflow,
       TextSpan(
         style: style,
         children: [
@@ -772,3 +790,8 @@ String memoryMembershipDate(DateTime date) {
 /// narrower screens give up card width, so the peek never disappears.
 double memoryMembershipCardWidth(double trackWidth) =>
     trackWidth >= 360 ? 314 : (trackWidth - 76).clamp(180.0, double.infinity);
+
+/// Me cards are 216 wide, so about 38% of the next card shows at 390. Narrow
+/// screens keep at least 78 of it in view before the card itself shrinks.
+double memoryMembershipProfileCardWidth(double trackWidth) =>
+    (trackWidth - 104).clamp(180.0, 216.0);

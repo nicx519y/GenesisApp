@@ -362,6 +362,10 @@
       }
     }
   },
+  "membershipExpiry": "멤버십 만료일",
+  "@membershipExpiry": {
+    "description": "Label above the expiry date on an active membership card on the Me page."
+  },
   "activeStatus": "활성",
   "@activeStatus": {
     "description": "Active Premium membership status."

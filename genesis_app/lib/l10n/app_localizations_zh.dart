@@ -277,6 +277,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get membershipExpiry => 'Membership Expiry';
+
+  @override
   String get activeStatus => 'ACTIVE';
 
   @override
@@ -4039,6 +4042,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String expiresOn({required String date}) {
     return '$date 到期';
   }
+
+  @override
+  String get membershipExpiry => '會員到期日';
 
   @override
   String get activeStatus => '使用中';

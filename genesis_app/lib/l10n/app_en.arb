@@ -362,6 +362,10 @@
       }
     }
   },
+  "membershipExpiry": "Membership Expiry",
+  "@membershipExpiry": {
+    "description": "Label above the expiry date on an active membership card on the Me page."
+  },
   "activeStatus": "ACTIVE",
   "@activeStatus": {
     "description": "Active Premium membership status."

@@ -362,6 +362,10 @@
       }
     }
   },
+  "membershipExpiry": "Scadenza abbonamento",
+  "@membershipExpiry": {
+    "description": "Label above the expiry date on an active membership card on the Me page."
+  },
   "activeStatus": "ATTIVO",
   "@activeStatus": {
     "description": "Active Premium membership status."

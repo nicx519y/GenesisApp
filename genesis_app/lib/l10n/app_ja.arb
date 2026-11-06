@@ -362,6 +362,10 @@
       }
     }
   },
+  "membershipExpiry": "メンバーシップ有効期限",
+  "@membershipExpiry": {
+    "description": "Label above the expiry date on an active membership card on the Me page."
+  },
   "activeStatus": "有効",
   "@activeStatus": {
     "description": "Active Premium membership status."

@@ -563,6 +563,12 @@ abstract class AppLocalizations {
   /// **'Expires {date}'**
   String expiresOn({required String date});
 
+  /// Label above the expiry date on an active membership card on the Me page.
+  ///
+  /// In en, this message translates to:
+  /// **'Membership Expiry'**
+  String get membershipExpiry;
+
   /// Active Premium membership status.
   ///
   /// In en, this message translates to:
