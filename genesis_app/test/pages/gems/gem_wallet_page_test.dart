@@ -121,12 +121,36 @@ void main() {
           tester.widget(find.byKey(const ValueKey('pro-subscribe-button')));
 
       final deluxeLabel = purchaseButton().label;
-      for (final offer in offers.where(
+      final button = find.byKey(const ValueKey('pro-subscribe-button'));
+      Finder buttonText(String text) =>
+          find.descendant(of: button, matching: find.text(text));
+      final colon = tester.getCenter(buttonText(':'));
+      expect(colon.dx, closeTo(tester.getCenter(button).dx, .01));
+      expect(tester.getCenter(buttonText('Yearly')).dx, lessThan(colon.dx));
+      final buttonPrice = buttonText(deluxeLabel.split(': ').last);
+      Color? buttonPriceColor() =>
+          tester.widget<Text>(buttonPrice).style?.color;
+      expect(tester.getCenter(buttonPrice).dx, greaterThan(colon.dx));
+      expect(buttonPriceColor(), deluxeInkOnPearl);
+      Color? planPriceColor(MembershipOffer offer) {
+        final period = offer.product.isYearly ? 'yearly' : 'monthly';
+        final card = find.byKey(ValueKey('membership-deluxe-$period'));
+        final price = find.descendant(
+          of: card,
+          matching: find.text(offer.price!.formattedPrice),
+        );
+        return tester.widget<Text>(price).style?.color;
+      }
+
+      final deluxeOffers = offers.where(
         (offer) => offer.product.membershipType == MembershipType.deluxe,
-      )) {
-        final price = tester.widget<Text>(find.text(offer.price!.formattedPrice));
+      );
+      final deluxeYearly = deluxeOffers.singleWhere(
+        (offer) => offer.product.isYearly,
+      );
+      for (final offer in deluxeOffers) {
         expect(
-          price.style?.color,
+          planPriceColor(offer),
           offer.product.isYearly
               ? const Color(0xFFFFE8ED)
               : GenesisColors.darkTextPrimary,
@@ -141,6 +165,10 @@ void main() {
       await tester.pump();
       final draggedGradient = buttonGradient();
       final draggedBorder = planBorder('deluxe');
+      final draggedButtonPriceColor = buttonPriceColor();
+      final draggedPlanPriceColor = planPriceColor(deluxeYearly);
+      expect(draggedButtonPriceColor, isNot(deluxeInkOnPearl));
+      expect(draggedPlanPriceColor, isNot(const Color(0xFFFFE8ED)));
       expect(
         draggedGradient,
         isNot(MemoryMembershipTier.deluxe.buttonGradient),
@@ -150,6 +178,8 @@ void main() {
       await tester.pump();
       expect(buttonGradient(), isNot(draggedGradient));
       expect(planBorder('deluxe'), isNot(draggedBorder));
+      expect(buttonPriceColor(), isNot(draggedButtonPriceColor));
+      expect(planPriceColor(deluxeYearly), isNot(draggedPlanPriceColor));
       expect(purchaseButton().label, deluxeLabel);
       expect(purchaseButton().foregroundColor!.a, 1);
       await drag.up();
@@ -208,6 +238,30 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(color(), MemoryMembershipTier.deluxe.accent);
+      final toGems = await tester.startGesture(tester.getCenter(cards));
+      await toGems.moveBy(const Offset(-40, 0));
+      await toGems.moveBy(
+        const Offset(-75, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump();
+      expect(controller.offset, inExclusiveRange(0, .5));
+      await toGems.up(timeStamp: const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(controller.index, 1);
+
+      final pages = find.byKey(const ValueKey('wallet-purchase-pages'));
+      final toSubscription = await tester.startGesture(tester.getCenter(pages));
+      await toSubscription.moveBy(const Offset(40, 0));
+      await toSubscription.moveBy(
+        const Offset(75, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump();
+      expect(controller.offset, inExclusiveRange(-.5, 0));
+      await toSubscription.up(timeStamp: const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(controller.index, 0);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
@@ -794,10 +848,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('wallet-subscription-tab')));
       await tester.pumpAndSettle();
       expect(find.text('Worldo Premium'), findsOneWidget);
-      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
       await tester.pump();
       expect(find.text('Pro subscriptions are coming soon.'), findsNothing);
@@ -838,7 +892,7 @@ void main() {
         tester.widget<Text>(find.text('Subscription')).style?.color,
         GenesisColors.darkTextPrimary,
       );
-      expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
       await tester.pumpAndSettle();
       expect(
@@ -896,7 +950,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
       expect(
         tester
             .getRect(find.byKey(const ValueKey('pro-subscribe-button')))

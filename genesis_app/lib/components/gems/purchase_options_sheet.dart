@@ -189,8 +189,8 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
               closeButtonKey: const ValueKey('gem-purchase-sheet-close'),
               onClose: () => Navigator.of(context).pop(),
             ),
-            child: TabBarView(
-              key: const ValueKey('purchase-sheet-pages'),
+            child: WalletPurchaseTabView(
+              pageKey: const ValueKey('purchase-sheet-pages'),
               controller: _tabs,
               children: [
                 _PurchaseSheetPage(

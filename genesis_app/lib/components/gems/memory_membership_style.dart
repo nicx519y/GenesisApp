@@ -16,6 +16,7 @@ typedef MemoryMembershipTier = MembershipType;
 
 const membershipTierTransitionDuration = Duration(milliseconds: 480);
 const membershipTierTransitionCurve = Cubic(.2, .8, .2, 1);
+const deluxeInkOnPearl = Color(0xFF3A2530);
 
 enum MemoryMembershipSurfaceKind { subscription, offer, profile }
 
@@ -507,7 +508,7 @@ class MemoryMembershipButton extends StatelessWidget {
                           ? (subscription
                                 ? premiumInkOnGold
                                 : const Color(0xFF42290A))
-                          : const Color(0xFF3A2530),
+                          : deluxeInkOnPearl,
                       letterSpacing: 0,
                       fontSize: compact
                           ? 12
@@ -647,9 +648,10 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
                                 ? Colors.white
                                 : !selected
                                 ? GenesisColors.darkTextPrimary
-                                : premium
-                                ? premiumGoldLight
-                                : const Color(0xFFFFE8ED),
+                                : tierColor(
+                                    premiumGoldLight,
+                                    const Color(0xFFFFE8ED),
+                                  ),
                           ),
                         ),
                         Text(
@@ -720,7 +722,7 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
                         color: offer
                             ? (premium
                                   ? const Color(0xFF42290A)
-                                  : const Color(0xFF3A2530))
+                                  : deluxeInkOnPearl)
                             : tier.accent,
                         fontSize: offer ? 10 : 12,
                         height: 1,

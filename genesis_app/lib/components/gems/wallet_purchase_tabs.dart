@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../app/membership/membership_catalog.dart';
 import 'memory_membership_style.dart';
 import '../../l10n/genesis_l10n.dart';
@@ -5,6 +7,84 @@ import 'package:flutter/material.dart';
 
 import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_colors.dart';
+
+class WalletPurchaseTabView extends StatefulWidget {
+  const WalletPurchaseTabView({
+    required this.pageKey,
+    required this.controller,
+    required this.children,
+  });
+
+  final Key pageKey;
+  final TabController controller;
+  final List<Widget> children;
+
+  @override
+  State<WalletPurchaseTabView> createState() => _WalletPurchaseTabViewState();
+}
+
+class _WalletPurchaseTabViewState extends State<WalletPurchaseTabView> {
+  static const _shortSwipeDistance = 48.0;
+  int? _pointer;
+  double? _dragViewport;
+
+  bool _onScroll(ScrollNotification notification) {
+    if (_pointer != null &&
+        notification.depth == 0 &&
+        notification.metrics.axis == Axis.horizontal &&
+        notification is ScrollUpdateNotification &&
+        notification.dragDetails != null) {
+      _dragViewport = notification.metrics.viewportDimension;
+    }
+    return false;
+  }
+
+  void _endSwipe(PointerUpEvent event) {
+    if (_pointer != event.pointer) return;
+    final viewport = _dragViewport;
+    _clearSwipe(event);
+    final controller = widget.controller;
+    if (viewport == null || controller.indexIsChanging) return;
+    final offset = controller.offset;
+    if (offset.abs() >= .5 || offset.abs() * viewport < _shortSwipeDistance) {
+      return;
+    }
+    final origin = controller.index;
+    final target = origin + (offset > 0 ? 1 : -1);
+    if (target < 0 || target >= controller.length) return;
+    // Let PageView finish handling pointer up before redirecting its snap.
+    scheduleMicrotask(() {
+      if (mounted &&
+          _pointer == null &&
+          identical(widget.controller, controller) &&
+          controller.index == origin &&
+          !controller.indexIsChanging) {
+        controller.animateTo(target);
+      }
+    });
+  }
+
+  void _clearSwipe(PointerEvent event) {
+    if (_pointer != event.pointer) return;
+    _pointer = null;
+    _dragViewport = null;
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: (event) => _pointer ??= event.pointer,
+    onPointerUp: _endSwipe,
+    onPointerCancel: _clearSwipe,
+    child: NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: TabBarView(
+        key: widget.pageKey,
+        controller: widget.controller,
+        children: widget.children,
+      ),
+    ),
+  );
+}
 
 /// Wallet uses the same underline tabs as the other app pages.
 class WalletPurchaseTabs extends StatelessWidget {

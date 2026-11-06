@@ -686,16 +686,23 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
   }
 
   void _updateDrag(DragUpdateDetails details, double step) {
+    final pageDrag = _pageDrag;
+    if (pageDrag != null) {
+      pageDrag.update(details);
+      return;
+    }
+
     // The card track owns horizontal gestures inside the carousel. At its
     // boundary, forward the real drag to the surrounding TabBarView so its
-    // page and tab indicator follow the finger, including canceled swipes.
+    // page and indicator follow the finger. Use net travel so a small motion
+    // in the opposite direction at the start cannot block the handoff.
+    final nextDrag = _drag + details.delta.dx;
     final atEnd =
         widget.selectedIndex == widget.children.length - 1 &&
-        details.delta.dx < 0;
-    final atStart = widget.selectedIndex == 0 && details.delta.dx > 0;
-    if (_pageDrag == null &&
-        _drag == 0 &&
-        (atEnd || atStart) &&
+        nextDrag < -_subscriptionCardSwipeThreshold;
+    final atStart =
+        widget.selectedIndex == 0 && nextDrag > _subscriptionCardSwipeThreshold;
+    if ((atEnd || atStart) &&
         context.findAncestorWidgetOfExactType<TabBarView>() != null) {
       final position = Scrollable.maybeOf(
         context,
@@ -706,20 +713,31 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
           (atEnd
               ? position.pixels < position.maxScrollExtent
               : position.pixels > position.minScrollExtent);
-      if (canMove && _dragStart != null) {
-        _pageDrag = position.drag(_dragStart!, () => _pageDrag = null);
+      final dragStart = _dragStart;
+      if (canMove && dragStart != null) {
+        final drag = _pageDrag = position.drag(
+          dragStart,
+          () => _pageDrag = null,
+        );
+        setState(() => _drag = 0);
+        widget.onDragProgress(widget.selectedIndex.toDouble());
+        drag.update(
+          DragUpdateDetails(
+            sourceTimeStamp: details.sourceTimeStamp,
+            delta: Offset(nextDrag, 0),
+            primaryDelta: nextDrag,
+            globalPosition: details.globalPosition,
+            localPosition: details.localPosition,
+          ),
+        );
+        return;
       }
     }
-    final pageDrag = _pageDrag;
-    if (pageDrag != null) {
-      pageDrag.update(details);
-    } else {
-      setState(() => _drag += details.delta.dx);
-      if (step > 0) {
-        widget.onDragProgress(
-          (widget.selectedIndex - _drag / step).clamp(0, 1),
-        );
-      }
+    setState(() => _drag = nextDrag);
+    if (step > 0) {
+      widget.onDragProgress(
+        (widget.selectedIndex - nextDrag / step).clamp(0, 1),
+      );
     }
   }
 

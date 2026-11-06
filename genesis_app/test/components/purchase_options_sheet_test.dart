@@ -94,6 +94,34 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(color(), MemoryMembershipTier.deluxe.accent);
+      final swipe = await tester.startGesture(tester.getCenter(cards));
+      await swipe.moveBy(const Offset(-40, 0));
+      await swipe.moveBy(const Offset(8, 0));
+      await tester.pump();
+      expect(controller.animation!.value, 0);
+      await swipe.moveBy(
+        const Offset(-85, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump();
+      expect(controller.offset, inExclusiveRange(0, .5));
+      await swipe.up(timeStamp: const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(controller.index, 1);
+
+      final returnSwipe = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('purchase-sheet-pages'))),
+      );
+      await returnSwipe.moveBy(const Offset(40, 0));
+      await returnSwipe.moveBy(
+        const Offset(75, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump();
+      expect(controller.offset, inExclusiveRange(-.5, 0));
+      await returnSwipe.up(timeStamp: const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(controller.index, 0);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
@@ -557,7 +585,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('wallet-subscription-tab')));
     await tester.pumpAndSettle();
-    expect(find.text('Monthly: \$9.99'), findsOneWidget);
+    expect(findSubscriptionLabel('Monthly: \$9.99'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
     await tester.pumpAndSettle();
     expect(find.text('Preserved'), findsOneWidget);

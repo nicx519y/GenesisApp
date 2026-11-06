@@ -171,7 +171,7 @@ void main() {
           expect(productCalls, 1);
           if (!preloadReady) completeProducts();
           await tester.pumpAndSettle();
-          expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+          expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
           expect(productCalls, 1);
         } finally {
           if (!products.isCompleted) completeProducts();

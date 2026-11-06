@@ -764,6 +764,24 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final radius = BorderRadius.circular(13);
     final premiumGradient = MembershipType.premium.buttonGradient;
     final deluxeGradient = MembershipType.deluxe.buttonGradient;
+    final period = _plan.label;
+    final price = _offerFor(_plan)?.price?.formattedPrice;
+    final label = subscribed
+        ? GenesisL10n.current.premiumSubscribed
+        : '$period: ${price ?? GenesisL10n.current.premiumPurchaseUnavailable}';
+    Widget labelSide(String text, Alignment alignment, {Color? color}) =>
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: alignment,
+            child: Text(
+              text,
+              maxLines: 1,
+              softWrap: false,
+              style: color == null ? null : TextStyle(color: color),
+            ),
+          ),
+        );
     return DecoratedBox(
       key: const ValueKey('pro-subscribe-gold-surface'),
       decoration: BoxDecoration(
@@ -790,9 +808,31 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         shrinkLabelToFit: true,
         backgroundColor: Colors.transparent,
         foregroundColor: premiumInkOnGold,
-        label: subscribed
-            ? GenesisL10n.current.premiumSubscribed
-            : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? GenesisL10n.current.premiumPurchaseUnavailable}',
+        label: label,
+        labelContent: subscribed || price == null
+            ? null
+            : Semantics(
+                label: label,
+                excludeSemantics: true,
+                child: Row(
+                  textDirection: TextDirection.ltr,
+                  children: [
+                    labelSide(period, Alignment.centerRight),
+                    const SizedBox(width: 4),
+                    const Text(':'),
+                    const SizedBox(width: 4),
+                    labelSide(
+                      price,
+                      Alignment.centerLeft,
+                      color: Color.lerp(
+                        premiumInkOnGold,
+                        deluxeInkOnPearl,
+                        deluxeColorProgress,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
         height: 44,
         fontSize: 18,
         fontWeight: FontWeight.w600,

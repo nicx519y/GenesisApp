@@ -409,8 +409,8 @@ class _GemWalletPageState extends State<GemWalletPage>
             ],
           ),
           body: SafeArea(
-            child: TabBarView(
-              key: const ValueKey('wallet-purchase-pages'),
+            child: WalletPurchaseTabView(
+              pageKey: const ValueKey('wallet-purchase-pages'),
               controller: _purchaseTabs,
               children: [
                 _WalletTabPage(
