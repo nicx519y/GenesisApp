@@ -146,9 +146,9 @@ void main() {
           expect(find.text('Daily Check-in'), findsOneWidget);
           final bound = outcome == 'completed';
           expect(find.text('Get 150'), findsNothing);
-          expect(find.text('Get 300'), bound ? findsOneWidget : findsNothing);
+          expect(find.text('Get 300'), findsNothing);
           expect(find.text('Check in'), findsOneWidget);
-          expect(find.text('Cancel'), findsNothing);
+          expect(find.text('Cancel'), bound ? findsOneWidget : findsNothing);
           expect(h.claimRequests, hasLength(1));
           if (bound) {
             expect(h.store.claims, isEmpty);
@@ -223,7 +223,7 @@ void main() {
         afterBinding.complete(_wallet(member: true));
         await tester.pumpAndSettle();
         expect(find.text('Get 150'), findsNothing);
-        expect(find.text('Cancel'), findsNothing);
+        expect(find.text('Cancel'), findsOneWidget);
         expect(find.text('Check in'), findsOneWidget);
         expect(membership.state.value.isVip, isTrue);
         await tester.tapAt(const Offset(1, 1));
