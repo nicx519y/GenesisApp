@@ -418,7 +418,7 @@ class MemoryMembershipProfileCarousel extends StatefulWidget {
         style: GenesisTypography.resolve(
           context,
           const TextStyle(
-            fontSize: 12,
+            fontSize: MemoryMembershipButton.compactLabelFontSize,
             height: 1.25,
             fontWeight: FontWeight.w800,
           ),

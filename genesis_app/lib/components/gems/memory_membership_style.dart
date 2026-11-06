@@ -462,6 +462,8 @@ class MemoryMembershipHeading extends StatelessWidget {
 }
 
 class MemoryMembershipButton extends StatelessWidget {
+  static const double compactLabelFontSize = 14;
+
   const MemoryMembershipButton({
     super.key,
     required this.tier,
@@ -531,7 +533,7 @@ class MemoryMembershipButton extends StatelessWidget {
                           : deluxeInkOnPearl,
                       letterSpacing: 0,
                       fontSize: compact
-                          ? 12
+                          ? compactLabelFontSize
                           : subscription
                           ? 18
                           : 13,
