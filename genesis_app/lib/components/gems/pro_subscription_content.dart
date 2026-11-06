@@ -743,50 +743,58 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     ];
   }
 
-  Widget _buildPlanControls(double deluxeColorProgress) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      widget.horizontalInset,
-      12,
-      widget.horizontalInset,
-      0,
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        MemoryMembershipPlanSelector(
-          tier: _type,
-          deluxeColorProgress: deluxeColorProgress,
-          savings: _offerFor(_ProPlan.yearly) == null
-              ? null
-              : membershipYearlySavings(_offerFor(_ProPlan.yearly)!, _offers),
-          yearly: _plan == _ProPlan.yearly,
-          yearlyPrice: _offerFor(_ProPlan.yearly)?.price?.formattedPrice,
-          monthlyPrice: _offerFor(_ProPlan.monthly)?.price?.formattedPrice,
-          onChanged: (yearly) {
-            setState(() {
-              _plan = yearly ? _ProPlan.yearly : _ProPlan.monthly;
-              _plans[_type] = _plan;
-            });
-            _prepareSelectedCheckout();
-          },
-        ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 35),
-          child: Center(
-            child: Text(
-              GenesisL10n.current.premiumAutoRenewsCancelAnytime,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: GenesisColors.darkTextTertiary,
+  Widget _buildPlanControls(double deluxeColorProgress) {
+    final yearlyOffer = _offerFor(_ProPlan.yearly);
+    final yearlyPrice = yearlyOffer?.price;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        widget.horizontalInset,
+        12,
+        widget.horizontalInset,
+        0,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          MemoryMembershipPlanSelector(
+            tier: _type,
+            deluxeColorProgress: deluxeColorProgress,
+            savings: yearlyOffer == null
+                ? null
+                : membershipYearlySavings(yearlyOffer, _offers),
+            yearly: _plan == _ProPlan.yearly,
+            yearlyPrice: yearlyPrice?.formattedPrice,
+            yearlyMonthlyPrice: yearlyPrice?.monthlyEquivalent(
+              Localizations.localeOf(context).toString(),
+              yearlyOffer!.product.billingMonths,
+            ),
+            monthlyPrice: _offerFor(_ProPlan.monthly)?.price?.formattedPrice,
+            onChanged: (yearly) {
+              setState(() {
+                _plan = yearly ? _ProPlan.yearly : _ProPlan.monthly;
+                _plans[_type] = _plan;
+              });
+              _prepareSelectedCheckout();
+            },
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 35),
+            child: Center(
+              child: Text(
+                GenesisL10n.current.premiumAutoRenewsCancelAnytime,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: GenesisColors.darkTextTertiary,
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   Widget _buildPurchaseActions(
     BuildContext context,

@@ -1269,7 +1269,7 @@ void main() {
     expect(find.textContaining(r'$8.33', findRichText: true), findsWidgets);
     expect(find.text('Save 17%'), findsOneWidget);
     expect(find.textContaining('₩', findRichText: true), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+    await tester.tap(find.byKey(const ValueKey('membership-premium-monthly')));
     await tester.pump();
     expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
   });
@@ -1549,16 +1549,40 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(r'$10/mo', findRichText: true), findsOneWidget);
+      final yearlyCard = find.byKey(
+        const ValueKey('membership-premium-yearly'),
+      );
+      expect(
+        find.descendant(of: yearlyCard, matching: find.text(r'$10')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: yearlyCard, matching: find.text('/ month')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: yearlyCard, matching: find.text('Billed annually')),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<Semantics>(yearlyCard).properties.label,
+        r'Yearly Premium, $120 per year',
+      );
       expect(findSubscriptionLabel(r'Yearly: $120'), findsOneWidget);
       expect(find.text('Save 50%'), findsOneWidget);
       await tester.tap(find.byKey(buttonKey));
       await tester.pumpAndSettle();
       expect(selected.single.priceAmount, 12000);
-      await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+      final monthlyCard = find.byKey(
+        const ValueKey('membership-premium-monthly'),
+      );
+      await tester.tap(monthlyCard);
       await tester.pumpAndSettle();
       expect(findSubscriptionLabel(r'Monthly: $20'), findsOneWidget);
-      expect(find.text(r'$20/mo', findRichText: true), findsOneWidget);
+      expect(
+        find.descendant(of: monthlyCard, matching: find.text(r'$20')),
+        findsOneWidget,
+      );
     },
   );
 

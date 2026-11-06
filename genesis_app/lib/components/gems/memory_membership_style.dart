@@ -565,6 +565,7 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
     required this.yearly,
     required this.onChanged,
     this.yearlyPrice,
+    this.yearlyMonthlyPrice,
     this.savings,
     this.monthlyPrice,
     this.stacked = false,
@@ -575,6 +576,7 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
   final bool yearly;
   final ValueChanged<bool> onChanged;
   final String? yearlyPrice;
+  final String? yearlyMonthlyPrice;
   final int? savings;
   final String? monthlyPrice;
   final bool stacked;
@@ -587,8 +589,11 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
     final deluxeProgress = deluxeColorProgress ?? (premium ? 0.0 : 1.0);
     Color tierColor(Color gold, Color pink) =>
         Color.lerp(gold, pink, deluxeProgress)!;
-    final price =
+    final billedPrice =
         (annual ? yearlyPrice : monthlyPrice) ?? membershipPricePlaceholder;
+    final monthlyRate =
+        (annual ? yearlyMonthlyPrice : monthlyPrice) ??
+        membershipPricePlaceholder;
     final accent = offer
         ? (premium ? const Color(0xFFF3C558) : const Color(0xFFFFE3A3))
         : tierColor(premiumGold, MemoryMembershipTier.deluxe.accent);
@@ -600,7 +605,7 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
           .subscriptionPlanAccessibility(
             period: annual ? 'year' : 'month',
             plan: annual ? context.l10n.yearlyPlan : context.l10n.monthlyPlan,
-            price: price,
+            price: billedPrice,
           )
           .replaceAll('Premium', premium ? 'Premium' : 'Deluxe'),
       child: Stack(
@@ -659,7 +664,7 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.end,
                       children: [
                         Text(
-                          price,
+                          monthlyRate,
                           style: TextStyle(
                             fontSize: offer ? 17 : 20,
                             height: offer ? 20 / 17 : 1,
@@ -676,9 +681,7 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          context.l10n.memoryMembershipPeriod(
-                            period: annual ? 'year' : 'month',
-                          ),
+                          context.l10n.memoryMembershipPeriod(period: 'month'),
                           style: TextStyle(
                             fontSize: offer ? 11 : 12,
                             height: 1.25,
