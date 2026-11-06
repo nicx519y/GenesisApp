@@ -16,6 +16,7 @@ typedef MemoryMembershipTier = MembershipType;
 
 const membershipTierTransitionDuration = Duration(milliseconds: 480);
 const membershipTierTransitionCurve = Cubic(.2, .8, .2, 1);
+const purchaseTabContentTopSpacing = 12.0;
 const deluxeInkOnPearl = Color(0xFF3A2530);
 
 enum MemoryMembershipSurfaceKind { subscription, offer, profile }

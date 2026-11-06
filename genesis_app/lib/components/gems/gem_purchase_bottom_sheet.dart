@@ -25,6 +25,7 @@ import 'gem_billing_purchase_dialog.dart';
 import 'gem_purchase_state.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import 'gem_purchase_catalog.dart';
+import 'memory_membership_style.dart' show purchaseTabContentTopSpacing;
 import 'purchase_options_sheet.dart';
 import 'purchase_session_builder.dart';
 
@@ -531,7 +532,10 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   Widget _buildPurchaseContent(BuildContext context) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(
+        top: purchaseTabContentTopSpacing,
+        bottom: 14,
+      ),
       child: ValueListenableBuilder<GemWalletState>(
         valueListenable: widget.walletStore.state,
         builder: (context, walletState, _) => GemPurchaseCatalogSection(

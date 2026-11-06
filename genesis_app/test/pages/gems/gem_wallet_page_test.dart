@@ -100,6 +100,7 @@ void main() {
               .color;
       expect(color(), MemoryMembershipTier.deluxe.accent);
       final cards = find.byKey(const ValueKey('membership-subscription-pages'));
+      final subscriptionTop = tester.getTopLeft(cards).dy;
       Gradient? buttonGradient() {
         final surface = find.byKey(
           const ValueKey('pro-subscribe-gold-surface'),
@@ -249,6 +250,10 @@ void main() {
       await toGems.up(timeStamp: const Duration(milliseconds: 900));
       await tester.pumpAndSettle();
       expect(controller.index, 1);
+      expect(
+        tester.getTopLeft(find.text('My Balance')).dy,
+        closeTo(subscriptionTop, .01),
+      );
 
       final pages = find.byKey(const ValueKey('wallet-purchase-pages'));
       final toSubscription = await tester.startGesture(tester.getCenter(pages));

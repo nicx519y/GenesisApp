@@ -34,6 +34,13 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
+      final wallet = GemWalletStore(
+        readUid: () async => 'u_test',
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+      );
+      final billing = _SheetBillingService();
+      addTearDown(wallet.dispose);
+      addTearDown(billing.state.dispose);
       final offers = [
         for (final deluxe in [false, true])
           for (final yearly in [false, true])
@@ -54,7 +61,11 @@ void main() {
               initialTab: PurchaseSheetTab.subscription,
               membershipProductsLoader: () async =>
                   MembershipCatalogData(offers: offers, hasPurchased: true),
-              gemsBuilder: (_) => const Text('Gems content'),
+              gemsBuilder: (_) => GemPurchaseBottomSheet(
+                productsLoader: () async => [],
+                walletStore: wallet,
+                billingService: billing,
+              ),
             ),
           ),
         ),
@@ -66,6 +77,7 @@ void main() {
               .color;
       expect(color(), MemoryMembershipTier.deluxe.accent);
       final cards = find.byKey(const ValueKey('membership-subscription-pages'));
+      final subscriptionTop = tester.getTopLeft(cards).dy;
       await tester.drag(cards, const Offset(200, 0));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 90));
@@ -108,6 +120,10 @@ void main() {
       await swipe.up(timeStamp: const Duration(milliseconds: 900));
       await tester.pumpAndSettle();
       expect(controller.index, 1);
+      expect(
+        tester.getTopLeft(find.text('My Balance')).dy,
+        closeTo(subscriptionTop, .01),
+      );
 
       final returnSwipe = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('purchase-sheet-pages'))),

@@ -165,7 +165,7 @@ class _SubscriptionCarouselState
         return SingleChildScrollView(
           child: Column(
             children: [
-              const SizedBox(height: 12),
+              const SizedBox(height: purchaseTabContentTopSpacing),
               SizedBox(height: 360 * scale, child: _cards()),
               _footer(context),
             ],
@@ -174,7 +174,7 @@ class _SubscriptionCarouselState
       }
       return Column(
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: purchaseTabContentTopSpacing),
           Expanded(child: _cards()),
           _footer(context),
         ],
