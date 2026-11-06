@@ -598,8 +598,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
           matching.isEmpty ? null : matching.first.product,
         );
       },
-      footerBuilder: (_) =>
-          _buildPurchaseFooter(context, _offerFor(_plan)?.product),
+      footerBuilder: (progress) =>
+          _buildPurchaseFooter(context, _offerFor(_plan)?.product, progress),
     );
     if (widget.sheetScrollController == null) {
       return AbsorbPointer(absorbing: _submitting, child: carousel);
@@ -697,6 +697,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   Widget _buildPurchaseFooter(
     BuildContext context,
     MembershipProduct? selectedProduct,
+    double deluxeColorProgress,
   ) => Padding(
     padding: EdgeInsets.fromLTRB(
       widget.horizontalInset,
@@ -709,6 +710,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       children: [
         MemoryMembershipPlanSelector(
           tier: _type,
+          deluxeColorProgress: deluxeColorProgress,
           savings: _offerFor(_ProPlan.yearly) == null
               ? null
               : membershipYearlySavings(_offerFor(_ProPlan.yearly)!, _offers),
@@ -736,7 +738,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
             ),
           ),
         ),
-        _buildSubscribeButton(selectedProduct),
+        _buildSubscribeButton(selectedProduct, deluxeColorProgress),
         const SizedBox(height: 24),
         _buildLegalRow(context),
         SizedBox(
@@ -751,16 +753,29 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     ),
   );
 
-  Widget _buildSubscribeButton(MembershipProduct? product) {
+  Widget _buildSubscribeButton(
+    MembershipProduct? product,
+    double deluxeColorProgress,
+  ) {
     final access = _membership?.state.value ?? const MembershipAccessState();
     final subscribed =
         product != null &&
         membershipIsSubscribedToSelectedPlan(product, access);
     final radius = BorderRadius.circular(13);
+    final premiumGradient = MembershipType.premium.buttonGradient;
+    final deluxeGradient = MembershipType.deluxe.buttonGradient;
     return DecoratedBox(
       key: const ValueKey('pro-subscribe-gold-surface'),
       decoration: BoxDecoration(
-        gradient: _type.buttonGradient,
+        gradient: switch (deluxeColorProgress) {
+          0 => premiumGradient,
+          1 => deluxeGradient,
+          _ => LinearGradient.lerp(
+            premiumGradient,
+            deluxeGradient,
+            deluxeColorProgress,
+          ),
+        },
         borderRadius: radius,
         boxShadow: const [
           BoxShadow(

@@ -38,6 +38,7 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import '../../app/gems/gem_store_catalog_test.dart' as catalog_support;
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
@@ -72,6 +73,7 @@ void main() {
                 if (deluxe)
                   'plan_code': yearly ? 'deluxe_yearly' : 'deluxe_monthly',
                 if (deluxe) 'store_product_id': 'test_deluxe',
+                if (deluxe) 'price_amount': yearly ? 44900 : 4490,
               }),
             ),
       ];
@@ -98,16 +100,96 @@ void main() {
               .color;
       expect(color(), MemoryMembershipTier.deluxe.accent);
       final cards = find.byKey(const ValueKey('membership-subscription-pages'));
-      await tester.drag(cards, const Offset(200, 0));
+      Gradient? buttonGradient() {
+        final surface = find.byKey(
+          const ValueKey('pro-subscribe-gold-surface'),
+        );
+        final decoration = tester.widget<DecoratedBox>(surface).decoration;
+        return (decoration as BoxDecoration).gradient;
+      }
+
+      Color planBorder(String tier) {
+        final box = find.descendant(
+          of: find.byKey(ValueKey('membership-$tier-yearly')),
+          matching: find.byType(Container),
+        );
+        final decoration = tester.widget<Container>(box.first).decoration;
+        return (decoration as BoxDecoration).border!.top.color;
+      }
+
+      GenesisPrimaryButton purchaseButton() =>
+          tester.widget(find.byKey(const ValueKey('pro-subscribe-button')));
+
+      final deluxeLabel = purchaseButton().label;
+      for (final offer in offers.where(
+        (offer) => offer.product.membershipType == MembershipType.deluxe,
+      )) {
+        final price = tester.widget<Text>(find.text(offer.price!.formattedPrice));
+        expect(
+          price.style?.color,
+          offer.product.isYearly
+              ? const Color(0xFFFFE8ED)
+              : GenesisColors.darkTextPrimary,
+        );
+      }
+
+      expect(buttonGradient(), MemoryMembershipTier.deluxe.buttonGradient);
+      expect(planBorder('deluxe'), MemoryMembershipTier.deluxe.accent);
+      final drag = await tester.startGesture(tester.getCenter(cards));
+      await drag.moveBy(const Offset(40, 0));
+      await drag.moveBy(const Offset(50, 0));
+      await tester.pump();
+      final draggedGradient = buttonGradient();
+      final draggedBorder = planBorder('deluxe');
+      expect(
+        draggedGradient,
+        isNot(MemoryMembershipTier.deluxe.buttonGradient),
+      );
+      expect(draggedBorder, isNot(MemoryMembershipTier.deluxe.accent));
+      await drag.moveBy(const Offset(80, 0));
+      await tester.pump();
+      expect(buttonGradient(), isNot(draggedGradient));
+      expect(planBorder('deluxe'), isNot(draggedBorder));
+      expect(purchaseButton().label, deluxeLabel);
+      expect(purchaseButton().foregroundColor!.a, 1);
+      await drag.up();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 90));
       expect(color(), isNot(MemoryMembershipTier.deluxe.accent));
       expect(color(), isNot(MemoryMembershipTier.premium.accent));
+      expect(
+        buttonGradient(),
+        isNot(MemoryMembershipTier.deluxe.buttonGradient),
+      );
+      expect(
+        buttonGradient(),
+        isNot(MemoryMembershipTier.premium.buttonGradient),
+      );
+      expect(planBorder('premium'), isNot(MemoryMembershipTier.deluxe.accent));
+      expect(planBorder('premium'), isNot(MemoryMembershipTier.premium.accent));
+      expect(purchaseButton().label, isNot(deluxeLabel));
+      expect(purchaseButton().foregroundColor!.a, 1);
+      expect(purchaseButton().onPressed, isNotNull);
       await tester.pumpAndSettle();
       expect(color(), MemoryMembershipTier.premium.accent);
+      expect(buttonGradient(), MemoryMembershipTier.premium.buttonGradient);
+      expect(planBorder('premium'), MemoryMembershipTier.premium.accent);
+      expect(purchaseButton().foregroundColor!.a, 1);
+      expect(purchaseButton().onPressed, isNotNull);
       await tester.drag(cards, const Offset(-200, 0));
       await tester.pumpAndSettle();
       expect(color(), MemoryMembershipTier.deluxe.accent);
+      final shortDrag = await tester.startGesture(tester.getCenter(cards));
+      await shortDrag.moveBy(const Offset(40, 0));
+      await shortDrag.moveBy(const Offset(8, 0));
+      await tester.pump();
+      expect(planBorder('deluxe'), isNot(MemoryMembershipTier.deluxe.accent));
+      await shortDrag.up();
+      await tester.pumpAndSettle();
+      expect(buttonGradient(), MemoryMembershipTier.deluxe.buttonGradient);
+      expect(planBorder('deluxe'), MemoryMembershipTier.deluxe.accent);
+      expect(purchaseButton().label, deluxeLabel);
+      expect(purchaseButton().foregroundColor!.a, 1);
       final controller = tester
           .widget<WalletPurchaseTabs>(find.byType(WalletPurchaseTabs))
           .controller;

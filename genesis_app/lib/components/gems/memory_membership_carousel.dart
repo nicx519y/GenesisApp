@@ -7,7 +7,7 @@ import '../../l10n/genesis_localizations.dart';
 import 'memory_membership_style.dart';
 
 const double _membershipCardSwipeThreshold = 12;
-const double _subscriptionCardSwipeThreshold = 48;
+const double _subscriptionCardSwipeThreshold = 12;
 const double _membershipCardFlingDistance = 8;
 const double _membershipCardFlingVelocity = 200;
 
@@ -36,7 +36,7 @@ class MemoryMembershipSubscriptionCarousel extends StatefulWidget {
 
   /// The card to open on when the entry asks for one; otherwise the lead card.
   final MemoryMembershipTier? initialTier;
-  final Widget Function(MemoryMembershipTier) footerBuilder;
+  final Widget Function(double deluxeColorProgress) footerBuilder;
   final List<Widget> Function(MemoryMembershipTier) benefitsBuilder;
   final bool Function(ScrollNotification)? onBenefitsScroll;
 
@@ -51,6 +51,7 @@ class _SubscriptionCarouselState
     extends State<MemoryMembershipSubscriptionCarousel> {
   MemoryMembershipTier? _picked;
   MemoryMembershipTier? _reported;
+  double? _dragColorProgress;
 
   @override
   void didUpdateWidget(
@@ -93,6 +94,7 @@ class _SubscriptionCarouselState
     key: const ValueKey('membership-subscription-pages'),
     selectedIndex: _order.indexOf(_tier),
     onChanged: (index) => _selectTier(_order[index]),
+    onDragProgress: (progress) => setState(() => _dragColorProgress = progress),
     children: [
       for (final tier in _order)
         _BenefitsCard(
@@ -139,7 +141,16 @@ class _SubscriptionCarouselState
             ),
         ],
       ),
-      widget.footerBuilder(_tier),
+      TweenAnimationBuilder<double>(
+        tween: Tween(
+          end: _dragColorProgress ?? _order.indexOf(_tier).toDouble(),
+        ),
+        duration: _dragColorProgress == null
+            ? membershipTierTransitionDuration
+            : Duration.zero,
+        curve: membershipTierTransitionCurve,
+        builder: (_, progress, _) => widget.footerBuilder(progress),
+      ),
     ],
   );
 
@@ -647,10 +658,12 @@ class _MembershipSlideTrack extends StatefulWidget {
     super.key,
     required this.selectedIndex,
     required this.onChanged,
+    required this.onDragProgress,
     required this.children,
   });
   final int selectedIndex;
   final ValueChanged<int> onChanged;
+  final ValueChanged<double?> onDragProgress;
   final List<Widget> children;
 
   @override
@@ -663,13 +676,16 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
   DragStartDetails? _dragStart;
   Drag? _pageDrag;
 
-  void _startDrag(DragStartDetails details) => setState(() {
-    _dragStart = details;
-    _dragging = true;
-    _drag = 0;
-  });
+  void _startDrag(DragStartDetails details) {
+    setState(() {
+      _dragStart = details;
+      _dragging = true;
+      _drag = 0;
+    });
+    widget.onDragProgress(widget.selectedIndex.toDouble());
+  }
 
-  void _updateDrag(DragUpdateDetails details) {
+  void _updateDrag(DragUpdateDetails details, double step) {
     // The card track owns horizontal gestures inside the carousel. At its
     // boundary, forward the real drag to the surrounding TabBarView so its
     // page and tab indicator follow the finger, including canceled swipes.
@@ -699,6 +715,11 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
       pageDrag.update(details);
     } else {
       setState(() => _drag += details.delta.dx);
+      if (step > 0) {
+        widget.onDragProgress(
+          (widget.selectedIndex - _drag / step).clamp(0, 1),
+        );
+      }
     }
   }
 
@@ -714,6 +735,7 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
       _drag = 0;
       _dragging = false;
     });
+    widget.onDragProgress(null);
   }
 
   void _cancelDrag() {
@@ -744,6 +766,7 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
       _dragging = false;
     });
     if (next != widget.selectedIndex) widget.onChanged(next);
+    widget.onDragProgress(null);
   }
 
   @override
@@ -761,15 +784,17 @@ class _MembershipSlideTrackState extends State<_MembershipSlideTrack> {
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
         onHorizontalDragStart: _startDrag,
-        onHorizontalDragUpdate: _updateDrag,
+        onHorizontalDragUpdate: (details) => _updateDrag(details, step),
         onHorizontalDragEnd: _endDrag,
         onHorizontalDragCancel: _cancelDrag,
         child: ClipRect(
           child: Stack(
             children: [
               AnimatedPositioned(
-                duration: Duration(milliseconds: _dragging ? 0 : 280),
-                curve: const Cubic(.2, .8, .2, 1),
+                duration: _dragging
+                    ? Duration.zero
+                    : membershipTierTransitionDuration,
+                curve: membershipTierTransitionCurve,
                 left: 16 + offset,
                 top: 0,
                 bottom: 0,

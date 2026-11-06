@@ -14,6 +14,9 @@ import 'pro_colors.dart';
 /// Independent subscriptions: owning either tier never implies the other.
 typedef MemoryMembershipTier = MembershipType;
 
+const membershipTierTransitionDuration = Duration(milliseconds: 480);
+const membershipTierTransitionCurve = Cubic(.2, .8, .2, 1);
+
 enum MemoryMembershipSurfaceKind { subscription, offer, profile }
 
 /// Reproduces CSS gradient angles without distorting them on tall cards.
@@ -543,6 +546,7 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
     this.monthlyPrice,
     this.stacked = false,
     this.offer = false,
+    this.deluxeColorProgress,
   });
   final MemoryMembershipTier tier;
   final bool yearly;
@@ -552,16 +556,20 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
   final String? monthlyPrice;
   final bool stacked;
   final bool offer;
+  final double? deluxeColorProgress;
 
   Widget _plan(BuildContext context, bool annual) {
     final selected = annual == yearly;
     final premium = tier == MemoryMembershipTier.premium;
+    final deluxeProgress = deluxeColorProgress ?? (premium ? 0.0 : 1.0);
+    Color tierColor(Color gold, Color pink) =>
+        Color.lerp(gold, pink, deluxeProgress)!;
     final price = annual
         ? yearlyPrice ?? context.l10n.premiumPurchaseUnavailable
         : monthlyPrice ?? context.l10n.premiumPurchaseUnavailable;
     final accent = offer
         ? (premium ? const Color(0xFFF3C558) : const Color(0xFFFFE3A3))
-        : tier.accent;
+        : tierColor(premiumGold, MemoryMembershipTier.deluxe.accent);
     return Semantics(
       key: ValueKey('membership-${tier.name}-${annual ? 'yearly' : 'monthly'}'),
       selected: selected,
@@ -591,9 +599,10 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
                   color: selected
                       ? offer
                             ? const Color(0x14FFFFFF)
-                            : premium
-                            ? const Color(0x17F5C24B)
-                            : const Color(0x14FFD3DD)
+                            : tierColor(
+                                const Color(0x17F5C24B),
+                                const Color(0x14FFD3DD),
+                              )
                       : offer
                       ? const Color(0x08FFFFFF)
                       : const Color(0x0DFFFFFF),
@@ -639,8 +648,8 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
                                 : !selected
                                 ? GenesisColors.darkTextPrimary
                                 : premium
-                                ? const Color(0xFFFFE7A6)
-                                : const Color(0xFFFFF6F2),
+                                ? premiumGoldLight
+                                : const Color(0xFFFFE8ED),
                           ),
                         ),
                         Text(
@@ -690,9 +699,10 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: offer
                         ? accent
-                        : premium
-                        ? const Color(0xFF3C3726)
-                        : const Color(0xFF352D38),
+                        : tierColor(
+                            const Color(0xFF3C3726),
+                            const Color(0xFF352D38),
+                          ),
                     gradient: offer && !premium ? tier.buttonGradient : null,
                     borderRadius: BorderRadius.circular(offer ? 9 : 5),
                     border: offer
@@ -711,7 +721,7 @@ class MemoryMembershipPlanSelector extends StatelessWidget {
                             ? (premium
                                   ? const Color(0xFF42290A)
                                   : const Color(0xFF3A2530))
-                            : accent,
+                            : tier.accent,
                         fontSize: offer ? 10 : 12,
                         height: 1,
                         letterSpacing: 0,

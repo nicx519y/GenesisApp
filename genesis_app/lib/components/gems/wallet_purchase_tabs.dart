@@ -86,8 +86,8 @@ class WalletPurchaseTabs extends StatelessWidget {
       // immediately so returning cannot interpolate through an obsolete gold.
       duration: controller.index == 1
           ? Duration.zero
-          : const Duration(milliseconds: 280),
-      curve: const Cubic(.2, .8, .2, 1),
+          : membershipTierTransitionDuration,
+      curve: membershipTierTransitionCurve,
       builder: (context, color, _) => _buildTabs(context, color!),
     );
   }
