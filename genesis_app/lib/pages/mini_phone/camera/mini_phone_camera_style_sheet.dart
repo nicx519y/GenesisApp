@@ -7,6 +7,8 @@ import '../../../network/mini_phone/mini_phone_camera_models.dart';
 import '../../../l10n/genesis_localizations.dart';
 import '../shared/mini_phone_ui.dart';
 
+const miniPhoneCameraStyleAspectRatio = 2 / 3;
+
 class PhoneCameraStyleSheet extends StatefulWidget {
   const PhoneCameraStyleSheet({
     super.key,
@@ -21,6 +23,9 @@ class PhoneCameraStyleSheet extends StatefulWidget {
 }
 
 class _PhoneCameraStyleSheetState extends State<PhoneCameraStyleSheet> {
+  static const double _previewBorderWidth = 2;
+  static const double _previewCornerRadius = 14;
+
   late String? _selected = widget.selected;
   Timer? _dismissTimer;
 
@@ -72,26 +77,36 @@ class _PhoneCameraStyleSheetState extends State<PhoneCameraStyleSheet> {
                           child: Column(
                             children: [
                               Container(
-                                decoration: BoxDecoration(
+                                padding: const EdgeInsets.all(
+                                  _previewBorderWidth,
+                                ),
+                                foregroundDecoration: BoxDecoration(
                                   border: Border.all(
                                     color: style.label == _selected
-                                        ? miniPink
+                                        ? miniRed
                                         : miniLine,
-                                    width: 2,
+                                    width: _previewBorderWidth,
                                   ),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(
+                                    _previewCornerRadius,
+                                  ),
                                 ),
-                                clipBehavior: Clip.antiAlias,
-                                child: AspectRatio(
-                                  aspectRatio: 2 / 3,
-                                  child: MiniPhoneCameraImage(
-                                    imageUrl: style.demoImageUrl,
-                                    fixedSize: true,
-                                    fit: BoxFit.cover,
-                                    placeholder: (_) =>
-                                        const ColoredBox(color: miniRaised),
-                                    errorWidget: (_, _) =>
-                                        const ColoredBox(color: miniRaised),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(
+                                    _previewCornerRadius - _previewBorderWidth,
+                                  ),
+                                  child: AspectRatio(
+                                    aspectRatio:
+                                        miniPhoneCameraStyleAspectRatio,
+                                    child: MiniPhoneCameraImage(
+                                      imageUrl: style.demoImageUrl,
+                                      fixedSize: true,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_) =>
+                                          const ColoredBox(color: miniRaised),
+                                      errorWidget: (_, _) =>
+                                          const ColoredBox(color: miniRaised),
+                                    ),
                                   ),
                                 ),
                               ),
