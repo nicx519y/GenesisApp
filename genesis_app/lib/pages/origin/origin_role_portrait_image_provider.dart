@@ -79,14 +79,16 @@ class OriginRolePortraitImageProvider
   factory OriginRolePortraitImageProvider.fromUrl({
     required String imageUrl,
     required int outputSize,
+    Uint8List? previewBytes,
     OriginRoleAvatarSnapshotStore? snapshotStore,
     String snapshotSourceKey = '',
     int snapshotSize = 0,
   }) {
     final normalizedUrl = imageUrl.trim();
     assert(normalizedUrl.isNotEmpty);
-    final ImageProvider<Object> sourceProvider =
-        normalizedUrl.startsWith('assets/')
+    final ImageProvider<Object> sourceProvider = previewBytes != null
+        ? MemoryImage(previewBytes)
+        : normalizedUrl.startsWith('assets/')
         ? AssetImage(normalizedUrl)
         : GenesisStaticNetworkImageProvider(
             imageUrl: normalizedUrl,

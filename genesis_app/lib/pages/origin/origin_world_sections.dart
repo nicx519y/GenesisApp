@@ -452,12 +452,12 @@ List<Widget> _originWorldoBriefSlivers(
   ];
 }
 
-String _originRoleCardAvatarUrl(BuildContext context, String sourceUrl) {
-  final url = GenesisImageResourceRegistry.resolve(sourceUrl).displayUrl;
-  final localAsset = localDefaultMapImageAssetForBackendImageUrl(url);
-  if (localAsset != null) return localAsset;
-  return buildGenesisCdnResizeUrl(
-    url,
-    width: (_OriginSetupRoleSection._cardWidth * 2).ceil(),
-  ).trim();
+String _originRoleAvatarUrl(String sourceUrl, double size) {
+  return selectGenesisImageUrl(
+    _resolveAssetUrl(sourceUrl),
+    logicalWidth: size,
+    logicalHeight: size,
+    devicePixelRatio: 2,
+    useFixedCdnWidth: true,
+  );
 }

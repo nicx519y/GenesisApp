@@ -28,6 +28,7 @@ class OriginRecommendedRole {
         ? OriginCustomRoleDraft(
             name: editedRole.name,
             avatarUrl: editedRole.avatarUrl,
+            avatarPreviewBytes: editedRole.avatarPreviewBytes,
             identity: editedRole.identity,
             personality: editedRole.personality,
             bio: editedRole.bio,

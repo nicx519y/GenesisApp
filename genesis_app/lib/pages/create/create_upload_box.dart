@@ -14,6 +14,7 @@ class CreateUploadBox extends StatefulWidget {
     this.onInteractionActiveChanged,
     this.initialPreviewBytes,
     this.onPreviewBytesChanged,
+    this.optimisticCropPreview = false,
     this.width = 132,
     this.height = 176,
     this.iconSize = 38,
@@ -43,6 +44,10 @@ class CreateUploadBox extends StatefulWidget {
   final ValueChanged<bool>? onInteractionActiveChanged;
   final Uint8List? initialPreviewBytes;
   final ValueChanged<Uint8List?>? onPreviewBytesChanged;
+
+  /// Keeps the current URL and displays the cropped image without an overlay
+  /// until the upload either succeeds or restores the previous preview.
+  final bool optimisticCropPreview;
   final double width;
   final double height;
   final double iconSize;
@@ -77,6 +82,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   Uint8List? _previewBytes;
   double? _imageAspectRatio;
   Size? _imageLogicalSize;
+  bool _isPicking = false;
   bool _isUploading = false;
   bool _isUploadProcessing = false;
   double _uploadProgress = 0;
@@ -206,7 +212,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                       imageUrl:
                           widget.previewUrlBuilder?.call(imageUrl) ?? imageUrl,
                       imageBytes: _previewBytes,
-                      isUploading: _isUploading,
+                      isUploading:
+                          _isUploading && !widget.optimisticCropPreview,
                       isProcessing: _isUploadProcessing,
                       progress: _uploadProgress,
                       alignment: widget.previewAlignment,
@@ -259,9 +266,12 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   }
 
   Future<void> _pickCropAndUpload(BuildContext context) async {
-    widget.onInteractionActiveChanged?.call(true);
+    if (_isPicking || _isUploading) return;
+    _isPicking = true;
+    final onInteractionActiveChanged = widget.onInteractionActiveChanged;
+    onInteractionActiveChanged?.call(true);
     try {
-      if (widget.onInteractionActiveChanged != null) {
+      if (onInteractionActiveChanged != null) {
         // Let callers commit their focus and layout freeze before presenting a
         // native picker, whose transition can otherwise begin in this frame.
         await WidgetsBinding.instance.endOfFrame;
@@ -294,16 +304,26 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       );
       if (crop == null || !context.mounted) return;
 
-      final previousUrl = widget.controller.text;
+      final controller = widget.controller;
+      final previousUrl = controller.text;
+      final previousPreview = _previewBytes;
       setState(() {
         _previewBytes = crop.bytes;
         _isUploading = true;
         _isUploadProcessing = true;
         _uploadProgress = 0;
       });
-      widget.controller.clear();
-      widget.onChanged();
-      unawaited(_uploadCroppedImage(context, crop, previousUrl));
+      if (!widget.optimisticCropPreview) {
+        controller.clear();
+        widget.onChanged();
+      }
+      await _uploadCroppedImage(
+        context,
+        crop,
+        controller,
+        previousUrl,
+        previousPreview,
+      );
     } on UnsupportedGifImageException {
       if (!context.mounted) return;
       _showMessage(unsupportedGifImageMessage);
@@ -313,7 +333,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         apiErrorMessage(error, fallback: GenesisL10n.current.imageUploadFailed),
       );
     } finally {
-      widget.onInteractionActiveChanged?.call(false);
+      _isPicking = false;
+      if (mounted) onInteractionActiveChanged?.call(false);
     }
   }
 
@@ -396,7 +417,9 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   Future<void> _uploadCroppedImage(
     BuildContext context,
     LocalImageCropResult crop,
+    TextEditingController controller,
     String previousUrl,
+    Uint8List? previousPreview,
   ) async {
     try {
       final uploaded = await AppServicesScope.read(context).api.v1.upload.image(
@@ -404,7 +427,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         filename: crop.filename,
         contentType: crop.contentType,
       );
-      if (!mounted) return;
+      if (!mounted || widget.controller != controller) return;
       final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
       if (url.isEmpty) {
         throw StateError('Upload returned an empty URL');
@@ -413,23 +436,23 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         _isUploadProcessing = false;
         _uploadProgress = 0;
       });
-      widget.controller.text = url;
+      controller.text = url;
       setState(() {
         _isUploading = false;
       });
       widget.onPreviewBytesChanged?.call(crop.bytes);
       widget.onChanged();
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || widget.controller != controller) return;
+      controller.text = previousUrl;
       setState(() {
         _isUploading = false;
         _isUploadProcessing = false;
         _uploadProgress = 0;
-        _previewBytes = null;
+        _previewBytes = previousPreview;
         _imageAspectRatio = null;
         _imageLogicalSize = null;
       });
-      widget.controller.text = previousUrl;
       widget.onChanged();
       _showMessage(
         apiErrorMessage(error, fallback: GenesisL10n.current.imageUploadFailed),
