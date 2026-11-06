@@ -23,10 +23,124 @@ import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.d
 import 'package:genesis_flutter_android/components/gems/wallet_purchase_tabs.dart';
 import 'package:genesis_flutter_android/app/attribution/adjust_device_registration.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/routers/app_router.dart'
+    show RouteNames;
+import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 
 import '../support/membership_fixtures.dart';
 
 void main() {
+  for (final (size, textScale) in const [
+    (Size(390, 844), 1.0),
+    (Size(360, 640), 1.0),
+    (Size(360, 640), 2.0),
+  ]) {
+    testWidgets('sheet pins checkout and legal links at $size / $textScale', (
+      tester,
+    ) async {
+      const bottomInset = 34.0;
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: bottomInset);
+      tester.view.viewPadding = const FakeViewPadding(bottom: bottomInset);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.dark(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          routes: {
+            RouteNames.legal: (context) => Scaffold(
+              body: Text('${ModalRoute.of(context)!.settings.arguments}'),
+            ),
+          },
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: FractionallySizedBox(
+                heightFactor: .8,
+                child: PurchaseOptionsSheet(
+                  initialTab: PurchaseSheetTab.subscription,
+                  membershipProductsLoader: loadTestMembershipOffers,
+                  gemsBuilder: (_) => const SingleChildScrollView(
+                    key: ValueKey('scrollable-gems-catalog'),
+                    child: SizedBox(height: 1000),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(const ValueKey('pro-subscribe-button'));
+      final privacy = find.text('Privacy Policy').hitTestable();
+      final legalWrap = find
+          .ancestor(of: privacy, matching: find.byType(Wrap))
+          .first;
+      final buttonRect = tester.getRect(button);
+      final legalRect = tester.getRect(legalWrap);
+      expect(button.hitTestable(), findsOneWidget);
+      expect(privacy, findsOneWidget);
+      final privacyRect = tester.getRect(privacy);
+      expect(buttonRect.bottom, lessThan(legalRect.top));
+      expect(legalRect.bottom, closeTo(size.height - bottomInset - 10, .01));
+
+      final monthly = find.byKey(const ValueKey('membership-premium-monthly'));
+      // Scroll beside the card's own benefits list to reveal the plan selector.
+      for (
+        var drag = 0;
+        drag < 5 && monthly.hitTestable().evaluate().isEmpty;
+        drag++
+      ) {
+        await tester.dragFrom(
+          Offset(8, buttonRect.top - 20),
+          const Offset(0, -180),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(monthly.hitTestable(), findsOneWidget);
+      await tester.tap(monthly);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<GenesisPrimaryButton>(button).label,
+        startsWith('Monthly:'),
+      );
+      expect(tester.getRect(button), buttonRect);
+      expect(tester.getRect(legalWrap), legalRect);
+
+      await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(privacy), privacyRect);
+      expect(tester.getRect(legalWrap).bottom, legalRect.bottom);
+      expect(find.text('Terms of Service').hitTestable(), findsOneWidget);
+      expect(find.text('EULA').hitTestable(), findsOneWidget);
+
+      final gems = find.byKey(const ValueKey('scrollable-gems-catalog'));
+      await tester.drag(gems, const Offset(0, -100));
+      await tester.pumpAndSettle();
+      final gemsScroll = tester.state<ScrollableState>(
+        find.descendant(of: gems, matching: find.byType(Scrollable)),
+      );
+      expect(gemsScroll.position.pixels, greaterThan(0));
+      expect(tester.getRect(privacy), privacyRect);
+
+      await tester.tap(privacy);
+      await tester.pumpAndSettle();
+      expect(find.text('{document: privacy}'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'membership indicator follows Deluxe and interpolates in the sheet',
     (tester) async {
@@ -90,7 +204,8 @@ void main() {
       final premiumCard = find.descendant(
         of: cards,
         matching: find.byWidgetPredicate(
-          (widget) => widget is MemoryMembershipSurface &&
+          (widget) =>
+              widget is MemoryMembershipSurface &&
               widget.tier == MemoryMembershipTier.premium,
         ),
       );

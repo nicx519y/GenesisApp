@@ -23,7 +23,9 @@ class MemoryMembershipSubscriptionCarousel extends StatefulWidget {
     this.deluxeExpiry,
     this.initialTier,
     this.horizontalInset = 16,
-    required this.footerBuilder,
+    required this.plansBuilder,
+    required this.actionsBuilder,
+    this.pinPurchaseActions = false,
     required this.benefitsBuilder,
     this.onBenefitsScroll,
     this.onTierChanged,
@@ -38,7 +40,9 @@ class MemoryMembershipSubscriptionCarousel extends StatefulWidget {
   /// The card to open on when the entry asks for one; otherwise the lead card.
   final MemoryMembershipTier? initialTier;
   final double horizontalInset;
-  final Widget Function(double deluxeColorProgress) footerBuilder;
+  final Widget Function(double deluxeColorProgress) plansBuilder;
+  final Widget Function(double deluxeColorProgress) actionsBuilder;
+  final bool pinPurchaseActions;
   final List<Widget> Function(MemoryMembershipTier) benefitsBuilder;
   final bool Function(ScrollNotification)? onBenefitsScroll;
 
@@ -114,46 +118,29 @@ class _SubscriptionCarouselState
     ],
   );
 
-  Widget _footer(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
+  Widget _pageIndicator(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
     children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (final tier in _order)
-            Padding(
-              padding: const EdgeInsets.all(5),
-              child: InkWell(
-                onTap: () => _selectTier(tier),
-                child: Semantics(
-                  button: true,
-                  selected: _tier == tier,
-                  label: tier.title(context),
-                  child: Container(
-                    width: _tier == tier ? 22 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: _tier == tier
-                          ? Colors.white
-                          : const Color(0x59FFFFFF),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
+      for (final tier in _order)
+        Padding(
+          padding: const EdgeInsets.all(5),
+          child: InkWell(
+            onTap: () => _selectTier(tier),
+            child: Semantics(
+              button: true,
+              selected: _tier == tier,
+              label: tier.title(context),
+              child: Container(
+                width: _tier == tier ? 22 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _tier == tier ? Colors.white : const Color(0x59FFFFFF),
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
             ),
-        ],
-      ),
-      TweenAnimationBuilder<double>(
-        tween: Tween(
-          end: _dragColorProgress ?? _order.indexOf(_tier).toDouble(),
+          ),
         ),
-        duration: _dragColorProgress == null
-            ? membershipTierTransitionDuration
-            : Duration.zero,
-        curve: membershipTierTransitionCurve,
-        builder: (_, progress, _) => widget.footerBuilder(progress),
-      ),
     ],
   );
 
@@ -162,25 +149,63 @@ class _SubscriptionCarouselState
     builder: (context, constraints) {
       _reportTier();
       final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-      // Short windows and large text scroll as a whole instead of crushing cards.
-      if (!constraints.hasBoundedHeight ||
-          constraints.maxHeight < 620 * scale) {
-        return SingleChildScrollView(
-          child: Column(
+      final pinActions =
+          widget.pinPurchaseActions && constraints.hasBoundedHeight;
+      final scrollBody =
+          !constraints.hasBoundedHeight ||
+          constraints.maxHeight < (pinActions ? 500 : 620) * scale;
+      return TweenAnimationBuilder<double>(
+        tween: Tween(
+          end: _dragColorProgress ?? _order.indexOf(_tier).toDouble(),
+        ),
+        duration: _dragColorProgress == null
+            ? membershipTierTransitionDuration
+            : Duration.zero,
+        curve: membershipTierTransitionCurve,
+        child: _cards(),
+        builder: (context, progress, cards) {
+          final plans = widget.plansBuilder(progress);
+          final actions = widget.actionsBuilder(progress);
+          final indicator = _pageIndicator(context);
+          const topSpace = SizedBox(height: purchaseTabContentTopSpacing);
+          if (!scrollBody) {
+            return Column(
+              children: [
+                topSpace,
+                Expanded(child: cards!),
+                indicator,
+                plans,
+                actions,
+              ],
+            );
+          }
+
+          // Compact sheets keep the card readable and allow the plans to
+          // scroll with it above the fixed purchase button and legal links.
+          final cardHeight = pinActions
+              ? (constraints.maxHeight - 160)
+                    .clamp(230 * scale, 360 * scale)
+                    .toDouble()
+              : 360 * scale;
+          final body = SingleChildScrollView(
+            child: Column(
+              children: [
+                topSpace,
+                SizedBox(height: cardHeight, child: cards),
+                indicator,
+                plans,
+                if (!pinActions) actions,
+              ],
+            ),
+          );
+          if (!pinActions) return body;
+          return Column(
             children: [
-              const SizedBox(height: purchaseTabContentTopSpacing),
-              SizedBox(height: 360 * scale, child: _cards()),
-              _footer(context),
+              Expanded(child: body),
+              actions,
             ],
-          ),
-        );
-      }
-      return Column(
-        children: [
-          const SizedBox(height: purchaseTabContentTopSpacing),
-          Expanded(child: _cards()),
-          _footer(context),
-        ],
+          );
+        },
       );
     },
   );

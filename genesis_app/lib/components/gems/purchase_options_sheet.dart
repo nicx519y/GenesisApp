@@ -14,6 +14,7 @@ import '../common/genesis_bottom_sheet_panel.dart';
 import 'pro_subscription_content.dart';
 import 'gem_purchase_state.dart';
 import 'purchase_attribution_registration.dart';
+import 'purchase_legal_links.dart';
 import 'wallet_purchase_tabs.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 
@@ -174,6 +175,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
             title: '',
             height: constraints.maxHeight,
             padding: EdgeInsets.zero,
+            maintainBottomViewPadding: true,
             insetBody: false,
             header: GenesisActionSheetHeader.tabs(
               tabs: WalletPurchaseTabs(
@@ -215,6 +217,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                             topSpacing: 0,
                             horizontalInset:
                                 GenesisActionSheetBody.horizontalInset,
+                            pinPurchaseActions: true,
                             loadingPlaceholder:
                                 const GemPurchaseTabPlaceholder.subscription(),
                             headingTopSpacing: 0,
@@ -224,14 +227,22 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                 if (widget.showBuyGems)
                   _PurchaseSheetPage(
                     child: GenesisActionSheetBody(
-                      bottom: 10,
-                      child: PurchaseCatalogEntry(
-                        revision: _entryRevisions[1],
-                        child: _gemsVisited
-                            ? Builder(builder: widget.gemsBuilder)
-                            : const GemPurchaseTabPlaceholder.gems(
-                                horizontalInset: 0,
-                              ),
+                      bottom: PurchaseLegalLinks.bottomSpacing,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: PurchaseCatalogEntry(
+                              revision: _entryRevisions[1],
+                              child: _gemsVisited
+                                  ? Builder(builder: widget.gemsBuilder)
+                                  : const GemPurchaseTabPlaceholder.gems(
+                                      horizontalInset: 0,
+                                    ),
+                            ),
+                          ),
+                          const PurchaseLegalLinks(),
+                        ],
                       ),
                     ),
                   ),

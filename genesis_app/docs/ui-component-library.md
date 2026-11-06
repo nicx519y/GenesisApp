@@ -269,6 +269,8 @@ Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurcha
 
 购买 Sheet 使用 `.tabs` 变体，高度 68，采用 16 / 600 的纯文字 Tab 与下划线。Subscription 下划线随会员卡切换，Premium 为金色，Deluxe 为粉色，Buy Gems 为品牌红。文字使用公共一级和二级白。完整支付页和购买 Sheet 的订阅卡片顶边与 My Balance 标题行均距 Tab 内容区顶部 12 个逻辑像素。订阅协议下方统一保留 10px，系统底部安全区由外层处理一次。Mention、World / Worldo 内容面板和开发工具保留各自 Header。
 
+购买 Sheet 的 Subscription 和 Buy Gems 共用 `PurchaseLegalLinks`，固定在底部安全区上方。订阅按钮也固定在底部。常规高度下权益卡按剩余空间伸缩，短屏或大字体下权益卡和套餐可在固定区上方滚动。
+
 ### GenesisActionSheetBody
 
 交互 / 提交 Sheet 的正文公共布局，左右外边距固定 16。`GenesisActionSheetHeader.inset` 与正文引用同一个常量；普通深色 `GenesisBottomSheetPanel` 自动应用。购买 Tab 和新用户多步骤容器设置 `insetBody: false`，由各页正文提供一次外边距。发帖 / 回复等独立弹层也直接使用该控件。

@@ -202,6 +202,7 @@ HTTP 映射层的图片规则：
 - Subscription / Buy Gems 使用 `GenesisActionSheetHeader.tabs`：总高同为 68，使用居中纯文字 Tab（无图标）、16 / 600 字号及下划线；Subscription 下划线跟随当前会员卡，Premium 金色、Deluxe 粉色，Buy Gems 使用品牌红，文字仍使用公共一级 / 二级白，左右关闭按钮位置复用标准。Wallet 完整页面正文左右边距为 16。完整页面和购买 Sheet 的订阅卡片顶边与 Buy Gems 的 My Balance 标题行均距 Tab 内容区顶部 12 个逻辑像素。
 - 独立 Subscription / Buy Gems Sheet 禁止点击外部和下滑关闭，保留系统返回与右上角公共关闭按钮；购买成功的既有自动退出流程保留。此规则不改变新用户流程。
 - 订阅协议底部统一保留 10px 间距，再由外层处理一次系统安全区；Wallet 完整页面、普通订阅 Sheet、新用户订阅 Sheet 保持一致，不重复叠加安全区。
+- 普通购买 Sheet 的 Subscription 和 Buy Gems 共用协议行，固定在底部安全区上方。订阅按钮也固定在底部。常规高度下权益卡按剩余空间伸缩，短屏或大字体下权益卡与套餐可滚动。
 - 正文 16 边距适用于表单、登录按钮、角色选择区、权益卡、套餐卡及底部主按钮的外边缘。卡片内部 padding、卡片间距和居中法律文案独立保留。标准购买 Sheet 和完整支付页的订阅轮播占满可见宽度，由轮播内部给停靠位置留 16 的边距，底部套餐和按钮各自使用 16 的外边距。传入的 `subscriptionBuilder` 由 `GenesisActionSheetBody` 提供 16 的外边距。
 - Mention 保留现有独立 Header 48、Tab 32、下间距 8，不套用上述高度或字号。World / Worldo 内容面板不属于此规范。
 
