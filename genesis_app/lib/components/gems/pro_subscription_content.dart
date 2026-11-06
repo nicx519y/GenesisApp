@@ -218,7 +218,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final revision = PurchaseCatalogEntry.of(context);
-    final reentered = _entryRevision != null && revision != _entryRevision;
+    final reentered = revision != _entryRevision;
     _entryRevision = revision;
     _tracking = SubscriptionTrackingScope.maybeOf(context) ?? _ownTracking;
     final services = AppServicesScope.maybeOf(context);
@@ -266,7 +266,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     setState(() {
       _applyCatalog(display);
       _loading = false;
-      _hasFreshCatalog = catalog!.hasCheckoutProducts;
+      _hasFreshCatalog = _entryRevision != null && catalog!.hasCheckoutProducts;
     });
   }
 
@@ -318,14 +318,16 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   Future<void> _load({bool silent = false, bool checkoutOnly = false}) async {
     final request = ++_requestGeneration;
     final source = _catalog;
-    _hasFreshCatalog = source?.hasCheckoutProducts == true;
+    final previewing = _entryRevision == null;
+    _hasFreshCatalog = !previewing && source?.hasCheckoutProducts == true;
     final cached = source?.cached;
     setState(() {
-      if (!silent) {
+      if (!silent || previewing) {
         _loading = cached == null;
         _applyCatalog(cached ?? const MembershipCatalogData());
       }
     });
+    if (previewing) return;
     var freshApplied = false;
     if (source != null && cached == null && !silent) {
       unawaited(() async {
@@ -578,7 +580,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   Widget _buildExposure(BuildContext context) => SubscriptionExposure(
     key: ValueKey('subscription-exposure-${_tracking.pageId}'),
     onVisible: () {
-      if (!mounted || _loading || ModalRoute.of(context)?.isCurrent == false) {
+      if (!mounted ||
+          _entryRevision == null ||
+          _loading ||
+          ModalRoute.of(context)?.isCurrent == false) {
         return false;
       }
       _tracking.show(_type);

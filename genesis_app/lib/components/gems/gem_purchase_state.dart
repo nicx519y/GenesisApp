@@ -13,13 +13,15 @@ class PurchaseCatalogEntry extends InheritedWidget {
     required this.revision,
     required super.child,
   });
-  final int revision;
 
-  static int of(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<PurchaseCatalogEntry>()
-          ?.revision ??
-      0;
+  /// A null revision allows the sheet to show cached content before entry.
+  final int? revision;
+
+  static int? of(BuildContext context) {
+    final entry = context
+        .dependOnInheritedWidgetOfExactType<PurchaseCatalogEntry>();
+    return entry == null ? 0 : entry.revision;
+  }
 
   @override
   bool updateShouldNotify(PurchaseCatalogEntry oldWidget) =>

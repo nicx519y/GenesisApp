@@ -76,6 +76,7 @@ Future<void> showGemPurchaseBottomSheet(
       alignment: Alignment.bottomCenter,
       child: PurchaseOptionsSheet(
         analyticsPageId: analyticsPageId,
+        gemsCatalog: productsLoader == null ? services?.gemStoreCatalog : null,
         gemsSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
         gemsBuilder: (_) => GemPurchaseBottomSheet(
           purchaseSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
@@ -115,6 +116,9 @@ Future<void> showSubscriptionPurchaseBottomSheet(
         backgroundColor: GenesisColors.darkRaisedBackground,
         builder: (_, showBuyGems) => PurchaseOptionsSheet(
           showBuyGems: showBuyGems,
+          gemsCatalog: billingService == null
+              ? null
+              : services?.gemStoreCatalog,
           initialTab: PurchaseSheetTab.subscription,
           initialMembershipType: initialMembershipType,
           analyticsPageId: analyticsPageId,
@@ -181,16 +185,22 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final revision = PurchaseCatalogEntry.of(context);
-    if (_entryRevision != null && revision != _entryRevision) {
-      unawaited(_loadProducts());
-    }
+    if (revision == null || revision == _entryRevision) return;
+    final firstEntry = _entryRevision == null;
     _entryRevision = revision;
+    if (firstEntry) {
+      _billingEvents = widget.billingService.events.listen(_handleBillingEvent);
+      unawaited(widget.billingService.start());
+      unawaited(widget.walletStore.refresh());
+    }
+    unawaited(_loadProducts());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final resumedFromBackground = _backgroundResume.update(state);
     if (resumedFromBackground &&
+        _entryRevision != null &&
         !_checkingPrice &&
         !widget.billingService.state.value.hasBusyPurchase) {
       unawaited(_loadProducts());
@@ -215,10 +225,6 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _billingEvents = widget.billingService.events.listen(_handleBillingEvent);
-    unawaited(widget.billingService.start());
-    unawaited(widget.walletStore.refresh());
-    unawaited(_loadProducts());
   }
 
   @override
@@ -529,6 +535,12 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   bool get _isProductRefreshBlocking => _blockingProductRefresh;
 
   Widget _buildPurchaseContent(BuildContext context) {
+    if (_entryRevision == null && widget.catalog?.cached == null) {
+      return const GemPurchaseTabPlaceholder.gems(
+        horizontalInset: 0,
+        topSpacing: 0,
+      );
+    }
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 14),

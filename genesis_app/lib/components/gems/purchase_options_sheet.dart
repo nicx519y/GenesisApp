@@ -8,6 +8,7 @@ import '../../app/membership/subscription_analytics.dart';
 import '../../platform/billing/billing_models.dart';
 import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/gems/gem_store_catalog.dart';
 import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_catalog.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
@@ -52,6 +53,7 @@ class PurchaseOptionsSheet extends StatefulWidget {
   const PurchaseOptionsSheet({
     super.key,
     required this.gemsBuilder,
+    this.gemsCatalog,
     this.initialTab = PurchaseSheetTab.buyGems,
     this.initialMembershipType,
     this.showBuyGems = true,
@@ -67,6 +69,9 @@ class PurchaseOptionsSheet extends StatefulWidget {
   });
 
   final WidgetBuilder gemsBuilder;
+
+  /// Enables early rendering for a Gems builder that reads this catalog.
+  final GemStoreCatalog? gemsCatalog;
   final BillingPurchaseSource gemsSource;
   final PurchaseSheetTab initialTab;
   final MemoryMembershipTier? initialMembershipType;
@@ -92,6 +97,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
   late int _lastEntryTab;
   final List<int> _entryRevisions = [0, 0];
   MembershipAccessStore? _membership;
+  MembershipCatalog? _membershipCatalog;
   late final SubscriptionPageTracking _subscriptionTracking;
   final PurchaseAttributionRegistration _attributionRegistration =
       PurchaseAttributionRegistration();
@@ -99,10 +105,21 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final membership = AppServicesScope.maybeOf(context)?.membership;
+    final services = AppServicesScope.maybeOf(context);
+    final membership = services?.membership;
     if (!identical(membership, _membership)) {
       _membership = membership;
       if (membership != null) unawaited(membership.refresh());
+    }
+    final catalog = services?.membershipCatalog;
+    if (!identical(catalog, _membershipCatalog)) {
+      _membershipCatalog = catalog;
+      if (!_subscriptionVisited &&
+          widget.subscriptionBuilder == null &&
+          widget.membershipProductsLoader == null &&
+          catalog != null) {
+        unawaited(catalog.loadCached());
+      }
     }
   }
 
@@ -131,6 +148,20 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
     _tabs.addListener(_visitCurrentTab);
     _lastEntryTab = _tabs.index;
     _registerAttributionForCurrentTab();
+    unawaited(_warmUnvisitedGemsCache());
+  }
+
+  Future<void> _warmUnvisitedGemsCache() async {
+    final catalog = widget.gemsCatalog;
+    if (!widget.showBuyGems || _gemsVisited || catalog == null) return;
+    try {
+      final cached = await catalog.loadCached();
+      if (mounted && identical(catalog, widget.gemsCatalog) && cached != null) {
+        setState(() {});
+      }
+    } catch (error) {
+      debugPrint('[Gems] catalog cache read failed: ${error.runtimeType}');
+    }
   }
 
   void _visitCurrentTab() {
@@ -159,6 +190,10 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
   @override
   void didUpdateWidget(PurchaseOptionsSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.gemsCatalog != widget.gemsCatalog ||
+        (!oldWidget.showBuyGems && widget.showBuyGems)) {
+      unawaited(_warmUnvisitedGemsCache());
+    }
     if (oldWidget.showBuyGems == widget.showBuyGems) return;
     final index = widget.showBuyGems ? _tabs.index : 0;
     _tabs.removeListener(_visitCurrentTab);
@@ -194,6 +229,10 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
 
   @override
   Widget build(BuildContext context) {
+    final canPreviewSubscription =
+        _membershipCatalog != null &&
+        widget.subscriptionBuilder == null &&
+        widget.membershipProductsLoader == null;
     return SubscriptionTrackingScope(
       page: _subscriptionTracking,
       child: GenesisDarkTheme(
@@ -219,26 +258,35 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
               controller: _tabs,
               children: [
                 _PurchaseSheetPage(
-                  child: PurchaseCatalogEntry(
-                    revision: _entryRevisions[0],
-                    child: !_subscriptionVisited
-                        ? const GemPurchaseTabPlaceholder.subscription(
-                            topSpacing: 0,
-                          )
-                        : widget.subscriptionBuilder != null
-                        ? GenesisActionSheetBody(
-                            child: widget.subscriptionBuilder!(context),
-                          )
-                        : ProSubscriptionContent.purchaseSheet(
-                            initialMembershipType: widget.initialMembershipType,
-                            onMembershipTypeChanged: (type) {
-                              if (mounted && _membershipColor != type.accent) {
-                                setState(() => _membershipColor = type.accent);
-                              }
-                            },
-                            refreshMembershipOnOpen: false,
-                            productsLoader: widget.membershipProductsLoader,
-                          ),
+                  child: IgnorePointer(
+                    ignoring: !_subscriptionVisited,
+                    child: PurchaseCatalogEntry(
+                      revision: _subscriptionVisited
+                          ? _entryRevisions[0]
+                          : null,
+                      child: !_subscriptionVisited && !canPreviewSubscription
+                          ? const GemPurchaseTabPlaceholder.subscription(
+                              topSpacing: 0,
+                            )
+                          : widget.subscriptionBuilder != null
+                          ? GenesisActionSheetBody(
+                              child: widget.subscriptionBuilder!(context),
+                            )
+                          : ProSubscriptionContent.purchaseSheet(
+                              initialMembershipType:
+                                  widget.initialMembershipType,
+                              onMembershipTypeChanged: (type) {
+                                if (mounted &&
+                                    _membershipColor != type.accent) {
+                                  setState(
+                                    () => _membershipColor = type.accent,
+                                  );
+                                }
+                              },
+                              refreshMembershipOnOpen: false,
+                              productsLoader: widget.membershipProductsLoader,
+                            ),
+                    ),
                   ),
                 ),
                 if (widget.showBuyGems)
@@ -249,14 +297,20 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
-                            child: PurchaseCatalogEntry(
-                              revision: _entryRevisions[1],
-                              child: _gemsVisited
-                                  ? Builder(builder: widget.gemsBuilder)
-                                  : const GemPurchaseTabPlaceholder.gems(
-                                      horizontalInset: 0,
-                                      topSpacing: 0,
-                                    ),
+                            child: IgnorePointer(
+                              ignoring: !_gemsVisited,
+                              child: PurchaseCatalogEntry(
+                                revision: _gemsVisited
+                                    ? _entryRevisions[1]
+                                    : null,
+                                child:
+                                    _gemsVisited || widget.gemsCatalog != null
+                                    ? Builder(builder: widget.gemsBuilder)
+                                    : const GemPurchaseTabPlaceholder.gems(
+                                        horizontalInset: 0,
+                                        topSpacing: 0,
+                                      ),
+                              ),
                             ),
                           ),
                           const PurchaseLegalLinks(),

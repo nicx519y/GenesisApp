@@ -2,6 +2,12 @@ import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_in
 import 'package:genesis_flutter_android/components/gems/memory_membership_style.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
+import 'package:genesis_flutter_android/app/gems/gem_store_catalog.dart';
+import 'package:genesis_flutter_android/network/models/gem_product.dart';
+import 'package:genesis_flutter_android/platform/billing/google_play_billing_platform.dart';
 import 'dart:async';
 import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
 import 'package:genesis_flutter_android/components/gems/subscription_tracking_scope.dart';
@@ -30,6 +36,110 @@ import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dar
 import '../support/membership_fixtures.dart';
 
 void main() {
+  for (final initialTab in PurchaseSheetTab.values) {
+    testWidgets('sheet previews the cached tab before entry from $initialTab', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final wallet = GemWalletStore(
+        readUid: () async => 'u_test',
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+      );
+      final services = _SheetCatalogServices(
+        _CachedMembershipCatalog(await loadTestMembershipOffers()),
+        wallet,
+      );
+      final billing = _SheetBillingService();
+      var gemLoads = 0;
+      final gems = [
+        GemProduct.fromJson({
+          'product_id': 'cached_gems',
+          'base_gems_cent': 50000,
+          'bonus_gems_cent': 0,
+          'price_amount': 499,
+          'can_purchase': true,
+        }),
+      ];
+      final gemCatalog = GemStoreCatalog(
+        loadProducts: () async => gems,
+        platform: GooglePlayBillingPlatform(),
+        namespace: 'cached-tab-test',
+        readOwner: () async => 'u_test',
+      )..cached = gems;
+      addTearDown(wallet.dispose);
+      addTearDown(billing.state.dispose);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: Scaffold(
+              body: PurchaseOptionsSheet(
+                initialTab: initialTab,
+                gemsCatalog: gemCatalog,
+                gemsBuilder: (_) => GemPurchaseBottomSheet(
+                  catalog: gemCatalog,
+                  productsLoader: () async {
+                    gemLoads++;
+                    return gems;
+                  },
+                  walletStore: wallet,
+                  billingService: billing,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final subscriptionFirst = initialTab == PurchaseSheetTab.subscription;
+      final pages = find.byKey(const ValueKey('purchase-sheet-pages'));
+      final start = tester.getBottomLeft(pages) + const Offset(195, -12);
+      final gesture = await tester.startGesture(start);
+      final direction = subscriptionFirst ? -1.0 : 1.0;
+      await gesture.moveBy(Offset(direction * 40, 0));
+      await gesture.moveBy(
+        Offset(direction * 68, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump();
+
+      expect(find.byType(GemPurchaseTabPlaceholder), findsNothing);
+      expect(
+        find.byKey(const ValueKey('membership-subscription-pages')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('gem-product-cached_gems')),
+        findsOneWidget,
+      );
+      expect(gemLoads, subscriptionFirst ? 0 : 1);
+      expect(billing.starts, gemLoads);
+      expect(services.membershipCatalog.entries, subscriptionFirst ? 1 : 0);
+
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      expect(gemLoads, subscriptionFirst ? 0 : 1);
+      expect(services.membershipCatalog.entries, subscriptionFirst ? 1 : 0);
+
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            subscriptionFirst
+                ? 'wallet-buy-gems-tab'
+                : 'wallet-subscription-tab',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(gemLoads, 1);
+      expect(billing.starts, 1);
+      expect(services.membershipCatalog.entries, 1);
+    });
+  }
+
   for (final (size, textScale) in const [
     (Size(390, 844), 1.0),
     (Size(360, 640), 1.0),
@@ -803,4 +913,51 @@ class _SheetBillingService implements BillingService {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _CachedMembershipCatalog extends MembershipCatalog {
+  _CachedMembershipCatalog(this.snapshot)
+    : super(provider: null, loadProducts: (_) => throw UnimplementedError());
+
+  final MembershipCatalogData snapshot;
+  int entries = 0;
+
+  @override
+  MembershipCatalogData get cached => snapshot;
+
+  @override
+  Future<MembershipCatalogData> loadForEntry() async {
+    entries++;
+    return snapshot;
+  }
+}
+
+class _SheetCatalogServices extends Fake implements AppServices {
+  _SheetCatalogServices(this.membershipCatalog, GemWalletStore wallet)
+    : membership = MembershipAccessStore(
+        wallet: wallet,
+        readLoginUid: () async => null,
+        serverNow: () => null,
+      );
+
+  @override
+  final _CachedMembershipCatalog membershipCatalog;
+
+  @override
+  final MembershipAccessStore membership;
+
+  @override
+  final sessionRevision = ValueNotifier(0);
+
+  @override
+  get membershipPurchases => null;
+
+  @override
+  AdjustDeviceRegistration? get adjustDeviceRegistration => null;
+
+  @override
+  void dispose() {
+    membership.dispose();
+    sessionRevision.dispose();
+  }
 }
