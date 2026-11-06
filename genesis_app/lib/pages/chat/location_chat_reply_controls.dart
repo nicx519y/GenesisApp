@@ -79,14 +79,7 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
         : _replyController?.stateFor(widget.locationId);
     return (
       actions: resolveLocationChatReplyControls(
-        hidden:
-            tickSuperseded ||
-            awaitingGoOn ||
-            (_photoCardPreview != null &&
-                (replyState?.roundId != _photoCardPreview!.roundId ||
-                    (presentationState?.confirmed == true &&
-                        presentationState?.selectedCardId !=
-                            _photoCardPreview!.cardId))),
+        hidden: tickSuperseded || awaitingGoOn,
         blocked: blocked,
         showWhenUnavailable: (
           regenerate: _usesPreparedEntry,

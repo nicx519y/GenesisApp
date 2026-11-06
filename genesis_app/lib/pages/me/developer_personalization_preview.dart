@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../app/membership/membership_catalog.dart';
-import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/pro_subscription_content.dart';
 import '../../components/onboarding/personalization_sheet.dart';
-import '../../network/models/membership_benefit.dart';
-import '../../network/models/membership_product.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 
 enum PersonalizationPreviewScenario {
@@ -31,10 +28,6 @@ Future<PersonalizationPreviewScenario?> selectPersonalizationPreviewScenario(
   builder: (context) => SimpleDialog(
     title: const Text('Onboarding preview'),
     children: [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, 12),
-        child: Text('选择要直接查看的状态。预览中可随时点上方 Preview options 切换或关闭，不会真实登录或支付。'),
-      ),
       for (final scenario in PersonalizationPreviewScenario.values) ...[
         if (scenario == PersonalizationPreviewScenario.close) const Divider(),
         SimpleDialogOption(
@@ -81,8 +74,9 @@ void closeDeveloperPersonalizationPreview() {
 
 Future<void> showDeveloperPersonalizationPreview(
   BuildContext context,
-  PersonalizationPreviewScenario scenario,
-) async {
+  PersonalizationPreviewScenario scenario, {
+  MembershipCatalogLoader? productsLoader,
+}) async {
   closeDeveloperPersonalizationPreview();
   if (scenario == PersonalizationPreviewScenario.close) return;
   ModalRoute<PersonalizationProfile>? previewRoute;
@@ -97,7 +91,10 @@ Future<void> showDeveloperPersonalizationPreview(
       builder: (context) {
         previewRoute = ModalRoute.of<PersonalizationProfile>(context);
         _activePersonalizationPreviewRoute = previewRoute;
-        return _DeveloperPersonalizationPreview(initialScenario: scenario);
+        return _DeveloperPersonalizationPreview(
+          initialScenario: scenario,
+          productsLoader: productsLoader,
+        );
       },
     );
   } finally {
@@ -108,8 +105,12 @@ Future<void> showDeveloperPersonalizationPreview(
 }
 
 class _DeveloperPersonalizationPreview extends StatefulWidget {
-  const _DeveloperPersonalizationPreview({required this.initialScenario});
+  const _DeveloperPersonalizationPreview({
+    required this.initialScenario,
+    required this.productsLoader,
+  });
   final PersonalizationPreviewScenario initialScenario;
+  final MembershipCatalogLoader? productsLoader;
 
   @override
   State<_DeveloperPersonalizationPreview> createState() =>
@@ -191,16 +192,10 @@ class _DeveloperPersonalizationPreviewState
                     ? completeProfile
                     : const PersonalizationProfile();
               },
-              subscriptionBuilder: (context) => ProSubscriptionContent(
-                topSpacing: 0,
-                horizontalInset: 0,
-                showHeading: false,
-                productsLoader: loadPersonalizationPreviewCatalog,
-                purchaseHandler: (_) async => showGenesisToast(
-                  context,
-                  'Preview only — no purchase was made.',
-                  brightness: Brightness.dark,
-                ),
+              subscriptionBuilder: (_) => ProSubscriptionContent.purchaseSheet(
+                productsLoader: widget.productsLoader,
+                onCloseAfterPurchaseSuccess:
+                    closeDeveloperPersonalizationPreview,
               ),
             ),
           ),
@@ -229,73 +224,3 @@ final personalizationPreviewForm = [
     ],
   ),
 ];
-
-/// Design fixtures only. These prices and benefits are not product configuration.
-Future<MembershipCatalogData> loadPersonalizationPreviewCatalog() async =>
-    MembershipCatalogData(
-      offers: [
-        for (final yearly in [true, false])
-          MembershipOffer(
-            product: MembershipProduct(
-              title: 'Premium',
-              planCode: yearly ? 'pro_yearly' : 'pro_monthly',
-              provider: MembershipProvider.google,
-              storeProductId: 'developer_preview_only',
-              billingMonths: yearly ? 12 : 1,
-              monthlyGemsCent: 100000,
-              priceCurrencyCode: 'USD',
-              priceAmount: yearly ? 5999 : 999,
-              benefits: const [
-                MembershipBenefit(
-                  code: 'preview_monthly_gems',
-                  title: 'Up to 3,500 Gems Monthly',
-                  iconKey: 'gem',
-                  displayType: MembershipBenefitDisplay.enhanced,
-                ),
-                MembershipBenefit(
-                  code: 'preview_story_recap',
-                  title: 'Story Recap the AI Remembers beyond Memory',
-                  iconKey: 'memory',
-                  displayType: MembershipBenefitDisplay.enhanced,
-                ),
-                MembershipBenefit(
-                  code: 'preview_pink_gems',
-                  title: 'Free 2,000 Pink Gems per Month',
-                  iconKey: 'gem',
-                  displayType: MembershipBenefitDisplay.enhanced,
-                ),
-                MembershipBenefit(
-                  code: 'preview_daily_red_gems',
-                  title: 'Free 50 Extra Red Gems per Daily Check-in',
-                  iconKey: 'gem',
-                  displayType: MembershipBenefitDisplay.enhanced,
-                ),
-                MembershipBenefit(
-                  code: 'preview_inspirations',
-                  title: 'Unlimited Inspirations',
-                  iconKey: 'inspiration',
-                  displayType: MembershipBenefitDisplay.enhanced,
-                ),
-                MembershipBenefit(
-                  code: 'preview_editing',
-                  title: 'Unlimited Editing',
-                  iconKey: 'edit',
-                  displayType: MembershipBenefitDisplay.enhanced,
-                ),
-                MembershipBenefit(
-                  code: 'preview_badge',
-                  title: 'Exclusive Premium Badge',
-                  iconKey: 'badge',
-                  displayType: MembershipBenefitDisplay.enhanced,
-                ),
-                MembershipBenefit(
-                  code: 'preview_recharge',
-                  title: 'Gem Recharge',
-                  iconKey: 'recharge',
-                  displayType: MembershipBenefitDisplay.included,
-                ),
-              ],
-            ),
-          ),
-      ],
-    );

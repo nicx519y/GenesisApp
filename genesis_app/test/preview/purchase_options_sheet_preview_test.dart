@@ -8,8 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
-import 'package:genesis_flutter_android/pages/me/developer_personalization_preview.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+
+import '../support/personalization_fixtures.dart';
 
 /// Renders the gem purchase sheet — the surface whose body carries the
 /// wordmark — so its title column can be checked against the benefit rows.

@@ -58,6 +58,9 @@ class ProfileAvatarCache extends ChangeNotifier {
   Uint8List? bytesFor(String url) =>
       _identity?.url == url.trim() ? _bytes : null;
 
+  /// The current session's preview, before a caller has read its profile URL.
+  Uint8List? get currentBytes => _bytes;
+
   Future<void> replaceFromEdit(String url, Uint8List bytes) =>
       _sync(++_request, edited: (url: url.trim(), bytes: bytes));
 

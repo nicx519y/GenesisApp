@@ -678,6 +678,7 @@ class _UserInfoLoadingSkeleton extends StatelessWidget {
                 width: 80,
                 height: 80,
                 borderRadius: GenesisAvatarRadii.user,
+                color: Colors.black,
               ),
               SizedBox(width: 14),
               Expanded(
@@ -828,12 +829,14 @@ class _UserInfoSkeletonBone extends StatelessWidget {
     this.widthFactor,
     this.height,
     this.borderRadius = 4,
+    this.color = GenesisColors.darkFaintFill,
   }) : assert(width == null || widthFactor == null);
 
   final double? width;
   final double? widthFactor;
   final double? height;
   final double borderRadius;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -842,7 +845,7 @@ class _UserInfoSkeletonBone extends StatelessWidget {
       height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: GenesisColors.darkFaintFill,
+          color: color,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),

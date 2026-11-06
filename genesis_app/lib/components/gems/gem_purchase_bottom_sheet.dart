@@ -25,7 +25,6 @@ import 'gem_billing_purchase_dialog.dart';
 import 'gem_purchase_state.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import 'gem_purchase_catalog.dart';
-import 'memory_membership_style.dart' show purchaseTabContentTopSpacing;
 import 'purchase_options_sheet.dart';
 import 'purchase_session_builder.dart';
 
@@ -73,10 +72,11 @@ Future<void> showGemPurchaseBottomSheet(
     backgroundColor: Colors.transparent,
     builder: (_) => FractionallySizedBox(
       key: const ValueKey<String>('gem-purchase-sheet-size'),
-      heightFactor: 0.8,
+      heightFactor: PurchaseSheetPanel.heightFactor,
       alignment: Alignment.bottomCenter,
       child: PurchaseOptionsSheet(
         analyticsPageId: analyticsPageId,
+        gemsCatalog: productsLoader == null ? services?.gemStoreCatalog : null,
         gemsSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
         gemsBuilder: (_) => GemPurchaseBottomSheet(
           purchaseSource: BillingPurchaseSource.fromEntry(analyticsTrigger),
@@ -110,12 +110,15 @@ Future<void> showSubscriptionPurchaseBottomSheet(
     enableDrag: false,
     backgroundColor: Colors.transparent,
     builder: (_) => FractionallySizedBox(
-      heightFactor: 0.8,
+      heightFactor: PurchaseSheetPanel.heightFactor,
       alignment: Alignment.bottomCenter,
       child: PurchaseSessionBuilder(
         backgroundColor: GenesisColors.darkRaisedBackground,
         builder: (_, showBuyGems) => PurchaseOptionsSheet(
           showBuyGems: showBuyGems,
+          gemsCatalog: billingService == null
+              ? null
+              : services?.gemStoreCatalog,
           initialTab: PurchaseSheetTab.subscription,
           initialMembershipType: initialMembershipType,
           analyticsPageId: analyticsPageId,
@@ -182,16 +185,22 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final revision = PurchaseCatalogEntry.of(context);
-    if (_entryRevision != null && revision != _entryRevision) {
-      unawaited(_loadProducts());
-    }
+    if (revision == null || revision == _entryRevision) return;
+    final firstEntry = _entryRevision == null;
     _entryRevision = revision;
+    if (firstEntry) {
+      _billingEvents = widget.billingService.events.listen(_handleBillingEvent);
+      unawaited(widget.billingService.start());
+      unawaited(widget.walletStore.refresh());
+    }
+    unawaited(_loadProducts());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final resumedFromBackground = _backgroundResume.update(state);
     if (resumedFromBackground &&
+        _entryRevision != null &&
         !_checkingPrice &&
         !widget.billingService.state.value.hasBusyPurchase) {
       unawaited(_loadProducts());
@@ -216,10 +225,6 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _billingEvents = widget.billingService.events.listen(_handleBillingEvent);
-    unawaited(widget.billingService.start());
-    unawaited(widget.walletStore.refresh());
-    unawaited(_loadProducts());
   }
 
   @override
@@ -530,12 +535,15 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   bool get _isProductRefreshBlocking => _blockingProductRefresh;
 
   Widget _buildPurchaseContent(BuildContext context) {
+    if (_entryRevision == null && widget.catalog?.cached == null) {
+      return const GemPurchaseTabPlaceholder.gems(
+        horizontalInset: 0,
+        topSpacing: 0,
+      );
+    }
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(
-        top: purchaseTabContentTopSpacing,
-        bottom: 14,
-      ),
+      padding: const EdgeInsets.only(bottom: 14),
       child: ValueListenableBuilder<GemWalletState>(
         valueListenable: widget.walletStore.state,
         builder: (context, walletState, _) => GemPurchaseCatalogSection(

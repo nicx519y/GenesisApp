@@ -129,7 +129,7 @@ class GemStoreCatalog {
     final pending = _entryRefresh;
     if (pending != null) return pending;
     final generation = ++_generation;
-    final future = _fetch(generation, refresh: true);
+    final future = _fetch(generation, refresh: true, allowCachedFallback: true);
     _entryRefresh = _loading = future;
     try {
       return await future;
@@ -176,15 +176,28 @@ class GemStoreCatalog {
     int generation, {
     String? productId,
     bool refresh = false,
+    bool allowCachedFallback = false,
   }) async {
     final owner = await readOwner();
     if (owner == null) {
       throw StateError('Gem products require an authenticated session');
     }
     final refreshStore = refresh || _serverProducts == null;
-    final products = refresh
-        ? await loadProducts()
-        : _serverProducts ?? await loadProducts();
+    final List<GemProduct> products;
+    try {
+      products = refresh
+          ? await loadProducts()
+          : _serverProducts ?? await loadProducts();
+    } catch (error) {
+      if (allowCachedFallback &&
+          await readOwner() == owner &&
+          generation == _generation &&
+          cached != null) {
+        debugPrint('[Gems] entry refresh failed: ${error.runtimeType}');
+        return cached!;
+      }
+      rethrow;
+    }
     if (generation != _generation || await readOwner() != owner) {
       throw StateError('Gem catalog session changed');
     }

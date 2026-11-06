@@ -19,6 +19,7 @@ import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/world_map.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../network/mini_phone/mini_phone_models.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
@@ -31,6 +32,7 @@ import '../../app/debug/world_recap_debug_preview.dart';
 import 'world_recap_cache.dart';
 import 'world_recap_section.dart';
 import 'world_sections.dart';
+import '../mini_phone/mini_phone.dart';
 import '../chat/location_chat_page.dart'
     show
         WorldChatHistorySection,
@@ -287,6 +289,30 @@ class WorldSingleSectionBottomSheetState
 
   bool _canAccess(WorldBottomSheetKind kind) =>
       canAccessWorldSection(kind, _currentWorld.relationStatus);
+
+  bool _openingDetailCharacterChat = false;
+
+  Future<void> _openDetailCharacterChat(PhonePerson contact) async {
+    if (_openingDetailCharacterChat ||
+        _selection.kind != WorldBottomSheetKind.detail ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    final session = MiniPhoneSessionScope.read(context);
+    if (session == null || session.worldId != _currentWorld.worldId) return;
+    _openingDetailCharacterChat = true;
+    try {
+      await showMiniPhone(
+        context,
+        session: session,
+        worldId: session.worldId,
+        initialContact: contact,
+        entrySource: 'world_detail_avatar',
+      );
+    } finally {
+      _openingDetailCharacterChat = false;
+    }
+  }
 
   void _dismissForRestrictedSection() {
     if (_accessDismissalScheduled) return;
@@ -738,6 +764,7 @@ class WorldSingleSectionBottomSheetState
       controller: scrollController,
       newUserJoinNotice: newUserJoinNotice,
       onDeleteWorld: widget.onDeleteWorld,
+      onCharacterAvatarTap: _openDetailCharacterChat,
     );
   }
 

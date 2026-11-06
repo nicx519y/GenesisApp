@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/membership_order_product.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
@@ -120,17 +121,14 @@ void main() {
           !noOffers && scenario != 'deluxe' ? findsOneWidget : findsNothing,
         );
         expect(find.text('Cancel'), findsNothing);
-        expect(
-          find.byKey(const ValueKey('daily-check-in-active-premium')),
-          ['monthly', 'yearly', 'both'].contains(scenario)
-              ? findsOneWidget
-              : findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('daily-check-in-active-deluxe')),
-          ['deluxe', 'both'].contains(scenario) ? findsOneWidget : findsNothing,
-        );
+        expect(find.text('Worldo Premium'), findsNothing);
+        expect(find.text('Worldo Deluxe'), findsNothing);
         if (!noOffers && !singleOffer) {
+          expect(find.byType(GenesisActionBoxDivider), findsNWidgets(3));
+          expect(
+            tester.widget<Text>(find.text('Get 150')).style?.color,
+            GenesisColors.redSecondary,
+          );
           expect(
             tester.getCenter(find.text('Get 150')).dy,
             lessThan(tester.getCenter(find.text('Get 300')).dy),
@@ -275,79 +273,76 @@ void main() {
     );
   }
 
-  for (final tiers in const [
-    <MembershipType>[],
-    [MembershipType.premium],
-    [MembershipType.deluxe],
-    [MembershipType.premium, MembershipType.deluxe],
-  ]) {
-    testWidgets(
-      'daily check-in success shows $tiers and dismisses after three seconds',
-      (tester) async {
-        await tester.pumpWidget(
-          MaterialApp(
-            scrollBehavior: const GenesisScrollBehavior(),
-            home: Builder(
-              builder: (context) => TextButton(
-                onPressed: () async {
-                  final checkedIn = await showDailyCheckInDialog(
-                    context,
-                    status: DailyCheckInDialogStatus.checkIn,
-                  );
-                  if (checkedIn && context.mounted) {
-                    await showDailyCheckInSuccessDialog(
-                      context,
-                      memberships: tiers,
-                    );
-                  }
-                },
-                child: const Text('Open'),
-              ),
+  testWidgets(
+    'daily check-in success shows the reward and dismisses after three seconds',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          scrollBehavior: const GenesisScrollBehavior(),
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                final checkedIn = await showDailyCheckInDialog(
+                  context,
+                  status: DailyCheckInDialogStatus.checkIn,
+                );
+                if (checkedIn && context.mounted) {
+                  await showDailyCheckInSuccessDialog(context);
+                }
+              },
+              child: const Text('Open'),
             ),
           ),
-        );
+        ),
+      );
 
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
 
-        expect(find.text('Daily Check-in'), findsOneWidget);
-        expect(find.text('+50'), findsOneWidget);
-        expect(
-          tester.widget<Text>(find.text('+50')).style?.color,
-          GenesisColors.darkTextPrimary,
-        );
-        expect(
-          find.byKey(const ValueKey<String>('gem-task-reward-icon')),
-          findsOneWidget,
-        );
-        expect(find.text('Check in'), findsOneWidget);
-        expect(find.text('Cancel'), findsNothing);
-        expect(find.text('Get 150'), findsNothing);
+      expect(find.text('Daily Check-in'), findsOneWidget);
+      expect(find.text('+50'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('+50')).style?.color,
+        GenesisColors.darkTextSecondary,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('gem-task-reward-icon')),
+        findsOneWidget,
+      );
+      expect(
+        tester.getCenter(find.text('+50')).dx,
+        lessThan(
+          tester
+              .getCenter(
+                find.byKey(const ValueKey<String>('gem-task-reward-icon')),
+              )
+              .dx,
+        ),
+      );
+      expect(find.text('Check in'), findsOneWidget);
+      expect(find.text('Cancel'), findsNothing);
+      expect(find.text('Get 150'), findsNothing);
 
-        await tester.tap(find.text('Check in'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Check in'));
+      await tester.pumpAndSettle();
 
-        expect(find.text('Check in successful!'), findsOneWidget);
-        expect(find.text('+50'), findsOneWidget);
-        expect(
-          tester.widget<Text>(find.text('+50')).style?.color,
-          GenesisColors.darkTextPrimary,
-        );
+      expect(find.text('Check in successful!'), findsOneWidget);
+      expect(find.text('+50'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('+50')).style?.color,
+        GenesisColors.darkTextSecondary,
+      );
+      expect(find.byType(GenesisActionBoxDivider), findsNothing);
 
-        for (final tier in MembershipType.values) {
-          expect(
-            find.byKey(ValueKey('daily-check-in-active-${tier.name}')),
-            tiers.contains(tier) ? findsOneWidget : findsNothing,
-          );
-        }
-        await tester.pump(const Duration(milliseconds: 2999));
-        expect(find.text('Check in successful!'), findsOneWidget);
-        await tester.pump(const Duration(milliseconds: 1));
-        await tester.pumpAndSettle();
-        expect(find.text('Check in successful!'), findsNothing);
-      },
-    );
-  }
+      expect(find.text('Worldo Premium'), findsNothing);
+      expect(find.text('Worldo Deluxe'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 2999));
+      expect(find.text('Check in successful!'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('Check in successful!'), findsNothing);
+    },
+  );
 
   testWidgets('Get 150 opens Subscription without performing check-in', (
     tester,

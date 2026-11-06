@@ -147,10 +147,12 @@ class ChatroomReplyRoundState {
       !_metadataConflict && _conversationType == 'opening';
   bool get _isOwnSupportedRound =>
       isOwnRound && const {'user_message', 'go_on'}.contains(_conversationType);
+  bool get _isOwnEnterRound =>
+      isOwnRound && _conversationType == 'user_enter_location';
   bool get _supportsReplyActions =>
       _isOwnSupportedRound ||
       (isOpeningRound && _controller._isWorldCreator) ||
-      (isOwnRound && _conversationType == 'user_enter_location') ||
+      _isOwnEnterRound ||
       (!_metadataConflict && _conversationType == 'tick');
   bool get _supportsEditing =>
       _supportsReplyActions && _conversationType != 'tick';
@@ -230,7 +232,7 @@ class ChatroomReplyRoundState {
   bool get supportsInspiration => _baseEligible && !_roundFailed;
   bool get supportsPhoto =>
       _baseEligible &&
-      _isOwnSupportedRound &&
+      (_isOwnSupportedRound || _isOwnEnterRound) &&
       (!confirmed || selectedCardId > 0);
   bool get canTakePhoto =>
       canStartTakePhoto && _controller._isReady(locationId);

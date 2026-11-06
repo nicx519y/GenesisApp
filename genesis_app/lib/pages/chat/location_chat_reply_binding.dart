@@ -171,7 +171,6 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         locationChatBubbleLayoutSettings.value.replyWaitingPositioningEnabled;
     if (positioningEnabled) _scrollCoordinator.prepareWaitingReplyPosition();
     _setReplyControlsState(() {
-      _photoCardPreview = null;
       _preparingReplyAction = true;
       _waitingPositionOperation++;
       _waitingPositionClientMsgId = null;

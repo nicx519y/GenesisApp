@@ -1426,9 +1426,9 @@ Query：
 `preset_character_id` 与 `custom_role` 必须二选一；两者都为空或都非空会返回 `4004`。
 `preset_character_override` 只能用于 preset 模式，并且至少包含一个允许覆盖的字段；custom 模式携带时服务端忽略。
 
-2026-10-29 详情页推荐角色与用户卡合并：推荐角色保留原 `char_id`，名字为空或 `{{user}}` 时补用户名，图片为空时独立补用户头像；其余角色顺序保持。推荐卡编辑和补齐资料通过 preset override 提交；无推荐角色的用户身份仍使用 `custom_role`。Origin 模板和用户资料均不回写。开场预览按推荐角色 ID 使用自己的消息气泡；进入 Launch 页面后仅实际选择的 preset ID 被视为用户。
+Origin 详情的 Opening 和地点预览固定以自定义角色作为首卡。优先显示当前页已保存的编辑，其次整体使用 `origin/detail.precharacter`，缺失或无效才使用当前用户资料。两种来源都没有时仍展示可编辑的空白首卡。预设 `name/identity/personality/bio` 中的 `{{user}}` 在用户资料加载后替换为用户名，`bio` 对应 Setting。预设有头像时沿用，头像为空时补用户头像，其余空文本保留为空。使用用户头像时先显示本地缓存，卡片尺寸的 CDN 图片解码后替换。用户显式删除头像后不再补回，账号切换会清理旧账号的草稿和预填结果。
 
-2026-11-05 自定义首卡预填：有推荐角色时保持上述逻辑，不使用 `precharacter`；无推荐角色时，自定义首卡优先整体使用 `origin/detail.precharacter`，缺失或 null 才回退用户资料。预设 `name/identity/personality/bio` 中所有 `{{user}}` 均替换为当前用户的 user name；头像 URL 为空时使用用户 profile 头像，有模板头像时保留模板头像。其他空文本字段保持为空；`bio` 对应 Setting。profile 尚未加载时保留原占位符，加载后刷新未保存的初始预填；用户在当前页保存的编辑优先，显式删除头像后不再自动补回。账号资料变更时清理旧用户的替换结果，再按新资料解析；Launch 通过 `custom_role` 提交当前卡片内容，不生成 preset 角色 ID，不回写模板或用户资料。
+模板角色排在自定义首卡后，推荐角色在模板卡内优先并保留推荐标记。预览对白保留原角色身份。发送开场消息时，自定义角色通过 `custom_role` 提交，模板角色通过 `preset_character_id` 提交。Origin 模板和用户资料均不回写。
 
 Setting 前端对应完整角色 `description`（兼容 `bio`），独立于 `brief/personality`；详情预览可显示完整设定，角色编辑表单中的 Setting 按 500 个可见字符截断，草稿保留原 `goal`。请求兼容提交 `bio`，不虚构 `setting` override，也不发送 goal override。**当前不承诺 Launch 后 Setting 生效**：后端内部 `mapper.go` 将数据库 `Bio` 映射为 `Description`，但公开 `DetailCharacter` 裁掉该字段；override wire 接收 bio 后，在 `decodeLaunchPresetCharacterOverride` 构造正式 DTO 时未映射，patch 也不写 Bio；`copiedWorldCharacterRow` 随后清空被接管角色的 Bio/Goal。用户已明确要求先完成前端，后端补齐另行处理。当前详情未返回的原 Setting 无法由前端恢复，不以 personality 代填。
 

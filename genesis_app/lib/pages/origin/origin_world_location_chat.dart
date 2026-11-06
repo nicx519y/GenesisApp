@@ -247,7 +247,6 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       launchBusy: _launching,
       profileRole: _openingProfileRole,
       profileRoleRevision: _profileRoleRevision,
-      mergedCharacter: _recommendedRole?.character,
       selectedRoleId: _effectiveLocationChatRoleId(origin),
       onSelectedRoleChanged: _selectLocationChatRole,
       editorInteraction: _previewRoleEditorInteraction,
@@ -335,7 +334,6 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
         _originInitialDialoguePreviewFromMessages(
           _origin!,
           descriptor.openingPreviewMessages,
-          recommendedRole: _recommendedRole?.role,
         )?.messages ??
         const <ChatMessageVm>[];
     return CustomScrollView(
@@ -578,11 +576,8 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                       child: _OriginRoleEditorHost(
                         interaction: _previewRoleEditorInteraction,
                         role: _openingProfileRole,
-                        stableId:
-                            _recommendedRole?.character.characterId.trim() ??
-                            'current-user',
-                        isPreset: _recommendedRole != null,
                         busy: _launching,
+                        onFillFromProfile: _loadRoleProfileForFill,
                         topInset: MediaQuery.viewPaddingOf(context).top,
                       ),
                     ),
@@ -657,26 +652,14 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
 
   String _effectiveLocationChatRoleId(OriginDetail origin) {
     final selectedId = _selectedLocationChatRoleId;
-    if (selectedId == _OriginWorldPageState._profileLocationChatRoleId) {
-      final recommendedRole = _recommendedRole;
-      if (recommendedRole != null) return recommendedRole.characterId;
-      if (_openingProfileRole != null) return selectedId;
-    } else {
-      for (final character in origin.characters) {
-        if (_characterStableId(character) == selectedId) return selectedId;
-      }
+    if (selectedId == _OriginWorldPageState._profileLocationChatRoleId ||
+        (selectedId.isNotEmpty &&
+            origin.characters.any(
+              (character) => _characterStableId(character) == selectedId,
+            ))) {
+      return selectedId;
     }
-
-    for (final character in originCharactersRecommendedFirst(
-      origin.characters,
-    )) {
-      final characterId = _characterStableId(character);
-      if (characterId.isNotEmpty) return characterId;
-    }
-    if (_openingProfileRole != null) {
-      return _OriginWorldPageState._profileLocationChatRoleId;
-    }
-    return '';
+    return _OriginWorldPageState._profileLocationChatRoleId;
   }
 
   _OriginLocationChatRoleOption _locationChatRoleOption(OriginDetail origin) {
@@ -684,32 +667,18 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     if (selectedId != _OriginWorldPageState._profileLocationChatRoleId) {
       for (final character in origin.characters) {
         if (_characterStableId(character) == selectedId) {
-          final merged = _recommendedRole;
-          final draft = merged?.characterId == selectedId ? merged?.role : null;
           return _OriginLocationChatRoleOption(
             id: selectedId,
-            name:
-                draft?.name ??
-                (character.name.trim().isEmpty
-                    ? selectedId
-                    : character.name.trim()),
-            subtitle: draft?.identity ?? character.identity.trim(),
-            avatarSnapshotSourceKey: _resolveAssetUrl(
-              draft?.avatarUrl ?? character.avatar,
-            ).trim(),
+            name: character.name.trim().isEmpty
+                ? selectedId
+                : character.name.trim(),
+            subtitle: character.identity.trim(),
+            avatarSnapshotSourceKey: _resolveAssetUrl(character.avatar).trim(),
           );
         }
       }
     }
     final profileRole = _openingProfileRole;
-    if (profileRole == null) {
-      return _OriginLocationChatRoleOption(
-        id: '',
-        name: GenesisL10n.current.selectARole,
-        subtitle: '',
-        avatarSnapshotSourceKey: '',
-      );
-    }
     final profileName = profileRole.name.trim();
     return _OriginLocationChatRoleOption(
       id: _OriginWorldPageState._profileLocationChatRoleId,
@@ -735,7 +704,6 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     if (_launching || message.trim().isEmpty) {
       return _OriginLocationChatSendResult.notLaunched;
     }
-    // Keep the visible role when signing in adds a profile role to the list.
     final selectedRoleId = _effectiveLocationChatRoleId(origin);
     _setLocationChatRoleId(selectedRoleId);
     if (!await ensureGenesisLogin(context, source: LoginSource.worldoDetail)) {
@@ -749,10 +717,9 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     OriginRoleLaunchSelection roleSelection;
     String telemetryRoleId;
     if (selectedRoleId == _OriginWorldPageState._profileLocationChatRoleId) {
-      final profileRole = _openingProfileRole ?? await _customRoleFromProfile();
-      if (!mounted || profileRole == null) {
-        return _OriginLocationChatSendResult.notLaunched;
-      }
+      if (_prefilledCustomRole == null) await _refreshCachedProfileRole();
+      if (!mounted) return _OriginLocationChatSendResult.notLaunched;
+      final profileRole = _openingProfileRole;
       if (profileRole.name.trim().isEmpty) {
         showGenesisToast(
           context,
@@ -779,19 +746,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
         return _OriginLocationChatSendResult.notLaunched;
       }
       final characterId = _characterStableId(character);
-      final recommendedRole = _recommendedRole;
-      if (recommendedRole?.characterId == characterId &&
-          recommendedRole!.role.name.trim().isEmpty) {
-        showGenesisToast(
-          context,
-          GenesisL10n.current.enterNameValidation,
-          brightness: Brightness.dark,
-        );
-        return _OriginLocationChatSendResult.notLaunched;
-      }
-      roleSelection = recommendedRole?.characterId == characterId
-          ? recommendedRole!.toLaunchSelection()
-          : OriginRoleLaunchSelection.preset(characterId);
+      roleSelection = OriginRoleLaunchSelection.preset(characterId);
       telemetryRoleId = characterId;
     }
 
@@ -1309,9 +1264,8 @@ class _OriginInitialDialoguePreview {
 }
 
 _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
-  OriginDetail origin, {
-  OriginCustomRoleDraft? recommendedRole,
-}) {
+  OriginDetail origin,
+) {
   final locationIds = <String>{
     for (final location in origin.allLocations)
       if (location.locationId.trim().isNotEmpty) location.locationId.trim(),
@@ -1322,18 +1276,13 @@ _OriginInitialDialoguePreview? _originFirstInitialDialoguePreview(
     origin,
     locationIds,
   );
-  return _originInitialDialoguePreviewFromMessages(
-    origin,
-    sourceMessages,
-    recommendedRole: recommendedRole,
-  );
+  return _originInitialDialoguePreviewFromMessages(origin, sourceMessages);
 }
 
 _OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
   OriginDetail origin,
-  List<WorldChatroomMessage> sourceMessages, {
-  OriginCustomRoleDraft? recommendedRole,
-}) {
+  List<WorldChatroomMessage> sourceMessages,
+) {
   if (!sourceMessages.any((message) => message.senderType != 'tick')) {
     return null;
   }
@@ -1352,8 +1301,6 @@ _OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
   final entitiesById = <String, WorldChatroomEntity>{
     for (final entity in entities) entity.id.trim().toLowerCase(): entity,
   };
-  final recommended = OriginRecommendedRole.resolve(origin.characters);
-  final draft = recommendedRole ?? recommended?.role;
   final messages = sourceMessages.indexed
       .map((entry) {
         final index = entry.$1;
@@ -1365,10 +1312,6 @@ _OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
           _ => rawSenderType,
         };
         final entity = entitiesById[source.senderId.trim().toLowerCase()];
-        final isRecommendedSpeaker =
-            recommended != null &&
-            source.senderId.trim() == recommended.characterId &&
-            (senderType == 'character' || senderType == 'user');
         final senderName = entity?.name.trim().isNotEmpty == true
             ? entity!.name.trim()
             : source.senderName.trim();
@@ -1386,15 +1329,12 @@ _OriginInitialDialoguePreview? _originInitialDialoguePreviewFromMessages(
           roundId: source.conversationRoundId,
           tickNo: source.tickNo,
           senderId: source.senderId,
-          senderName: isRecommendedSpeaker ? draft!.name : senderName,
-          avatarUrl: isRecommendedSpeaker
-              ? _resolveAssetUrl(draft!.avatarUrl)
-              : entity?.avatarUrl ?? '',
+          senderName: senderName,
+          avatarUrl: entity?.avatarUrl ?? '',
           imageUrl: senderType == 'image' ? source.content : '',
           text: source.content,
           currentTime: currentTime,
-          isMe: isRecommendedSpeaker,
-          isPlayerControlledRole: isRecommendedSpeaker,
+          isMe: false,
           status: 'sent',
           senderType: senderType,
           createdAt: source.createdAt,
@@ -1432,14 +1372,8 @@ List<WorldChatroomMessage> _originLocationOpeningPreviewMessages(
 
 @visibleForTesting
 List<ChatMessageVm> originInitialDialoguePreviewForTesting(
-  OriginDetail origin, {
-  OriginCustomRoleDraft? recommendedRole,
-}) =>
-    _originFirstInitialDialoguePreview(
-      origin,
-      recommendedRole: recommendedRole,
-    )?.messages ??
-    const [];
+  OriginDetail origin,
+) => _originFirstInitialDialoguePreview(origin)?.messages ?? const [];
 
 @visibleForTesting
 List<WorldChatroomMessage> originOpeningPreviewMessagesForTesting(

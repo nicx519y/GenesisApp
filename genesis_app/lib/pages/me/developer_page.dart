@@ -1,5 +1,6 @@
 import '../../components/common/rating_prompt_debug_control.dart';
 import '../../l10n/genesis_l10n.dart';
+import '../../l10n/genesis_localizations.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -25,15 +26,14 @@ import '../../app/debug/origin_world_sheet_debug_settings.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/debug/world_recap_debug_preview.dart';
 import '../../app/debug/purchase_toast_debug_settings.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
-import '../../components/gems/gem_billing_purchase_dialog.dart';
 import '../../components/gems/daily_check_in_dialog.dart';
-import '../../network/models/membership_order_product.dart';
 import '../origin_editor/origin_generation_wait_content.dart';
 import '../../components/tilemap/tilemap_settings_button_visibility.dart';
 import '../../app/gems/gem_wallet_store.dart';
@@ -42,20 +42,15 @@ import '../../app/telemetry/telemetry_runtime_controller.dart';
 import '../../app/telemetry/telemetry_upload_policy.dart';
 import '../../network/genesis_api.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
-import '../../network/models/gem_product.dart';
-import '../../network/models/gem_wallet.dart';
 import '../../network/models/world_history_settings.dart';
 import '../../network/network_capture.dart';
 import '../../network/websocket_capture.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/app/app_version_override_store.dart';
-import '../../platform/billing/billing_models.dart';
-import '../../platform/billing/billing_service.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../utils/gem_amount.dart';
 import '../../utils/api_error_message.dart';
-import '../gems/gem_wallet_page.dart';
 import '../world/world_update_push_banner.dart';
 import '../origin_editor/origin_debug_tools.dart';
 import '../../ui/genesis_ui.dart';
@@ -275,7 +270,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _expandOriginWorldSheetOnEntry =
       originWorldSheetDebugSettings.expandOnEntry;
   bool _forceWorldNewBadges = worldNewContentDebugSettings.forceNewBadges;
-  bool _dailyCheckInPreviewClaimed = false;
   bool _loadingWorldHistoryAccess = true;
   bool _hasWorldHistoryAccess = false;
   String? _worldHistoryBusyAction;
@@ -1147,6 +1141,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     double horizontalPadding, {
     ScrollController? scrollController,
   }) {
+    final l10n = context.l10n;
     return ListView(
       key: const PageStorageKey<String>('developer-test-button-tab-scroll'),
       controller: scrollController,
@@ -1261,8 +1256,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
-          label: 'Preview Gem purchase sheet',
-          onPressed: _showGemPurchaseSheetPreview,
+          key: const ValueKey('developer-buy-gems'),
+          label: GenesisL10n.current.gemsBuy,
+          onPressed: _showGemPurchaseSheet,
           backgroundColor: GenesisColors.darkFaintFill,
           disabledBackgroundColor: GenesisColors.darkFaintFill,
           disabledForegroundColor: GenesisColors.darkTextTertiary,
@@ -1270,17 +1266,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
-          label: 'Preview purchase overlay',
-          onPressed: _showGemPurchaseOverlayPreview,
-          backgroundColor: GenesisColors.darkFaintFill,
-          disabledBackgroundColor: GenesisColors.darkFaintFill,
-          disabledForegroundColor: GenesisColors.darkTextTertiary,
-          foregroundColor: GenesisColors.darkTextPrimary,
-        ),
-        const SizedBox(height: _itemGap),
-        GenesisPrimaryButton(
-          label: 'Preview Premium purchase overlay',
-          onPressed: _showMembershipPurchaseOverlayPreview,
+          key: const ValueKey('developer-subscription'),
+          label: GenesisL10n.current.premiumSubscription,
+          onPressed: _showSubscriptionPurchaseSheet,
           backgroundColor: GenesisColors.darkFaintFill,
           disabledBackgroundColor: GenesisColors.darkFaintFill,
           disabledForegroundColor: GenesisColors.darkTextTertiary,
@@ -1296,15 +1284,39 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           foregroundColor: GenesisColors.darkTextPrimary,
         ),
         const SizedBox(height: _itemGap),
-        GenesisPrimaryButton(
-          label: 'Preview Daily Check-in',
-          onPressed: _showDailyCheckInPreview,
-          backgroundColor: GenesisColors.darkFaintFill,
-          disabledBackgroundColor: GenesisColors.darkFaintFill,
-          disabledForegroundColor: GenesisColors.darkTextTertiary,
-          foregroundColor: GenesisColors.darkTextPrimary,
-        ),
+        _DeveloperSectionTitle(l10n.meDailyCheck),
         const SizedBox(height: _itemGap),
+        for (final (index, (label, premium, deluxe)) in [
+          (l10n.developerMembershipNone, false, false),
+          (l10n.premiumWorldo, true, false),
+          (l10n.memoryMembershipDeluxe, false, true),
+          (
+            '${l10n.premiumWorldo} + ${l10n.memoryMembershipDeluxe}',
+            true,
+            true,
+          ),
+        ].indexed) ...[
+          GenesisPrimaryButton(
+            key: ValueKey('developer-daily-check-in-${index + 1}'),
+            label: '${index + 1}. $label',
+            labelContent: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '${index + 1}. $label',
+                  maxLines: 1,
+                  softWrap: false,
+                ),
+              ),
+            ),
+            onPressed: () =>
+                _showDailyCheckInPreview(premium: premium, deluxe: deluxe),
+            backgroundColor: GenesisColors.darkFaintFill,
+            foregroundColor: GenesisColors.darkTextPrimary,
+          ),
+          const SizedBox(height: _itemGap),
+        ],
         GenesisPrimaryButton(
           label: _clearingDirectMessageCache
               ? 'Clearing...'

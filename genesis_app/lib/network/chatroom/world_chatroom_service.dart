@@ -522,7 +522,6 @@ class WorldChatroomService {
   Future<void> _photoJournalWrites = Future.value();
   final _photoRecoveries = <String, Future<void>>{};
   final photoSubmittingLocations = <String>{};
-  ChatPhotoTarget? photoNavigationTarget;
   final _phoneEvents = StreamController<ChatroomPhoneEvent>.broadcast();
   Stream<ChatroomPhoneEvent> get phoneEvents => _phoneEvents.stream;
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
@@ -1606,13 +1605,13 @@ class WorldChatroomService {
   }
 
   Future<void> disconnect() async {
+    _userDisconnected = true;
     _stopPhotoGenerationMonitor();
     abandonConnectionWait();
     _retryAttempts = 0;
     _disconnectMonitor?.cancel();
     _suspendInspirations();
     _cancelHistoryRefreshes();
-    _userDisconnected = true;
     _userLocationsRefreshGeneration += 1;
     _userLocationsRefreshPending = false;
     _latestWorldMessagesRefreshPending = false;

@@ -100,6 +100,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onEnterLaunchedWorld,
     required this.profileRole,
     required this.profileRoleRevision,
+    required this.onFillFromProfile,
     required this.onSaveProfileRole,
     required this.locationChatRole,
     required this.onSelectLocationChatRole,
@@ -121,8 +122,9 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final OriginLaunchSource? activeLaunchSource;
   final List<OriginMyLaunchPresetCharacter>? launchedPresetRoles;
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
-  final OriginCustomRoleDraft? profileRole;
+  final OriginCustomRoleDraft profileRole;
   final int profileRoleRevision;
+  final OriginRoleProfileLoader onFillFromProfile;
   final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
   final _OriginLocationChatRoleOption locationChatRole;
   final ValueChanged<String> onSelectLocationChatRole;
@@ -244,10 +246,7 @@ class _OriginDetailDraggableSheetState
     WidgetsBinding.instance.addObserver(this);
     _isRaised = widget.initiallyExpanded;
     _sheetController = DraggableScrollableController();
-    _initialDialoguePreview = _originFirstInitialDialoguePreview(
-      widget.origin,
-      recommendedRole: widget.profileRole,
-    );
+    _initialDialoguePreview = _originFirstInitialDialoguePreview(widget.origin);
     _sheetInteraction = _OriginWorldSheetInteractionController(
       vsync: this,
       canPrepareKeyboard: () => mounted && !widget.autoExpansionPending,
@@ -294,19 +293,12 @@ class _OriginDetailDraggableSheetState
     if (oldWidget.profileRoleRevision != widget.profileRoleRevision) {
       _roleEditorInteraction.reset();
     }
-    final recommendedPreviewChanged =
-        oldWidget.profileRole != widget.profileRole &&
-        OriginRecommendedRole.resolve(widget.origin.characters) != null;
-    if (!identical(oldWidget.origin, widget.origin) ||
-        recommendedPreviewChanged) {
+    if (!identical(oldWidget.origin, widget.origin)) {
       _invalidateOpeningDialogueWarmup();
       final originChanged = oldWidget.origin.oid != widget.origin.oid;
-      if (!identical(oldWidget.origin, widget.origin)) {
-        _sheetInteraction.resetForContentChange(resetPage: originChanged);
-      }
+      _sheetInteraction.resetForContentChange(resetPage: originChanged);
       _initialDialoguePreview = _originFirstInitialDialoguePreview(
         widget.origin,
-        recommendedRole: widget.profileRole,
       );
       if (originChanged) {
         _roleEditorInteraction.reset();
@@ -1362,10 +1354,6 @@ class _OriginDetailDraggableSheetState
                                               profileRole: widget.profileRole,
                                               profileRoleRevision:
                                                   widget.profileRoleRevision,
-                                              mergedCharacter:
-                                                  OriginRecommendedRole.resolve(
-                                                    widget.origin.characters,
-                                                  )?.character,
                                               selectedRoleId:
                                                   widget.locationChatRole.id,
                                               onSelectedRoleChanged: widget
@@ -1489,9 +1477,6 @@ class _OriginDetailDraggableSheetState
             .toDouble();
     final initialDialoguePreview = _initialDialoguePreview;
     final locationChatLocationId = _originLaunchChatLocationId(widget.origin);
-    final recommendedCharacter = OriginRecommendedRole.resolve(
-      widget.origin.characters,
-    )?.character;
     return IgnorePointer(
       ignoring: widget.autoExpansionPending,
       child: NotificationListener<DraggableScrollableNotification>(
@@ -1568,11 +1553,8 @@ class _OriginDetailDraggableSheetState
                           child: _OriginRoleEditorHost(
                             interaction: _roleEditorInteraction,
                             role: widget.profileRole,
-                            stableId:
-                                recommendedCharacter?.characterId.trim() ??
-                                'current-user',
-                            isPreset: recommendedCharacter != null,
                             busy: widget.activeLaunchSource != null,
+                            onFillFromProfile: widget.onFillFromProfile,
                           ),
                         ),
                       ],

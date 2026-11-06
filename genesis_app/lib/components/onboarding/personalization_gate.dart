@@ -316,13 +316,9 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                 },
                 subscriptionBuilder:
                     widget.subscriptionBuilder ??
-                    (context) => ProSubscriptionContent(
-                      topSpacing: 0,
-                      horizontalInset: 0,
-                      closeOnPurchaseSuccess: true,
+                    (context) => ProSubscriptionContent.purchaseSheet(
                       onCloseAfterPurchaseSuccess: () =>
                           Navigator.of(context).pop(),
-                      showHeading: false,
                     ),
               );
             },

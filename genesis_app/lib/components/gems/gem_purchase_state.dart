@@ -13,13 +13,15 @@ class PurchaseCatalogEntry extends InheritedWidget {
     required this.revision,
     required super.child,
   });
-  final int revision;
 
-  static int of(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<PurchaseCatalogEntry>()
-          ?.revision ??
-      0;
+  /// A null revision allows the sheet to show cached content before entry.
+  final int? revision;
+
+  static int? of(BuildContext context) {
+    final entry = context
+        .dependOnInheritedWidgetOfExactType<PurchaseCatalogEntry>();
+    return entry == null ? 0 : entry.revision;
+  }
 
   @override
   bool updateShouldNotify(PurchaseCatalogEntry oldWidget) =>
@@ -42,13 +44,20 @@ class GemPurchaseLoading extends StatelessWidget {
 
 /// A visual preview for tabs whose purchase content has not been mounted yet.
 class GemPurchaseTabPlaceholder extends StatelessWidget {
-  const GemPurchaseTabPlaceholder.subscription({this.horizontalInset = 16})
-    : _subscription = true;
+  const GemPurchaseTabPlaceholder.subscription({
+    super.key,
+    this.horizontalInset = 16,
+    this.topSpacing = purchaseTabContentTopSpacing,
+  }) : _subscription = true;
 
-  const GemPurchaseTabPlaceholder.gems({this.horizontalInset = 16})
-    : _subscription = false;
+  const GemPurchaseTabPlaceholder.gems({
+    super.key,
+    this.horizontalInset = 16,
+    this.topSpacing = purchaseTabContentTopSpacing,
+  }) : _subscription = false;
 
   final double horizontalInset;
+  final double topSpacing;
   final bool _subscription;
 
   Widget _bone(double height, {double? width, double radius = 4}) => Container(
@@ -66,7 +75,7 @@ class GemPurchaseTabPlaceholder extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         horizontalInset,
-        purchaseTabContentTopSpacing,
+        topSpacing,
         horizontalInset,
         0,
       ),

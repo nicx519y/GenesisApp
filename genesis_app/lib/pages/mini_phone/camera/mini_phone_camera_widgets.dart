@@ -262,11 +262,13 @@ class MiniPhoneCameraThumbnail extends StatelessWidget {
     required this.onPressed,
     required this.child,
     this.showSwitch = false,
+    this.imageAspectRatio = 1,
   });
   final String label;
   final VoidCallback? onPressed;
   final Widget child;
   final bool showSwitch;
+  final double imageAspectRatio;
 
   static final _labelStyle = GenesisTypography.supporting.copyWith(
     fontSize: 11,
@@ -295,7 +297,6 @@ class MiniPhoneCameraThumbnail extends StatelessWidget {
               children: [
                 Container(
                   key: const ValueKey('mini-phone-camera-thumbnail-image'),
-                  width: 52,
                   height: 52,
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
@@ -304,7 +305,10 @@ class MiniPhoneCameraThumbnail extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: child,
+                    child: AspectRatio(
+                      aspectRatio: imageAspectRatio,
+                      child: child,
+                    ),
                   ),
                 ),
                 if (showSwitch)

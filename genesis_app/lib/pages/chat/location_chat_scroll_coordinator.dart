@@ -794,8 +794,8 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.entrySectionMessageId,
     this.hiddenMessageIds = const {},
     this.historyReveal,
-    this.historyRevealAlignTop = false,
     this.photoArrivalRequestIds = const {},
+    this.photoReplacementRequestIds = const {},
     this.photoArrivalTaskIds = const {},
     this.photoVisitIdentity,
     this.photoContentRevision,
@@ -833,8 +833,8 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   // Presentation only: retain full messages for reply and receipt semantics.
   final Set<String> hiddenMessageIds;
   final ({int generation, String localId})? historyReveal;
-  final bool historyRevealAlignTop;
   final Set<String> photoArrivalRequestIds;
+  final Set<String> photoReplacementRequestIds;
   // Live task identities are available even when broadcasts omit request IDs.
   final Set<String> photoArrivalTaskIds;
   final Object? photoVisitIdentity;
@@ -1310,27 +1310,20 @@ class _LocationChatAnchoredMessageListState
     final visitExtent = visitIndex == null
         ? null
         : _entryExtents[_entryKey(visitIndex)];
-    if (visitExtent != null && !widget.historyRevealAlignTop) {
+    if (visitExtent != null) {
       final visitEnd = visitExtent.offset + position.viewportDimension;
       if (visitEnd > contentEnd) contentEnd = visitEnd;
     }
     // Use this layout's content extent, not last frame's maxScrollExtent.
     // A short final segment cannot be top-aligned beyond the actual tail.
-    final bottomPadding = widget.historyRevealAlignTop
-        ? (widget.style ?? ChatUiStyleConfig.standard).messageListPadding.bottom
-        : 0.0;
-    final maxOffset = (contentEnd + bottomPadding - position.viewportDimension)
-        .clamp(0.0, double.infinity);
-    var desired = extent.offset - _historyRevealViewportOffset;
-    if (widget.historyRevealAlignTop) {
-      final inset = ChatBubbleGeometry.topWithin(
-        _messageLayoutKeys[_messageLayoutId(_renderedMessages[index])]
-            ?.currentContext
-            ?.findRenderObject(),
-      );
-      desired += inset ?? 0;
-    }
-    final target = desired.clamp(0.0, maxOffset);
+    final maxOffset = (contentEnd - position.viewportDimension).clamp(
+      0.0,
+      double.infinity,
+    );
+    final target = (extent.offset - _historyRevealViewportOffset).clamp(
+      0.0,
+      maxOffset,
+    );
     _detachedLayoutAnchor = null;
     _anchorRestorePending = false;
     if ((target - position.pixels).abs() < .5 &&
@@ -2675,9 +2668,7 @@ class _LocationChatAnchoredMessageListState
       // Preserve the clicked separator's screen position. A pinned header
       // collapses back to the top, rather than restoring an offscreen row.
       _historyRevealViewportOffset =
-          widget.historyRevealAlignTop ||
-              oldExtent == null ||
-              !widget.coordinator.controller.hasClients
+          oldExtent == null || !widget.coordinator.controller.hasClients
           ? 0
           : (oldExtent.offset - widget.coordinator.controller.position.pixels)
                 .clamp(0.0, double.infinity);
@@ -2832,7 +2823,7 @@ class _LocationChatAnchoredMessageListState
         _scheduleWaitingPosition(previous: oldWidget);
       }
     }
-    // Submission reserves space immediately, without waiting for HTTP or WS.
+    // First photos reserve space at submission. Replacements keep the row.
     final photoDispatchRequests = {
       ...widget.photoArrivalRequestIds.difference(
         oldWidget.photoArrivalRequestIds,
@@ -2845,6 +2836,7 @@ class _LocationChatAnchoredMessageListState
     };
     for (final request
         in widget.readOnlyArchive ? <String>{} : photoDispatchRequests) {
+      if (widget.photoReplacementRequestIds.contains(request)) continue;
       final token = Object();
       _photoPreparationTokens[request] = token;
       _positionedPhotoRequests.remove(request);
@@ -2911,6 +2903,7 @@ class _LocationChatAnchoredMessageListState
       if (!widget.active ||
           !_photoTickersEnabled ||
           request == null ||
+          widget.photoReplacementRequestIds.contains(request) ||
           (!localRequest && !liveTask) ||
           _handledPhotoTasks.contains(photo!.taskId) ||
           (_previousReceiptIds.contains(_receiptIdentity(message)) &&

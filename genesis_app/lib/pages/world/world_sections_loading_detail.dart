@@ -379,6 +379,7 @@ class WorldDetailSectionListView extends StatelessWidget {
     this.controller,
     this.newUserJoinNotice,
     this.onDeleteWorld,
+    this.onCharacterAvatarTap,
   });
 
   final String storageKey;
@@ -388,6 +389,34 @@ class WorldDetailSectionListView extends StatelessWidget {
   final WorldNewUserJoinNotice? newUserJoinNotice;
   final Future<void> Function(BuildContext context, WorldDetail world)?
   onDeleteWorld;
+  final ValueChanged<PhonePerson>? onCharacterAvatarTap;
+
+  VoidCallback? _avatarTapFor(Map<String, dynamic> character) {
+    final onTap = onCharacterAvatarTap;
+    if (onTap == null ||
+        currentUid.isEmpty ||
+        worldIsCurrentUserCharacter(character, currentUid)) {
+      return null;
+    }
+    final id = worldMapString(character, const [
+      'char_id',
+      'character_id',
+      'id',
+    ]);
+    if (id.isEmpty) return null;
+    return () => onTap(
+      PhonePerson(
+        id,
+        worldMapString(character, const [
+          'name',
+          'char_name',
+        ], fallback: GenesisL10n.current.homeWorldCharacter),
+        GenesisImageResource.fromJson(
+          worldMapValue(character, const ['avatar_url', 'avatar', 'image']),
+        ).displayUrl,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -431,6 +460,7 @@ class WorldDetailSectionListView extends StatelessWidget {
             subtitle: worldCharacterDescriptionText(character),
             subtitleColor: GenesisColors.darkTextSecondary,
             showCharacterDetails: true,
+            onAvatarTap: _avatarTapFor(character),
           ),
         );
       },

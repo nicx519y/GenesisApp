@@ -60,7 +60,6 @@ class ChatImageMessage extends StatelessWidget {
   Widget _photoCard(BuildContext context, double maxWidth) {
     final photo = message.photo!;
     final hasImage = photo.imageUrl.isNotEmpty;
-    final succeeded = photo.status == ChatPhotoStatus.succeeded;
     final failed = photo.status == ChatPhotoStatus.failed;
     final width = maxWidth;
     // Quantize the responsive card width at DPR=2 using the same CDN tiers as
@@ -87,20 +86,50 @@ class ChatImageMessage extends StatelessWidget {
               child: ColoredBox(
                 color: chatNarratorMessageBackgroundColor(style),
                 child: hasImage
-                    ? GenesisImageViewerSourceAnchor(
-                        previewImageProvider: preview,
-                        fit: BoxFit.cover,
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: (source) => _showImageViewer(context, source),
-                        child: Image(
-                          image: preview,
-                          fit: BoxFit.cover,
-                          frameBuilder: (_, child, frame, synchronous) =>
-                              synchronous || frame != null
-                              ? child
-                              : const SizedBox.expand(),
-                          errorBuilder: (_, _, _) => const SizedBox.expand(),
-                        ),
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          GenesisImageViewerSourceAnchor(
+                            previewImageProvider: preview,
+                            fit: BoxFit.cover,
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: (source) =>
+                                _showImageViewer(context, source),
+                            child: Image(
+                              image: preview,
+                              fit: BoxFit.cover,
+                              frameBuilder: (_, child, frame, synchronous) =>
+                                  synchronous || frame != null
+                                  ? child
+                                  : const SizedBox.expand(),
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox.expand(),
+                            ),
+                          ),
+                          if (!photo.terminal)
+                            Positioned(
+                              right: 8,
+                              bottom: 8,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: GenesisColors.darkOverlayBackground,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      color: GenesisColors.darkTextPrimary,
+                                      strokeWidth: 2,
+                                      semanticsLabel:
+                                          context.l10n.chatPhotoGenerating,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       )
                     : Semantics(
                         liveRegion: true,
@@ -137,15 +166,13 @@ class ChatImageMessage extends StatelessWidget {
               ),
             ),
           ),
-          if (hasImage && !succeeded)
+          if (hasImage && failed)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                failed
-                    ? (photo.failureMessage.isEmpty
-                          ? context.l10n.chatPhotoFailed
-                          : photo.failureMessage)
-                    : context.l10n.chatPhotoGenerating,
+                photo.failureMessage.isEmpty
+                    ? context.l10n.chatPhotoFailed
+                    : photo.failureMessage,
                 style: const TextStyle(color: GenesisColors.darkTextSecondary),
               ),
             ),

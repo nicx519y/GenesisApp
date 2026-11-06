@@ -22,6 +22,7 @@ import '../../components/common/genesis_report_actions.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../components/world_new_badge.dart';
 import '../../network/models/world.dart';
+import '../../network/mini_phone/mini_phone_models.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';

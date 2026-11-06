@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/components/origin/origin_role_draft.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 
@@ -11,7 +10,7 @@ void main() {
         'char_id': 'char_1',
         'is_recommend': recommended ? 1 : 0,
         'name': 'Same name',
-        'avatar': '',
+        'avatar': 'https://example.com/character.png',
       },
       {'char_id': 'char_2', 'name': 'Same name', 'avatar': ''},
     ],
@@ -29,28 +28,18 @@ void main() {
     },
   });
 
-  test('all recommended lines use the edited role and self bubbles by ID', () {
-    final messages = originInitialDialoguePreviewForTesting(
-      origin(),
-      recommendedRole: const OriginCustomRoleDraft(
-        name: 'Renamed player',
-        avatarUrl: 'https://example.com/player.png',
-      ),
+  test('a recommended character keeps its own identity in the preview', () {
+    final messages = originInitialDialoguePreviewForTesting(origin());
+    final recommendedLines = messages.where(
+      (line) => line.senderId == 'char_1',
     );
-    final playerLines = messages.where((line) => line.senderId == 'char_1');
-    expect(playerLines, hasLength(2));
-    for (final line in playerLines) {
-      expect(line.isMe, isTrue);
-      expect(line.isPlayerControlledRole, isTrue);
-      expect(line.senderName, 'Renamed player');
-      expect(line.avatarUrl, 'https://example.com/player.png');
+    expect(recommendedLines, hasLength(2));
+    for (final line in recommendedLines) {
+      expect(line.isMe, isFalse);
+      expect(line.isPlayerControlledRole, isFalse);
+      expect(line.senderName, 'Same name');
+      expect(line.avatarUrl, 'https://example.com/character.png');
     }
-    expect(
-      messages
-          .where((line) => line.senderId != 'char_1')
-          .every((line) => !line.isMe),
-      isTrue,
-    );
   });
 
   test('no recommendation keeps all opening lines on their original side', () {

@@ -141,7 +141,7 @@ POST /aitown-chat/api/v1/message/photo/create
 
 例如原卡有图A，候选卡9902生成图B：选择9902后正式显示B，A仍在相册；若9902从未生图，选中后正式无图。未选中卡后续完成的图片保留在该卡及相册，不能覆盖已选图片。
 
-## 5. 结果弹窗与 Inbox 定位到卡片
+## 5. 结果弹窗与 Inbox 通知目标
 
 `phone.photo.result`保持原流程；关联卡片属于收件人本人时，`payload`增加`card_id`，Inbox的`photo_target`也增加该字段。无卡片归属或关联卡片属于其他用户时省略，不能凭正式图片通知查看他人的私有候选：
 
@@ -159,4 +159,4 @@ POST /aitown-chat/api/v1/message/photo/create
 }
 ```
 
-有`card_id`时进入对应轮的候选卡定位图片；没有时沿用正式消息定位。离线不补弹，Inbox保留通知。客户端实现与兼容规则见[聊天生图接入](chat-photo-client-integration.md)。
+2026-11-06 客户端交互调整：Inbox 点击聊天照片成功通知只进入对应 World 的地点聊天，不再根据 `card_id`、轮次或消息 ID 定位图片。通知字段协议保持兼容；离线不补弹，Inbox 保留通知。当前客户端规则见[聊天生图接入](chat-photo-client-integration.md)。

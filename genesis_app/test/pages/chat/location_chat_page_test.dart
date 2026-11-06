@@ -447,6 +447,81 @@ void main() {
     },
   );
 
+  testWidgets('completed Enter reply can submit a formal photo', (
+    tester,
+  ) async {
+    final backend = _LocationChatReplyHttpTransport();
+    final harness = await _mountEnterConversationPanel(
+      tester,
+      replyTransport: backend,
+      modelWorldId: 'world-current',
+    );
+    const roundId = 301;
+    const conversationType = 'user_enter_location';
+    final camera = find.byKey(const ValueKey('location-chat-take-photo'));
+    harness.socket.serverUserEnterLocation(
+      roundId: roundId,
+      messageId: 301,
+      locationMessageId: 301,
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          find.byType(ChatUserEnterLocationMessageBubble).evaluate().isNotEmpty,
+    );
+    expect(camera, findsNothing);
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      roundId: roundId,
+      messageId: 302,
+      content: 'The Enter reply.',
+      conversationType: conversationType,
+      triggerUid: 'user-1',
+    );
+    harness.socket.serverEndConversationRound(
+      roundId: roundId,
+      conversationType: conversationType,
+      triggerUid: 'user-1',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.bySemanticsLabel('Edit').evaluate().isNotEmpty,
+    );
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Regenerate'), findsNothing);
+    expect(camera.hitTestable(), findsOneWidget);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(
+      'chat-photo-confirmation-v2:${Uri.encodeComponent(harness.services.config.chatroomHttpBaseUrl)}:user-1',
+      true,
+    );
+    final cardsBefore = backend.requests
+        .where((r) => r.uri.path.endsWith('/llm-messages/cards'))
+        .length;
+    await tester.tap(camera);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => backend.photoRequests.isNotEmpty,
+    );
+    expect(backend.photoRequests.single['conversation_round_id'], '$roundId');
+    expect(backend.photoRequests.single.containsKey('card_id'), isFalse);
+    expect(
+      backend.requests.where((r) => r.uri.path.endsWith('/llm-messages/cards')),
+      hasLength(cardsBefore),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .messages
+          .any((message) => message.photo?.taskId == 'submitted-photo'),
+    );
+    await _disposeEnterConversationPanel(tester, harness.service);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('photo confirmation stops when a newer Tick replaces its reply', (
     tester,
   ) async {
@@ -16547,9 +16622,12 @@ Future<
 _mountEnterConversationPanel(
   WidgetTester tester, {
   Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
+  HttpTransport? replyTransport,
+  String? modelWorldId,
 }) async {
   final harness = await _connectedLocationChatTestService(
     conversationRoundTimeout: conversationRoundTimeout,
+    replyTransport: replyTransport,
   );
   await tester.pumpWidget(
     AppServicesScope(
@@ -16559,6 +16637,7 @@ _mountEnterConversationPanel(
         home: LocationChatPanel(
           networkAvailabilityCheck: _locationChatNetworkAvailable,
           worldId: 'world-current',
+          modelWorldId: modelWorldId,
           locationId: 'location-current',
           service: harness.service,
           leaveOnInactive: false,

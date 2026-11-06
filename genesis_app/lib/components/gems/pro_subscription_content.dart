@@ -14,18 +14,18 @@ import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_purchase_service.dart';
 import '../../app/membership/membership_purchase_eligibility.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
-import '../../routers/app_router.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_localized_rich_text.dart';
 import '../../l10n/genesis_localizations.dart';
 import '../../ui/tokens/genesis_colors.dart';
-import '../../ui/tokens/genesis_typography.dart';
 import '../../network/models/membership_product.dart';
 import '../../network/models/membership_benefit.dart';
 import 'gem_assets.dart';
 import 'gem_purchase_state.dart';
 import 'membership_purchase_presentation.dart';
+import 'purchase_legal_links.dart';
 import '../common/genesis_center_toast.dart';
+import '../common/genesis_bottom_sheet_panel.dart';
 import 'pro_colors.dart';
 import 'memory_membership_style.dart';
 import 'memory_membership_carousel.dart';
@@ -39,6 +39,12 @@ enum _ProPlan {
     _ProPlan.yearly => GenesisL10n.current.yearlyPlan,
     _ProPlan.monthly => GenesisL10n.current.monthlyPlan,
   };
+}
+
+class SubscriptionTierChanged extends Notification {
+  const SubscriptionTierChanged(this.tier);
+
+  final MemoryMembershipTier tier;
 }
 
 class ProSubscriptionContent extends StatefulWidget {
@@ -56,16 +62,45 @@ class ProSubscriptionContent extends StatefulWidget {
     this.onCloseAfterPurchaseSuccess,
     this.showHeading = true,
     this.headingTopSpacing = 22,
-    this.topSpacing = 10,
+    this.topSpacing = purchaseTabContentTopSpacing,
     this.horizontalInset = 20,
     this.tagline,
     this.headingSuffix,
     this.sheetScrollController,
     this.sheetExpandedContentHeight = 0,
     this.loadingPlaceholder,
+    this.pinPurchaseActions = false,
     this.includeBottomSafeArea = false,
     this.onBenefitsPullDown,
   });
+
+  const ProSubscriptionContent.purchaseSheet({
+    Key? key,
+    MembershipCatalogLoader? productsLoader,
+    MemoryMembershipTier? initialMembershipType,
+    ValueChanged<MemoryMembershipTier>? onMembershipTypeChanged,
+    Future<void> Function(MembershipProduct)? purchaseHandler,
+    MembershipAccessStore? membershipAccess,
+    bool refreshMembershipOnOpen = true,
+    VoidCallback? onCloseAfterPurchaseSuccess,
+  }) : this(
+         key: key,
+         productsLoader: productsLoader,
+         initialMembershipType: initialMembershipType,
+         onMembershipTypeChanged: onMembershipTypeChanged,
+         purchaseHandler: purchaseHandler,
+         membershipAccess: membershipAccess,
+         refreshMembershipOnOpen: refreshMembershipOnOpen,
+         closeOnPurchaseSuccess: true,
+         onCloseAfterPurchaseSuccess: onCloseAfterPurchaseSuccess,
+         topSpacing: 0,
+         headingTopSpacing: 0,
+         horizontalInset: GenesisActionSheetBody.horizontalInset,
+         loadingPlaceholder: const GemPurchaseTabPlaceholder.subscription(
+           topSpacing: 0,
+         ),
+         pinPurchaseActions: true,
+       );
 
   final MembershipCatalogLoader? productsLoader;
   final MembershipType? initialMembershipType;
@@ -107,6 +142,9 @@ class ProSubscriptionContent extends StatefulWidget {
   /// Keeps the purchase area at the expanded sheet's bottom while it closes.
   final double sheetExpandedContentHeight;
   final Widget? loadingPlaceholder;
+
+  /// Keeps the purchase button and legal links in the host's visible area.
+  final bool pinPurchaseActions;
 
   /// Adds the device's bottom inset below the legal links.
   final bool includeBottomSafeArea;
@@ -180,7 +218,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final revision = PurchaseCatalogEntry.of(context);
-    final reentered = _entryRevision != null && revision != _entryRevision;
+    final reentered = revision != _entryRevision;
     _entryRevision = revision;
     _tracking = SubscriptionTrackingScope.maybeOf(context) ?? _ownTracking;
     final services = AppServicesScope.maybeOf(context);
@@ -228,7 +266,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     setState(() {
       _applyCatalog(display);
       _loading = false;
-      _hasFreshCatalog = catalog!.hasCheckoutProducts;
+      _hasFreshCatalog = _entryRevision != null && catalog!.hasCheckoutProducts;
     });
   }
 
@@ -280,14 +318,16 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   Future<void> _load({bool silent = false, bool checkoutOnly = false}) async {
     final request = ++_requestGeneration;
     final source = _catalog;
-    _hasFreshCatalog = source?.hasCheckoutProducts == true;
+    final previewing = _entryRevision == null;
+    _hasFreshCatalog = !previewing && source?.hasCheckoutProducts == true;
     final cached = source?.cached;
     setState(() {
-      if (!silent) {
+      if (!silent || previewing) {
         _loading = cached == null;
         _applyCatalog(cached ?? const MembershipCatalogData());
       }
     });
+    if (previewing) return;
     var freshApplied = false;
     if (source != null && cached == null && !silent) {
       unawaited(() async {
@@ -540,7 +580,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   Widget _buildExposure(BuildContext context) => SubscriptionExposure(
     key: ValueKey('subscription-exposure-${_tracking.pageId}'),
     onVisible: () {
-      if (!mounted || _loading || ModalRoute.of(context)?.isCurrent == false) {
+      if (!mounted ||
+          _entryRevision == null ||
+          _loading ||
+          ModalRoute.of(context)?.isCurrent == false) {
         return false;
       }
       _tracking.show(_type);
@@ -571,6 +614,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final carousel = MemoryMembershipSubscriptionCarousel(
       hasPurchased: _hasPurchased,
       initialTier: _type,
+      topSpacing: widget.topSpacing,
       // Sheet hosts already provide the carousel's outer horizontal spacing.
       horizontalInset: widget.horizontalInset == 0 ? 0 : 16,
       premiumActive: state.activeFor(MembershipType.premium),
@@ -580,6 +624,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       onTierChanged: (type) {
         if (!mounted || _submitting) return;
         widget.onMembershipTypeChanged?.call(type);
+        SubscriptionTierChanged(type).dispatch(context);
         if (_type == type) return;
         setState(() {
           _plans[_type] = _plan;
@@ -601,8 +646,9 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
           matching.isEmpty ? null : matching.first.product,
         );
       },
-      footerBuilder: (progress) =>
-          _buildPurchaseFooter(context, _offerFor(_plan)?.product, progress),
+      plansBuilder: _buildPlanControls,
+      actionsBuilder: (progress) => _buildPurchaseActions(context, progress),
+      pinPurchaseActions: widget.pinPurchaseActions,
     );
     if (widget.sheetScrollController == null) {
       return AbsorbPointer(absorbing: _submitting, child: carousel);
@@ -697,11 +743,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     ];
   }
 
-  Widget _buildPurchaseFooter(
-    BuildContext context,
-    MembershipProduct? selectedProduct,
-    double deluxeColorProgress,
-  ) => Padding(
+  Widget _buildPlanControls(double deluxeColorProgress) => Padding(
     padding: EdgeInsets.fromLTRB(
       widget.horizontalInset,
       12,
@@ -728,11 +770,12 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
             _prepareSelectedCheckout();
           },
         ),
-        SizedBox(
-          height: 35,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 35),
           child: Center(
             child: Text(
               GenesisL10n.current.premiumAutoRenewsCancelAnytime,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
@@ -741,13 +784,25 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
             ),
           ),
         ),
-        _buildSubscribeButton(selectedProduct, deluxeColorProgress),
+      ],
+    ),
+  );
+
+  Widget _buildPurchaseActions(
+    BuildContext context,
+    double deluxeColorProgress,
+  ) => Padding(
+    padding: EdgeInsets.symmetric(horizontal: widget.horizontalInset),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildSubscribeButton(_offerFor(_plan)?.product, deluxeColorProgress),
         const SizedBox(height: 24),
-        _buildLegalRow(context),
+        const PurchaseLegalLinks(),
         SizedBox(
           key: const ValueKey('pro-bottom-safe-space'),
           height:
-              10 +
+              PurchaseLegalLinks.bottomSpacing +
               (widget.includeBottomSafeArea
                   ? MediaQuery.viewPaddingOf(context).bottom
                   : 0),
@@ -771,7 +826,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final price = _offerFor(_plan)?.price?.formattedPrice;
     final label = subscribed
         ? GenesisL10n.current.premiumSubscribed
-        : '$period: ${price ?? GenesisL10n.current.premiumPurchaseUnavailable}';
+        : '$period: ${price ?? membershipPricePlaceholder}';
     final gradient = switch (deluxeColorProgress) {
       0 => premiumGradient,
       1 => deluxeGradient,
@@ -853,69 +908,31 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     );
   }
 
-  Widget _buildLegalRow(BuildContext context) {
-    Widget link(String document, String label) => GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(
-        context,
-      ).pushNamed(RouteNames.legal, arguments: {'document': document}),
-      child: Container(
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0x33FFFFFF))),
-        ),
-        child: Text(
-          label,
-          style: GenesisTypography.resolve(context, _legalStyle),
-        ),
-      ),
-    );
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 8,
-      runSpacing: 4,
-      children: [
-        link('privacy', GenesisL10n.current.privacyPolicy),
-        Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
-        link('terms', GenesisL10n.current.termsOfService),
-        Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
-        link('eula', GenesisL10n.current.eulaShort),
-      ],
-    );
-  }
-
   /// The server marks every gem grant with this icon.
   static const String _gemIconKey = 'gem';
 
   /// App-side copy: the plan's positioning line and the label that introduces
   /// whatever the gem module did not already cover.
   static String get _restLabel => GenesisL10n.current.premiumAlsoIncluded;
-
-  static const TextStyle _legalStyle = TextStyle(
-    fontSize: 12,
-    height: 1,
-    fontWeight: FontWeight.w400,
-    color: GenesisColors.darkTextTertiary,
-  );
 }
 
-/// "Worldo Premium" under a gold sweep, as on the profile card. Public so a
-/// sheet that titles itself with the plan can show the same lockup.
-class PremiumWordmark extends StatelessWidget {
-  const PremiumWordmark({super.key, this.textStyle});
+/// The tier's title and gradient for a subscription sheet header.
+class MembershipWordmark extends StatelessWidget {
+  const MembershipWordmark({super.key, required this.tier, this.textStyle});
 
+  final MemoryMembershipTier tier;
   final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
     return ShaderMask(
       blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => proTitleGradient.createShader(bounds),
+      shaderCallback: tier.foreground.createShader,
       // No compressed line height: at height 1 the glyphs sit above the centre
       // of their own box, which tips the wordmark off whatever is centred
       // beside it. The font's natural leading keeps the two level.
       child: Text(
-        GenesisL10n.current.premiumWorldo,
+        tier.title(context),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style:

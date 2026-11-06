@@ -261,6 +261,13 @@ Validation for this scheduling change:
   and its reading position without inserting a Messages page. Repeated taps
   while opening are ignored. This entry does not join a location.
 
+- The character list in the World Detail Sheet opens the selected role's
+  MiniPhone private chat with `source=world_detail_avatar`. The avatar is
+  interactive when the current account is known, the role has a character ID,
+  and its `player_uid` differs from the current account. The chat uses the
+  World-owned session, and Back returns to the sheet at its current scroll
+  position.
+
 - Opening MiniPhone warms the first pages of Messages, Posts (including authors), and Photos concurrently in the world-owned session cache. Opening directly to an app shares that app entry request with warm-up. Each later app entry refreshes its own first page once (Posts revalidates the selected filter's already loaded window as described below), keeping cached content visible until success and retaining it on failure. Closing/reopening keeps the cache and warms it again; account/world/environment isolation is unchanged. Posts/Photos pull-to-refresh, author changes and scroll pagination remain explicit requests. Messages lists and DM conversations do not offer pull-to-refresh; entry synchronization, automatic message synchronization and history pagination remain available. Timers, pushes, reconnects, foreground recovery, read receipts and writes do not refresh these app lists. Home/unread summaries remain independent; per-request DM status recovery and foreground chat history are separate from app-list refresh. Liking uses the queried post detail for the visible interaction state instead of reloading Feed.
 
 - Page/list reads show no standalone loading icons in Messages, Posts, comments,

@@ -12,6 +12,7 @@ import 'origin_character_form.dart';
 import 'origin_role_recommendation.dart';
 import 'origin_role_selection_mark.dart';
 import 'origin_role_draft.dart';
+import 'origin_role_profile.dart';
 export 'origin_role_draft.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -165,29 +166,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
     try {
       final draft = await loader();
       if (!mounted || draft == null) return;
-      final name = draft.name.trim();
-      final identity = draft.identity.trim();
-      final bio = draft.bio.trim();
-      final avatar = draft.avatarUrl.trim();
-      if (name.isNotEmpty) {
-        _customForm.name.text = _limitProfileFill(
-          name,
-          originCharacterNameMaxLength,
-        );
-      }
-      if (identity.isNotEmpty) {
-        _customForm.identity.text = _limitProfileFill(
-          identity,
-          originCharacterIdentityMaxLength,
-        );
-      }
-      if (bio.isNotEmpty) {
-        _customForm.bio.text = _limitProfileFill(
-          bio,
-          originCharacterBioMaxLength,
-        );
-      }
-      _customForm.avatarUrl.text = avatar;
+      _customForm.fillFromProfile(draft);
     } finally {
       if (mounted) setState(() => _fillingProfile = false);
     }
@@ -650,27 +629,10 @@ class OriginCustomRoleForm extends StatelessWidget {
         ),
         if (canFillProfile) ...[
           const SizedBox(height: 10),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: const ValueKey('origin-role-fill-profile'),
-              onTap: fillingProfile ? null : onFillFromProfile,
-              borderRadius: BorderRadius.circular(6),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-                child: Text(
-                  fillingProfile
-                      ? GenesisL10n.current.worldoLaunchFilling
-                      : GenesisL10n.current.worldoLaunchFillMyProfile,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.1,
-                    fontWeight: FontWeight.w600,
-                    color: GenesisColors.redSecondary,
-                  ),
-                ),
-              ),
-            ),
+          OriginRoleProfileFillAction(
+            key: const ValueKey('origin-role-fill-profile'),
+            filling: fillingProfile,
+            onPressed: onFillFromProfile,
           ),
         ],
       ],
@@ -746,10 +708,4 @@ String _characterRoleId(OriginCharacter character) {
   if (explicitId.isNotEmpty) return explicitId;
   if (character.id > 0) return '${character.id}';
   return character.name.trim();
-}
-
-String _limitProfileFill(String value, int maxLength) {
-  final characters = value.characters;
-  if (characters.length <= maxLength) return value;
-  return characters.take(maxLength).toString();
 }

@@ -18,9 +18,10 @@
 - 所有 ProSubscriptionContent 宿主（Home/Me 路由进入、完整支付页、支付 sheet、表单后订阅及现有嵌入入口）复用新的双会员展示及原购买处理器，不增加二次跳转到旧购买页。
 - 完整支付页与购买 sheet 的 Subscription 指示器优先采用已选会员、指定入口会员或缓存默认会员的颜色，不等待懒加载正文才从金色修正。Premium / Deluxe 切换时，指示器平滑变色，底部订阅按钮和套餐框随卡片的拖动与松手动画渐变；确认切换时立即更新价格、优惠和订阅按钮文案；Subscription / Buy Gems 的颜色由外层 Tab 实际动画进度插值，Gems 页面期间先同步好会员颜色，避免返回时经过旧金色。
 - 完整支付页与购买 sheet 保留外层 Subscription / Buy Gems 横滑。会员卡内先切换 Premium / Deluxe；在 Deluxe 末端向左净拖动超过 12px 时，同一次手势转交外层 TabBarView。进度跟手。从 Buy Gems 右滑返回。外层双向慢拖实际滚动达到 48 个逻辑像素即可切页，短于门槛的慢拖回弹。无外层支付 Tab 的嵌入入口不转发，Me 卡片轮播独立。
-- 首次横滑露出尚未进入的 Tab 时展示对应的静态骨架。只有确认切换后才挂载购买内容并开始现有加载流程。
+- 完整支付页首次横滑露出未进入的 Tab 时展示静态骨架。购买 Sheet 优先显示当前会话的缓存商品，无缓存时展示静态骨架。只有确认进入该 Tab 后才启动商品刷新及购买相关服务。
 - Me 会员卡轮播使用完整页面宽度，由轮播自身提供一次 16px 左右边距，外层不得再加 Padding。Me 卡宽为可用宽度减 104 后限制在 180 至 216，最小高度 126，卡片间隔 10。卡片分为名称、到期信息或两行权益、状态标签或订阅按钮三段。Me 横滑松手后吸附到卡片端点，Me 小卡片使用 12px 拖动门槛，并识别速度至少 200px/s 且实际位移至少 8px 的快速轻扫；很小的慢拖回到当前卡，Subscription 沿用 feature/global-memory-deluxe-20261104 的原 GestureDetector、超过 12px 的位移门槛，松手后使用 480ms 切换动画，不采用 Me 的轻扫配置；保留初始定位及用户手动选择，不停留在两卡中间。
 - 已订阅且自动续费中的当前套餐显示弱化渐变的 `Subscribed` 状态，按钮不可点击。
+- 新用户订阅 Sheet 的顶部名称和皇冠随会员卡切换。订阅套餐卡和底部按钮在没有可显示价格时使用 `--`。
 - Me 使用双会员卡入口，点击某卡定位该组；卡片显示各自状态和到期时间。粉钻以 membership.blue_gems_cent + membership_deluxe.blue_gems_cent 的整数 cent 和展示，普通余额不变。
 - 卡片始终按 Premium / Deluxe 排列。Me 初始优先定位有效会员，两档都有效定位 Deluxe；两档都无效才按 has_purchased 定位。Subscription 初始按 has_purchased 定位。使用 has_purchased 时，true 定位第二张 Deluxe，false 定位第一张 Premium。用户已切换的卡片和每组月年选择在刷新期间保留。
 - 名字后的图标仅读取所属用户的两种 status；1 显示，0/2/非法/缺失不显示，删除用户不显示。双图标顺序为 Deluxe / Premium，与卡片排序无关。不新增徽章网络请求，World/Chat/LocationChat 保留原展示范围。

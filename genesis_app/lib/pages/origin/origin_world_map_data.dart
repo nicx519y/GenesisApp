@@ -4,15 +4,6 @@ String _resolveAssetUrl(String raw) {
   return resolveAssetUrl(raw);
 }
 
-String _resolvedProfileAvatar(
-  Map<String, dynamic> userInfo,
-  String profileAvatar,
-) {
-  final resolved = resolveProfileAvatarUrl(userInfo);
-  if (resolved.isNotEmpty) return resolved;
-  return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
-}
-
 bool _sameOriginProfileRole(
   OriginCustomRoleDraft? current,
   OriginCustomRoleDraft? next,
@@ -22,6 +13,7 @@ bool _sameOriginProfileRole(
   return current.avatarUrl == next.avatarUrl &&
       current.name == next.name &&
       current.identity == next.identity &&
+      current.personality == next.personality &&
       current.bio == next.bio;
 }
 

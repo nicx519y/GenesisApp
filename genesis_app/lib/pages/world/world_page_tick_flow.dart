@@ -351,37 +351,10 @@ extension _WorldPageTickFlow on _WorldPageState {
     }
   }
 
-  Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
-    if (!await _ensureProfileFillLogin()) return null;
-    if (!mounted) return null;
-    final services = AppServicesScope.read(context);
-    final userInfo = await services.sessionStore.readUserInfo();
-    if (userInfo == null || userInfo.isEmpty) {
-      if (mounted) {
-        showGenesisToast(
-          context,
-          GenesisL10n.current.worldDetailNoSavedProfileFound,
-          brightness: Brightness.dark,
-        );
-      }
-      return null;
-    }
-    final cachedUser = userInfo;
-    final cachedName = worldMapString(cachedUser, const [
-      'name',
-      'nickname',
-      'user_name',
-      'displayName',
-      'display_name',
-    ]);
-    return OriginCustomRoleDraft(
-      avatarUrl: worldResolvedProfileAvatar(cachedUser, ''),
-      name: cachedName,
-      identity: worldMapString(cachedUser, const ['identity']),
-      bio: worldMapString(cachedUser, const ['bio', 'description']),
-    );
-  }
-
-  Future<bool> _ensureProfileFillLogin() =>
-      ensureGenesisLogin(context, source: LoginSource.worldDetail);
+  Future<OriginCustomRoleDraft?> _customRoleFromProfile() =>
+      loadOriginRoleProfile(
+        context,
+        source: LoginSource.worldDetail,
+        resolveAvatar: (user) => worldResolvedProfileAvatar(user, ''),
+      );
 }

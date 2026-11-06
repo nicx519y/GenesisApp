@@ -314,7 +314,7 @@ void main() {
 
       expectResize('avatar', 'w_96');
       expect(images('avatar'), hasLength(2));
-      expectResize('style', 'w_96');
+      expectResize('style', 'w_64');
       expectResize('album', 'w_96');
       expectResize('cover', 'w_720');
       expect(
@@ -905,7 +905,7 @@ void main() {
       final thumbnailImage = find.byKey(
         const ValueKey('mini-phone-camera-thumbnail-image'),
       );
-      expect(tester.getSize(thumbnailImage.first), const Size.square(52));
+      expect(tester.getSize(thumbnailImage.first), const Size(36, 52));
       expect(tester.getSize(thumbnailImage.last), const Size.square(52));
       expect(
         tester.getCenter(template).dx,

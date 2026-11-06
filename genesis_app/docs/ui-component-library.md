@@ -110,6 +110,8 @@ MiniPhone 的 Toast 通过 `shared/mini_phone_toast.dart` 复用公共组件，�
 
 调用方只管理名字、图片 URL、尺寸、圆角、玩家角色边框和外部布局，不自行绘制默认头像或覆盖默认文字的字号、字重、颜色、行高。调整相邻正文的字体不影响默认头像排版。特殊比例肖像可以直接复用 `GenesisAvatarFallback`；图片加载中的占位行为保持各场景已有约定。
 
+Me、User Profile 顶部头像及 Origin 角色编辑中已选定的头像没有可显示的图片时使用纯黑底。Origin 的 Fill from my profile 先显示当前账号的本地头像预览，有可用的正式图片帧后再替换。
+
 **NPC 例外：** Location Chat 的 `char_npc` 保留 `ChatNpcAvatar` 固定“NPC”圆标及原有尺寸、底色、描边和文字样式，不改为名字缩写头像，也不因本规范替换为普通角色头像。
 
 ## Create Flow Typography
@@ -271,13 +273,21 @@ Developer Page → button → **Preview guest subscription login**（Creating �
 - 点击 Google / Apple 模拟登录成功并关闭预览；不会调用 OAuth、创建订单或更改真实账号。
 - 模拟登录等待期间退出，迟到的结果不会再次关闭底层页面。
 
+Developer Page 的 **Buy Gems** 和 **Subscription** 打开正式购买 Sheet，使用当前环境和账号的商品、钱包和商店服务。未登录时点击 **Buy Gems** 会先打开正式登录 Sheet，登录后需再次点击进入购买。购买进度及结果由商店交易触发。
+
+Developer Page 的 **Daily Check-in** 预览提供四个按钮，依次模拟无会员、Premium、Deluxe 和双会员。示例签到金额依次为 50、100、300 和 350 宝石。点击 Check in 可重复预览成功弹窗，预览只使用本地数据。
+
 Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurchaseBottomSheet` 仅保留内嵌内容，已删除独立 header、关闭按钮、`embedded` 开关和旧的 `alert` 展示参数；余额告警入口仍保留实际告警到购买埋点的映射。
 
 ### GenesisActionSheetHeader
 
 用户端交互 / 提交 Sheet 的公共 Header，总高 68（含正文前留白），标题 18 / 600、行高 24，左对齐，左右边距 16，标题与左右操作在 Header 内垂直居中。普通深色 `GenesisBottomSheetPanel` 自动复用；无固定高度的发帖 / 回复编辑弹层也直接复用，并将右侧关闭接到原有键盘退出动画。允许关闭的弹层使用标准圆形关闭按钮；新用户订阅保留 Skip。
 
-购买 Sheet 使用 `.tabs` 变体，高度 68，采用 16 / 600 的纯文字 Tab 与下划线。Subscription 下划线随会员卡切换，Premium 为金色，Deluxe 为粉色，Buy Gems 为品牌红。文字使用公共一级和二级白。完整支付页和购买 Sheet 的订阅卡片顶边与 My Balance 标题行均距 Tab 内容区顶部 12 个逻辑像素。订阅协议下方统一保留 10px，系统底部安全区由外层处理一次。Mention、World / Worldo 内容面板和开发工具保留各自 Header。
+购买 Sheet 使用 `.tabs` 变体，高度 68，采用 16 / 600 的纯文字 Tab 与下划线。Subscription 下划线随会员卡切换，Premium 为金色，Deluxe 为粉色，Buy Gems 为品牌红。文字使用公共一级和二级白。购买 Sheet 的订阅卡片顶边和 My Balance 标题行紧接 Header，完整支付页保留 12 个逻辑像素的顶部间距。订阅协议下方统一保留 10px，系统底部安全区由外层处理一次。Mention、World / Worldo 内容面板和开发工具保留各自 Header。
+
+购买 Sheet 的 Subscription 和 Buy Gems 共用 `PurchaseLegalLinks`，固定在底部安全区上方。订阅按钮也固定在底部。常规高度下权益卡按剩余空间伸缩，短屏或大字体下权益卡和套餐可在固定区上方滚动。
+
+新用户订阅和开发预览复用 `PurchaseSheetPanel` 与 `ProSubscriptionContent.purchaseSheet`。Sheet 总高为可用屏幕高度的 80%，使用同高的会员标题栏和 Skip，底部购买按钮与协议的布局跟普通购买 Sheet 一致。开发预览中的订阅步骤也使用正式会员目录、账号权益和购买服务。
 
 ### GenesisActionSheetBody
 

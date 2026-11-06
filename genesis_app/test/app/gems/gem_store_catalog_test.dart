@@ -126,6 +126,54 @@ void main() {
       expect(store.calls, 2);
     },
   );
+
+  test(
+    'failed entry refresh keeps the cached products usable for checkout',
+    () async {
+      final response = Completer<List<GemProduct>>();
+      final store = Store(BillingProvider.appStore);
+      var calls = 0;
+      final catalog = GemStoreCatalog(
+        loadProducts: () async => ++calls == 1 ? [product()] : response.future,
+        platform: store,
+        namespace: 'entry-offline',
+        readOwner: () async => 'a',
+      );
+      await catalog.loadForEntry();
+      final initial = catalog.cached!;
+      final refresh = catalog.loadForEntry();
+      final secondEntry = catalog.loadForEntry();
+      await pumpEventQueue();
+      response.completeError(StateError('offline'));
+
+      expect(await refresh, same(initial));
+      expect(await secondEntry, same(initial));
+      expect(await catalog.confirm(initial.single), same(initial.single));
+      expect(catalog.queryingStore.value, isFalse);
+      expect(calls, 2);
+      expect(store.calls, 1);
+    },
+  );
+
+  test('failed entry refresh cannot use a previous account snapshot', () async {
+    final response = Completer<List<GemProduct>>();
+    var owner = 'a';
+    var calls = 0;
+    final catalog = GemStoreCatalog(
+      loadProducts: () async => ++calls == 1 ? [product()] : response.future,
+      platform: Store(BillingProvider.appStore),
+      namespace: 'entry-owner-change',
+      readOwner: () async => owner,
+    );
+    await catalog.loadForEntry();
+    final refresh = catalog.loadForEntry();
+    await pumpEventQueue();
+    owner = 'b';
+    final rejected = expectLater(refresh, throwsStateError);
+    response.completeError(StateError('offline'));
+    await rejected;
+  });
+
   GemProduct tagged(String tag) => GemProduct.fromJson({
     ...product().toJson(),
     'activity_text': tag,

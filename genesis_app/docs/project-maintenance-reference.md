@@ -133,8 +133,9 @@ WebSocket 当前协议规则：
 - `HomePage`：首页 feed 和我的 world 卡片入口，默认 App 首屏。列表/卡片展示字段来自 `GenesisApi` 对 v1/home 和 world/origin 数据的映射。
 - `OriginPage`：Origin 模板列表和模板卡片入口。卡片组件在 `lib/components/origin/origin_item_card.dart`，列表组合在 `lib/pages/origin/origin_page.dart`。
 - `OriginWorldPage`：Origin 详情/预览页，不等同于已加入 world。复用 `WorldDetailsPageScaffold`、`WorldDetailsShell`、`WorldMap`、`WorldTickEventItem`；Launch 通过 `showOriginRoleLaunchSheet` 选择角色后创建/进入 world。Origin inline chat 是 launch-only 预览，不应显示真实连接状态。
-- Origin 开场面板及地点预览复用同一角色卡片组件和编辑交互控制器；编辑统一在卡片内完成，不因缺少推荐角色改为弹 Sheet。信息浏览态的各栏内容最多 3 行，超出使用省略号。角色编辑表单对预填、键入和粘贴统一按可见字符截断。推荐角色的名称、身份、个性上限分别是 128、255、512，自定义角色分别是 30、100、100，两种角色的 Setting 上限均为 500。
-- Origin 开场面板及地点预览中的角色卡片处于编辑态时，内部上下滚动须保留输入焦点和键盘；外层滚动容器不得因内部滚动通知收起键盘。非编辑态保留原有拖动收起键盘行为。
+- Origin 开场面板及地点预览复用同一角色卡片组件和编辑交互控制器。首卡始终是可编辑的自定义角色，优先用 `precharacter` 预填，缺失时用当前用户资料。推荐角色保留在后续的模板卡中。卡片正面的 Identity 最多 3 行，详情在卡内完整滚动。自定义角色表单对预填、键入和粘贴统一按可见字符截断，名称、身份、个性、Setting 的上限分别为 30、100、100、500。
+- Origin 开场面板及地点预览的 Your Persona 编辑表单打开时不默认聚焦或弹出键盘。从输入框外拖动表单收起键盘，从输入框内开始的拖动保留输入焦点和键盘。两种拖动都不退出编辑，也不传给背后的面板。非编辑态保留原有拖动收起键盘行为。
+- Your Persona 的 Setting 下方复用 Launch Custom 的红色 `Fill from my profile` 文字操作。成功读取资料后仅带入头像和姓名，清空 Identity、Personality 和 Setting；资料头像或姓名缺失时对应留空。姓名按当前表单的字符上限截断，点 Done 后才应用。
 - `WorldPage`：监听账号会话变更，登录后重新读取当前 UID 和 World Detail，以服务端 `relation_status` 更新底部操作；交互登录不自动申请或 Tick。旧账号详情响应不得覆盖新会话，进行中的详情请求结束后补做会话刷新；同时释放旧聊天室和小手机会话，重新获取当前账号的音乐租约，避免引用已释放的播放器。已创建/加入的 world 详情页。使用同一套 floating map + panel scaffold。进入页面后先拉 world detail，只有 `relation_status` 为 `owner` 或 `joined` 才启动长期 chatroom WebSocket；`approved` 只用于 Launch 流，不代表已连接。
 - `LocationChatPage`：地点聊天室页。页面可以从 world drill-down 打开，但只有 leaf location 才允许 `join`/`leave`。非 leaf 只展示页面/地图层级，不产生聊天室副作用。
 - LocationChat 输入框左侧的发言头像和本人消息右侧的头像从聊天室实体和 World 角色解析，缺图时使用公共默认头像，不回退到本地登录资料。Origin 首句进入时继续沿用已选角色头像。
@@ -182,6 +183,7 @@ HTTP 映射层的图片规则：
 
 - 通用 upload API：`lib/network/v1/upload_api.dart`，`POST /api/v1/upload/image`，multipart 字段名是 `file`。
 - Me 编辑头像在确认裁剪后立即用内存中的裁剪图显示头像，再上传并保存。成功后当前页面继续显示本地预览，上传或保存失败时恢复编辑前的头像，账号切换时清除本地预览。
+- Origin 开场和地点预览的角色编辑面板沿用卡片的头像来源，按面板尺寸生成缩放 URL。确认裁剪后立即显示本地图，上传期间禁用 Done；失败时恢复上一个头像及其预览。上传成功后继续显示本地图，点 Done 后卡片和再次打开的编辑面板都沿用这张图，Launch 仍使用上传返回的 URL。
 - 登录保存用户资料时预热当前头像的 `w_160` 预览，按 API 环境、账号和头像 URL 识别，保存在内存和本地文件。Me 顶部头像及 Origin 开场与 Location 首卡使用当前用户头像时先显示缓存，正式图片解码后替换。Me 保存成功后用本地裁剪数据更新缓存，退出登录清除当前环境的头像缓存。
 - 创建/编辑 Origin 图片：`CreateUploadBox` 在 `lib/pages/create/create_form_widgets.dart`，先进入 `LocalImageCropPage` 裁剪，再上传。成功后 controller 写入上传 URL，失败恢复旧 URL。
 - 讨论图片：`DiscussPostInput` 在 `lib/components/discuss/discuss_post_input.dart`，使用 `native_image_picker.dart` 选图，`resizeImageToMaxWidth` 预处理后上传，最多 6 张并按剩余槽位限制选择。
@@ -210,11 +212,13 @@ HTTP 映射层的图片规则：
 ### 交互 / 提交 Sheet Header
 
 - 用户端操作 Sheet 统一复用 `GenesisActionSheetHeader`（`components/common/genesis_bottom_sheet_panel.dart`），总高固定 68，包含正文前的全部留白；有无右侧操作均不改变高度。标题字号 18、字重 600、行高 24，左对齐，左右边距 16；标题、左侧图标和右侧操作在 68 高 Header 内垂直居中，不设固定顶部间距。标题单行，窄屏或大字体放不下时省略，不缩小字号或撑高 Header。
-- 允许关闭时使用公共右侧 `GenesisDarkCloseButton`；关闭时调用所属 Sheet 原有的退出逻辑，提交中按业务禁用。新用户填表和登录不允许关闭，登录保留返回；新用户订阅右侧保留 Skip（二号白色 `darkTextSecondary`）和标题前的皇冠。三步 Header 与 Sheet 高度保持一致；新用户流程 Sheet 总高固定 600 个逻辑像素（含底部安全区），短屏限制在顶部安全区下方可用高度内，正文溢出内部滚动。
+- 允许关闭时使用公共右侧 `GenesisDarkCloseButton`；关闭时调用所属 Sheet 原有的退出逻辑，提交中按业务禁用。新用户填表和登录不允许关闭。表单 Sheet 按内容确定高度，底部只留安全区，超出可用高度时正文滚动。从表单点 Sign in 时，登录 Sheet 沿用当时的表单总高并提供返回。直接进入登录时，总高上限为 600 个逻辑像素。新用户订阅使用通用购买 Sheet 的 80% 高度和正文布局，顶部以会员标题、皇冠和 Skip 替换 Tab，Header 高度仍为 68。
 - `GenesisBottomSheetPanel` 的普通深色标题自动使用此 Header；正文统一复用 `GenesisActionSheetBody`，左右外边距固定 16，与 Header 共享同一常量，不再叠加旧 `titleBottomSpacing`。普通深色面板默认自动应用；Tab / 多步骤容器设置 `insetBody: false`，在各正文页内只应用一次。自定义 Header 通过 `header` 插槽传入。Developer Sheet 同样使用公共 Header；地图工具等独立自定义 Header 保留原样。
-- Subscription / Buy Gems 使用 `GenesisActionSheetHeader.tabs`：总高同为 68，使用居中纯文字 Tab（无图标）、16 / 600 字号及下划线；Subscription 下划线跟随当前会员卡，Premium 金色、Deluxe 粉色，Buy Gems 使用品牌红，文字仍使用公共一级 / 二级白，左右关闭按钮位置复用标准。Wallet 完整页面正文左右边距为 16。完整页面和购买 Sheet 的订阅卡片顶边与 Buy Gems 的 My Balance 标题行均距 Tab 内容区顶部 12 个逻辑像素。
+- Subscription / Buy Gems 使用 `GenesisActionSheetHeader.tabs`：总高同为 68，使用居中纯文字 Tab（无图标）、16 / 600 字号及下划线；Subscription 下划线跟随当前会员卡，Premium 金色、Deluxe 粉色，Buy Gems 使用品牌红，文字仍使用公共一级 / 二级白，左右关闭按钮位置复用标准。购买 Sheet 的订阅卡片和 My Balance 标题行紧接 Header。Wallet 完整页保留 12 个逻辑像素的顶部间距与 16 个逻辑像素的正文左右边距。
 - 独立 Subscription / Buy Gems Sheet 禁止点击外部和下滑关闭，保留系统返回与右上角公共关闭按钮；购买成功的既有自动退出流程保留。此规则不改变新用户流程。
 - 订阅协议底部统一保留 10px 间距，再由外层处理一次系统安全区；Wallet 完整页面、普通订阅 Sheet、新用户订阅 Sheet 保持一致，不重复叠加安全区。
+- 新用户表单提交成功并进入订阅时，原 Sheet 底边保持在屏幕底部，高度在 320 毫秒内过渡到订阅高度。系统关闭动画时直接切换高度。
+- 普通购买 Sheet 的 Subscription 和 Buy Gems 共用协议行，固定在底部安全区上方。订阅按钮也固定在底部。常规高度下权益卡按剩余空间伸缩，短屏或大字体下权益卡与套餐可滚动。
 - 正文 16 边距适用于表单、登录按钮、角色选择区、权益卡、套餐卡及底部主按钮的外边缘。卡片内部 padding、卡片间距和居中法律文案独立保留。标准购买 Sheet 和完整支付页的订阅轮播占满可见宽度，由轮播内部给停靠位置留 16 的边距，底部套餐和按钮各自使用 16 的外边距。传入的 `subscriptionBuilder` 由 `GenesisActionSheetBody` 提供 16 的外边距。
 - Mention 保留现有独立 Header 48、Tab 32、下间距 8，不套用上述高度或字号。World / Worldo 内容面板不属于此规范。
 
@@ -377,7 +381,7 @@ HTTP 映射层的图片规则：
 - 自定义标题、正文和输入框也须引用公共 token；输入文字和光标使用 `darkTextPrimary`，Placeholder 使用 `darkInputPlaceholder`，输入填充使用 `darkFaintFill`，不额外描边。保留各交互所需的输入行数和布局。
 - 保留公共弹窗的尺寸、圆角和交互；Report / 消息长按浮动菜单仍按浮动菜单专项规范执行。
 - Worldo Tab 栏的性别筛选小窗按公共弹窗 UI 执行：复用 `GenesisActionBoxSurface` 的毛玻璃表面、默认圆角和边框，复用公共操作文字、行高和分隔线，不额外叠加菜单投影。点击图标后在列表右列上方展开，顶部对齐列表首行卡片顶部，宽度及右边缘与右列卡片一致，复用网格边距与列间距计算，不写死宽度或相对图标的偏移；选项为同级操作，使用一级白和勾选标记；点击选项直接关闭，不增加标题、确认或 Cancel 按钮。 小窗使用不带 ModalBarrier 的浮层；小窗外的滑动、卡片点击和 Tab 操作不被拦截，同一次操作收起小窗并继续传给原控件。再次点击筛选按钮或返回键收起小窗，离开 Worldo 时清理浮层。
-- 签到弹窗只保留 `Check in` / `Claimed` 展示状态，不显示独立 `Claim` 按钮。一次 Check in 内自动上报并领取；后端 `claimable` 仅用于恢复领取，恢复时仍显示 Check in，不能删掉领取接口或重复上报。签到确认与成功弹窗复用公共玻璃面板，使用大号红钻奖励和有效会员皇冠。确认弹窗将可订阅会员显示为渐变卡片，底部使用红色 Check in 主按钮；可点遮罩或返回关闭。成功弹窗沿用确认时的会员标识，约 3 秒后关闭。
+- 签到弹窗只保留 `Check in` / `Claimed` 展示状态，不显示独立 `Claim` 按钮。一次 Check in 内自动上报并领取；后端 `claimable` 仅用于恢复领取，恢复时仍显示 Check in，不能删掉领取接口或重复上报。签到确认和成功弹窗复用公共玻璃面板，奖励区只居中显示金额和右侧小红钻。确认弹窗的会员奖励和签到操作使用带分隔线的整行文字按钮。可点遮罩或返回关闭。成功弹窗约 3 秒后关闭。
 
 ### 提交按钮 Loading 与普通禁用态规范
 
@@ -519,4 +523,4 @@ HTTP 映射层的图片规则：
 
 ## LocationChat 聊天生图（2026-11-04）
 
-拍照询价、提交、恢复、失败展示周期和 Inbox 精确定位的实现入口与规则见 [聊天生图接入](chat-photo-client-integration.md)。卡内照片参与整卡展示与 Regenerate 收起，图片状态不参与文字等待锁；live_photo 不可通过文字 Edit 修改或删除。卡内照片三态展示，旧独立照片保持原访问周期过滤。
+拍照询价、提交、恢复、失败展示周期和 Inbox 进入地点聊天的实现入口与规则见 [聊天生图接入](chat-photo-client-integration.md)。卡内照片参与整卡展示与 Regenerate 收起，图片状态不参与文字等待锁；live_photo 不可通过文字 Edit 修改或删除。卡内照片三态展示，旧独立照片保持原访问周期过滤。

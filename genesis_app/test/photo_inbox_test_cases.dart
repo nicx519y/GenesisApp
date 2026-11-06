@@ -4,7 +4,7 @@ void photoInboxTests() {
   for (final source in ['chat', 'camera']) {
     for (final success in [false, true]) {
       testWidgets(
-        'photo Inbox $source $success has correct semantics and typed target',
+        'photo Inbox $source $success has correct semantics and destination',
         (tester) async {
           final transport = _RecordingMessageCategoryTransport(
             notificationIsRead: false,
@@ -81,11 +81,10 @@ void photoInboxTests() {
               expect(target.assetId, 9007199254740993);
               expect(args['initial_photo_target'], isNull);
             } else {
-              final target = args['initial_photo_target'] as ChatPhotoTarget;
-              expect(target.locationId, 'location-photo');
-              expect(target.cardId, 9902);
-              expect(target.roundId, 9007199254740993);
-              expect(target.globalMessageId, 9007199254740995);
+              expect(args, {
+                'wid': 'world-photo',
+                'initial_location_id': 'location-photo',
+              });
             }
           } else {
             expect(destination, isNull);

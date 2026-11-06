@@ -31,7 +31,6 @@ import '../pages/me/follows_page.dart';
 import '../pages/me/force_login_page.dart';
 import '../pages/me/language_page.dart';
 import '../pages/me/user_info_page.dart';
-import '../network/chatroom/chat_photo.dart';
 import '../network/chatroom/chatroom_connection_controller.dart';
 import '../network/chatroom/world_chatroom_service.dart';
 import '../network/mini_phone/mini_phone_camera_models.dart';
@@ -265,7 +264,6 @@ class _PostDetailRouteArgs {
 
 class _WorldRouteArgs {
   const _WorldRouteArgs({
-    this.initialPhotoTarget,
     this.initialCameraTarget,
     required this.wid,
     required this.waitForTick1,
@@ -285,9 +283,6 @@ class _WorldRouteArgs {
     return _WorldRouteArgs(
       initialCameraTarget: args.typed<PhoneCameraTarget>(const [
         'initial_camera_target',
-      ]),
-      initialPhotoTarget: args.typed<ChatPhotoTarget>(const [
-        'initial_photo_target',
       ]),
       wid: direct.isNotEmpty ? direct : args.string(const ['wid']),
       waitForTick1: args.boolean(const [
@@ -341,7 +336,6 @@ class _WorldRouteArgs {
   final ChatMentionCatalog? initialMentionCatalog;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
-  final ChatPhotoTarget? initialPhotoTarget;
   final PhoneCameraTarget? initialCameraTarget;
 }
 
@@ -641,7 +635,6 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => WorldPage(
             wid: args.wid,
-            initialPhotoTarget: args.initialPhotoTarget,
             initialCameraTarget: args.initialCameraTarget,
             waitForTick1: args.waitForTick1,
             initialWorldDetail: args.initialWorldDetail,

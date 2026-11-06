@@ -142,6 +142,7 @@ class WorldCharacterRow extends StatelessWidget {
     required this.subtitle,
     required this.subtitleColor,
     required this.showCharacterDetails,
+    this.onAvatarTap,
   });
 
   final Map<String, dynamic> character;
@@ -149,6 +150,7 @@ class WorldCharacterRow extends StatelessWidget {
   final String subtitle;
   final Color subtitleColor;
   final bool showCharacterDetails;
+  final VoidCallback? onAvatarTap;
 
   @override
   Widget build(BuildContext context) {
@@ -198,23 +200,32 @@ class WorldCharacterRow extends StatelessWidget {
       fontWeight: FontWeight.w400,
       color: GenesisColors.darkTextPrimary,
     );
+    final avatar = GenesisCharacterAvatar(
+      url: avatarUrl,
+      name: name,
+      size: worldCharacterAvatarLogicalSize,
+      useFixedCdnWidth: true,
+      border: isCharacterRole
+          ? null
+          : Border.all(color: kChatScenePlatePlayerRoleBorderColor, width: 2),
+      showFallbackWhileLoading: false,
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GenesisCharacterAvatar(
-          url: avatarUrl,
-          name: name,
-          size: worldCharacterAvatarLogicalSize,
-          useFixedCdnWidth: true,
-          border: isCharacterRole
-              ? null
-              : Border.all(
-                  color: kChatScenePlatePlayerRoleBorderColor,
-                  width: 2,
-                ),
-          showFallbackWhileLoading: false,
-        ),
+        if (onAvatarTap == null)
+          avatar
+        else
+          Semantics(
+            button: true,
+            label: name,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onAvatarTap,
+              child: avatar,
+            ),
+          ),
         const SizedBox(width: 14),
         Expanded(
           child: Padding(

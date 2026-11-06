@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 class OriginCustomRoleDraft {
   const OriginCustomRoleDraft({
     this.avatarUrl = '',
+    this.avatarPreviewBytes,
     this.name = '',
     this.identity = '',
     this.personality = '',
@@ -12,6 +13,9 @@ class OriginCustomRoleDraft {
   });
 
   final String avatarUrl;
+
+  /// Page-local crop used for display while Launch uses [avatarUrl].
+  final Uint8List? avatarPreviewBytes;
   final String name;
   final String identity;
   final String personality;
