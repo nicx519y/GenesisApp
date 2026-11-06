@@ -8,6 +8,52 @@ import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
+  testWidgets('Me prioritizes active memberships before purchase history', (
+    tester,
+  ) async {
+    Future<void> show({
+      required bool premium,
+      required bool deluxe,
+      required bool history,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.dark(),
+          home: Scaffold(
+            body: SizedBox(
+              width: 390,
+              child: MemoryMembershipProfileCarousel(
+                hasPurchased: history,
+                premiumActive: premium,
+                deluxeActive: deluxe,
+                onPremiumSubscribe: () {},
+                onDeluxeSubscribe: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    final cards = find.byKey(const ValueKey('membership-profile-pages'));
+    await show(premium: false, deluxe: false, history: true);
+    final scroll = tester.widget<SingleChildScrollView>(cards).controller!;
+    expect(scroll.offset, scroll.position.maxScrollExtent);
+    await show(premium: true, deluxe: false, history: true);
+    expect(scroll.offset, 0);
+    await show(premium: false, deluxe: true, history: false);
+    expect(scroll.offset, scroll.position.maxScrollExtent);
+    await show(premium: true, deluxe: true, history: false);
+    expect(scroll.offset, scroll.position.maxScrollExtent);
+
+    await tester.drag(cards, const Offset(500, 0));
+    await tester.pumpAndSettle();
+    await show(premium: true, deluxe: false, history: true);
+    await show(premium: false, deluxe: true, history: true);
+    expect(scroll.offset, 0);
+  });
+
   for (final history in [false, true]) {
     testWidgets(
       'Me short swipes snap between cards and tiny drags return, history=$history',
@@ -146,6 +192,10 @@ void main() {
       await tester.pumpAndSettle();
       final premium = find.byKey(const ValueKey('membership-profile-premium'));
       final deluxe = find.byKey(const ValueKey('membership-profile-deluxe'));
+      final cards = find.byKey(const ValueKey('membership-profile-pages'));
+      expect(tester.getRect(deluxe).right, closeTo(width - 16, .01));
+      await tester.drag(cards, const Offset(500, 0));
+      await tester.pumpAndSettle();
       final premiumRect = tester.getRect(premium);
       final deluxeRect = tester.getRect(deluxe);
       final expectedWidth = width >= 360 ? 314.0 : width - 76;
@@ -160,10 +210,7 @@ void main() {
         find.byKey(const ValueKey('user-profile-gems-background')),
       );
       expect(premiumRect.left, gems.left);
-      await tester.drag(
-        find.byKey(const ValueKey('membership-profile-pages')),
-        const Offset(-500, 0),
-      );
+      await tester.drag(cards, const Offset(-500, 0));
       await tester.pumpAndSettle();
       expect(tester.getRect(deluxe).right, closeTo(width - 16, .01));
       expect(

@@ -20,7 +20,7 @@
 - 完整支付页与购买 sheet 保留外层 Subscription / Buy Gems 横滑。会员卡内先切换 Premium / Deluxe；在 Deluxe 末端继续左滑时，将真实拖动交给外层 TabBarView，进度跟手，半途松手可回弹。从 Buy Gems 右滑返回。无外层支付 Tab 的嵌入入口不转发，Me 卡片轮播独立。
 - Me 会员卡轮播使用完整页面宽度，由轮播自身提供一次 16px 左右边距，外层不得再加 Padding。沿用源分支卡宽规则：可用宽度 >=360 时为 314，否则为可用宽度减 76（最小 180）；卡片间隔 10，标准有效会员卡最小高度 82。Me 横滑松手后吸附到卡片端点，Me 小卡片使用 12px 拖动门槛，并识别速度至少 200px/s 且实际位移至少 8px 的快速轻扫；很小的慢拖回到当前卡，Subscription 沿用 feature/global-memory-deluxe-20261104 的原 GestureDetector、超过 48px 的位移门槛和 280ms 切换动画，不采用 Me 的轻扫配置；保留初始定位及用户手动选择，不停留在两卡中间。
 - Me 使用双会员卡入口，点击某卡定位该组；卡片显示各自状态和到期时间。粉钻以 membership.blue_gems_cent + membership_deluxe.blue_gems_cent 的整数 cent 和展示，普通余额不变。
-- 卡片始终按 Premium / Deluxe 排列；has_purchased 仅决定初始定位：true 定位第二张 Deluxe，false 定位第一张 Premium。用户已切换的卡片和每组月年选择在刷新期间保留。
+- 卡片始终按 Premium / Deluxe 排列。Me 初始优先定位有效会员，两档都有效定位 Deluxe；两档都无效才按 has_purchased 定位。Subscription 初始按 has_purchased 定位。使用 has_purchased 时，true 定位第二张 Deluxe，false 定位第一张 Premium。用户已切换的卡片和每组月年选择在刷新期间保留。
 - 名字后的图标仅读取所属用户的两种 status；1 显示，0/2/非法/缺失不显示，删除用户不显示。双图标顺序为 Deluxe / Premium，与卡片排序无关。不新增徽章网络请求，World/Chat/LocationChat 保留原展示范围。
 
 ## 验证

@@ -512,22 +512,25 @@ class MemoryMembershipProfileCarousel extends StatefulWidget {
 class _MemoryMembershipProfileCarouselState
     extends State<MemoryMembershipProfileCarousel> {
   final _scroll = ScrollController();
-  bool? _positionedForHistory;
+  bool? _positionedAtDeluxe;
   bool _userScrolled = false;
   double _dragOrigin = 0;
 
+  bool get _defaultsToDeluxe =>
+      widget.deluxeActive || (!widget.premiumActive && widget.hasPurchased);
+
   void _positionDefault() {
-    final history = widget.hasPurchased;
-    if (_userScrolled || _positionedForHistory == history) return;
-    _positionedForHistory = history;
+    final deluxe = _defaultsToDeluxe;
+    if (_userScrolled || _positionedAtDeluxe == deluxe) return;
+    _positionedAtDeluxe = deluxe;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           _userScrolled ||
-          widget.hasPurchased != history ||
+          _defaultsToDeluxe != deluxe ||
           !_scroll.hasClients) {
         return;
       }
-      _scroll.jumpTo(history ? _scroll.position.maxScrollExtent : 0);
+      _scroll.jumpTo(deluxe ? _scroll.position.maxScrollExtent : 0);
     });
   }
 
