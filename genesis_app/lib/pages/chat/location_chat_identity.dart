@@ -26,23 +26,35 @@ extension _LocationChatIdentity on _LocationChatPanelState {
         _composerRoleIdentity(state).name.isNotEmpty;
   }
 
-  String get _composerSpeakerName => _initialComposerSpeaker?.name ?? (_waitForComposerSpeaker
-      ? _composerRoleIdentity(_chatroomState).name
-      : _localSelfDisplayName());
+  String get _composerSpeakerName =>
+      _initialComposerSpeaker?.name ??
+      (_waitForComposerSpeaker
+          ? _composerRoleIdentity(_chatroomState).name
+          : _localSelfDisplayName());
 
-  String get _composerSpeakerAvatar => _initialComposerSpeaker?.avatar ?? (_waitForComposerSpeaker
-      ? _composerRoleIdentity(_chatroomState).avatar
-      : _localSelfAvatarUrl());
+  String get _composerSpeakerAvatar =>
+      _initialComposerSpeaker?.avatar ??
+      (_waitForComposerSpeaker
+          ? _composerRoleIdentity(_chatroomState).avatar
+          : _worldSelfAvatarUrl());
 
-  ({String name, String avatar}) _composerRoleIdentity(WorldChatroomState state) {
-    final keys = [_myUserId, _mySenderId]
-        .map(_chatroomIdentityKey).where((key) => key.isNotEmpty).toSet();
+  ({String name, String avatar}) _composerRoleIdentity(
+    WorldChatroomState state,
+  ) {
+    final keys = [
+      _myUserId,
+      _mySenderId,
+    ].map(_chatroomIdentityKey).where((key) => key.isNotEmpty).toSet();
     // Resolve both fields from the same authoritative World character. Account
     // profiles, occupancy snapshots and preview identities are not substitutes.
-    for (final candidate in state.world?.characters ?? const <Map<String, dynamic>>[]) {
+    for (final candidate
+        in state.world?.characters ?? const <Map<String, dynamic>>[]) {
       final name = _roleNameFromCharacterCandidate(candidate, keys);
       if (name.isNotEmpty) {
-        return (name: name, avatar: _roleAvatarFromCharacterCandidate(candidate, keys));
+        return (
+          name: name,
+          avatar: _roleAvatarFromCharacterCandidate(candidate, keys),
+        );
       }
     }
     return (name: '', avatar: '');
@@ -119,12 +131,14 @@ extension _LocationChatIdentity on _LocationChatPanelState {
     ]);
   }
 
-  String _localSelfAvatarUrl() {
+  String _localSelfAvatarUrl() =>
+      firstNonEmpty([_worldSelfAvatarUrl(), _myAvatarUrl]);
+
+  String _worldSelfAvatarUrl() {
     return firstNonEmpty([
       _entityAvatarForIdentity(_myUserId),
       _entityAvatarForIdentity(_mySenderId),
       _roleAvatarForIdentityCandidates([_myUserId, _mySenderId]),
-      _myAvatarUrl,
     ]);
   }
 

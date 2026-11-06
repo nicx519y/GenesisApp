@@ -522,7 +522,7 @@ class MiniPhoneStore extends ChangeNotifier with WidgetsBindingObserver {
     messagesController.replyFailureNotices.clear();
     messagesController.sessionByChar.clear();
     messagesController.peerByChar.clear();
-    messagesController.knownSessionChars.clear();
+    messagesController.virtualSessionChars.clear();
     messagesController.replyStates.clear();
     messagesController.appliedReplyTerminals.clear();
     _replyPollTimer?.cancel();

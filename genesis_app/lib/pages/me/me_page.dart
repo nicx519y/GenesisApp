@@ -269,7 +269,7 @@ class _MePageState extends State<MePage>
               );
             }
             final data = content.data!;
-            final gemWalletState = AppServicesScope.of(context).gemWallet.state;
+            final services = AppServicesScope.of(context);
 
             return GenesisTopSafeArea(
               backgroundColor: GenesisColors.darkBackground,
@@ -340,6 +340,7 @@ class _MePageState extends State<MePage>
                           worldsListenable: _worldsState,
                           avatarUrlListenable: _avatarUrl,
                           avatarPreviewBytesListenable: _avatarPreviewBytes,
+                          profileAvatarCache: services.profileAvatarCache,
                           displayNameListenable: _displayName,
                           // The crown now sits bare beside the name, so the
                           // 50x20 plate box it used to need is gone.
@@ -355,10 +356,8 @@ class _MePageState extends State<MePage>
                                 )
                               : null,
                           isUpdatingProfileListenable: _isUpdatingProfile,
-                          gemWalletStateListenable: gemWalletState,
-                          membershipStateListenable: AppServicesScope.of(
-                            context,
-                          ).membership.state,
+                          gemWalletStateListenable: services.gemWallet.state,
+                          membershipStateListenable: services.membership.state,
                           reselectionListenable: widget.reselectionListenable,
                           isActiveListenable: widget.isActiveListenable,
                           onEditAvatar: _editAvatar,

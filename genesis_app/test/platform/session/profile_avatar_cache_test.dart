@@ -91,6 +91,22 @@ void main() {
     expect(cache.bytesFor(avatar), isNull);
     expect(await file.exists(), isFalse);
   });
+
+  test('switching accounts reloads even when the avatar URL is shared', () async {
+    var downloads = 0;
+    final cache = createCache((_) async {
+      downloads += 1;
+      return downloads == 1 ? loginBytes : editedBytes;
+    });
+    addTearDown(cache.dispose);
+    await login('first', avatar);
+    await _waitFor(() => cache.bytesFor(avatar) != null);
+    expect(cache.bytesFor(avatar), loginBytes);
+
+    await login('second', avatar);
+    await _waitFor(() => identical(cache.bytesFor(avatar), editedBytes));
+    expect(downloads, 2);
+  });
 }
 
 Future<void> _waitFor(bool Function() ready) async {

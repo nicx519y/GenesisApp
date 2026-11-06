@@ -135,6 +135,7 @@ WebSocket 当前协议规则：
 - Origin 开场面板及地点预览中的角色卡片处于编辑态时，内部上下滚动须保留输入焦点和键盘；外层滚动容器不得因内部滚动通知收起键盘。非编辑态保留原有拖动收起键盘行为。
 - `WorldPage`：监听账号会话变更，登录后重新读取当前 UID 和 World Detail，以服务端 `relation_status` 更新底部操作；交互登录不自动申请或 Tick。旧账号详情响应不得覆盖新会话，进行中的详情请求结束后补做会话刷新；同时释放旧聊天室和小手机会话，重新获取当前账号的音乐租约，避免引用已释放的播放器。已创建/加入的 world 详情页。使用同一套 floating map + panel scaffold。进入页面后先拉 world detail，只有 `relation_status` 为 `owner` 或 `joined` 才启动长期 chatroom WebSocket；`approved` 只用于 Launch 流，不代表已连接。
 - `LocationChatPage`：地点聊天室页。页面可以从 world drill-down 打开，但只有 leaf location 才允许 `join`/`leave`。非 leaf 只展示页面/地图层级，不产生聊天室副作用。
+- LocationChat 输入框左侧的发言头像和本人消息右侧的头像从聊天室实体和 World 角色解析，缺图时使用公共默认头像，不回退到本地登录资料。Origin 首句进入时继续沿用已选角色头像。
 - World History Sheet 在历史加载到最早一条后，于列表顶部复用公共 AI 虚构内容提示；提示随历史滚动，仅用于展示，不进入历史投影或分页游标。
 - World 的 v2 Tilemap 使用 `WorldTilemapViewStore` 在设备本地按环境、账号、WID 保存最后浏览的地图地点、返回层级路径及各层平移／缩放状态。重新进入先读取记录并用最新地点树校验，首个地图请求直接加载保存地点；失效记录回退现有默认入口，列表的默认地图元数据不覆盖有效浏览记录。视口变化合并保存，退出页面或切到后台立即保存；账号切换重建地图恢复上下文，不影响地点聊天的 join／leave 规则。
 - LocationChat 模型入口在页面激活且有真实 `modelWorldId` 时读取用户模型缓存；编码或名称缺失时先复用当前 World 的模型目录，没有目录再查询 `/api/v1/gem/model/list`。编码缺失时使用响应的 `selected_model_code`，同步保存编码及名称；有完整用户模型缓存时不额外请求，未激活或无完整登录会话时不查询，迟到响应不覆盖后续选择或其他账号。
@@ -179,7 +180,7 @@ HTTP 映射层的图片规则：
 
 - 通用 upload API：`lib/network/v1/upload_api.dart`，`POST /api/v1/upload/image`，multipart 字段名是 `file`。
 - Me 编辑头像在确认裁剪后立即用内存中的裁剪图显示头像，再上传并保存。成功后当前页面继续显示本地预览，上传或保存失败时恢复编辑前的头像，账号切换时清除本地预览。
-- 登录保存用户资料时预热当前头像的 `w_160` 预览，按 API 环境、账号和头像 URL 识别，保存在内存和本地文件。Origin 开场与 Location 首卡使用当前用户头像时先显示缓存，正式肖像解码后替换。Me 保存成功后用本地裁剪数据更新缓存，退出登录清除当前环境的头像缓存。
+- 登录保存用户资料时预热当前头像的 `w_160` 预览，按 API 环境、账号和头像 URL 识别，保存在内存和本地文件。Me 顶部头像及 Origin 开场与 Location 首卡使用当前用户头像时先显示缓存，正式图片解码后替换。Me 保存成功后用本地裁剪数据更新缓存，退出登录清除当前环境的头像缓存。
 - 创建/编辑 Origin 图片：`CreateUploadBox` 在 `lib/pages/create/create_form_widgets.dart`，先进入 `LocalImageCropPage` 裁剪，再上传。成功后 controller 写入上传 URL，失败恢复旧 URL。
 - 讨论图片：`DiscussPostInput` 在 `lib/components/discuss/discuss_post_input.dart`，使用 `native_image_picker.dart` 选图，`resizeImageToMaxWidth` 预处理后上传，最多 6 张并按剩余槽位限制选择。
 - 上传进度视觉统一使用 `GenesisUploadProgressOverlay`，不要新增页面局部 spinner。

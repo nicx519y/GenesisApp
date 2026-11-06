@@ -2501,9 +2501,12 @@ TransportResponse _v1Response(Object? data) {
 }
 
 class _MeAvatarEditTransport implements HttpTransport {
+  _MeAvatarEditTransport({this.initialAvatar = previousUrl});
+
   static const previousUrl = 'assets/images/map_default/l1_default.webp';
   static const uploadedUrl = 'https://cdn.example.com/uploaded-avatar.png';
   static const savedUrl = 'https://cdn.example.com/saved-avatar.png';
+  final String initialAvatar;
 
   final uploadStarted = Completer<void>();
   final uploadResult = Completer<TransportResponse>();
@@ -2515,7 +2518,7 @@ class _MeAvatarEditTransport implements HttpTransport {
     switch (request.uri.path) {
       case '/api/v1/user/info':
         return _v1Response({
-          'user': {'uid': 'u_me', 'name': 'My profile', 'avatar': previousUrl},
+          'user': {'uid': 'u_me', 'name': 'My profile', 'avatar': initialAvatar},
         });
       case '/api/v1/upload/image':
         uploadStarted.complete();
@@ -16661,9 +16664,17 @@ void main() {
           );
         }
         await tester.pumpAndSettle();
-        final portrait = find.byKey(
+        final rolePortrait = find.byKey(
           const ValueKey<String>('origin-setup-role-portrait-current-user'),
         );
+        final portrait = inLocation
+            ? find.descendant(
+                of: find.byKey(
+                  const ValueKey<String>('origin-location-chat-l_o_test_1'),
+                ),
+                matching: rolePortrait,
+              )
+            : rolePortrait;
         final memoryImage = find.descendant(
           of: portrait,
           matching: find.byWidgetPredicate(
@@ -23614,17 +23625,107 @@ void main() {
     expect(find.text('430.0'), findsNothing);
   });
 
+  testWidgets('Me uses the cached avatar until the CDN frame arrives', (
+    tester,
+  ) async {
+    const url = 'https://cdn.example.com/me-cached-profile.webp';
+    final session = MemoryUserSessionStore();
+    final revision = ValueNotifier(0);
+    addTearDown(revision.dispose);
+    final cache = ProfileAvatarCache(
+      sessionStore: session,
+      sessionRevision: revision,
+      namespace: 'me-avatar-preview-test',
+      cacheFile: () async => throw StateError('Disk cache disabled in test'),
+      download: (_) async => null,
+    );
+    final services = await _testServices(
+      transport: _MeAvatarEditTransport(initialAvatar: url),
+      useMock: false,
+      initialUid: 'u_me',
+      initialAuthToken: 'backend-token',
+      initialUserInfo: const {
+        'uid': 'u_me',
+        'name': 'My profile',
+        'avatar': url,
+      },
+      billingService: _FakeBillingService(),
+      sessionStoreOverride: session,
+      profileAvatarCache: cache,
+    );
+    final bytes = await tester.runAsync(() async {
+      final data = await originItemTestImage.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      return data!.buffer.asUint8List();
+    });
+    await cache.replaceFromEdit(url, bytes!);
+
+    final frame = Completer<ImageInfo>();
+    debugGenesisStaticNetworkImageCompleter = (provider) =>
+        OneFrameImageStreamCompleter(
+          provider.imageUrl.startsWith(url)
+              ? frame.future
+              : SynchronousFuture(ImageInfo(image: originItemTestImage.clone())),
+        );
+    addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const Scaffold(body: MePage()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final avatar = find.byKey(const ValueKey('user-profile-avatar-image'));
+    expect(
+      tester.widget<GenesisStaticNetworkImage>(avatar).imageUrl,
+      '$url?x-oss-process=image/resize,w_160/format,webp',
+    );
+    final preview = find.descendant(
+      of: avatar,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is ResizeImage &&
+            (widget.image as ResizeImage).imageProvider is MemoryImage,
+      ),
+    );
+    expect(preview, findsOneWidget);
+    frame.complete(ImageInfo(image: originItemTestImage.clone()));
+    await tester.pumpAndSettle();
+    expect(preview, findsNothing);
+    expect(
+      find.descendant(of: avatar, matching: find.byType(RawImage)),
+      findsOneWidget,
+    );
+  });
+
   for (final failure in ['none', 'upload', 'save']) {
     testWidgets('Me avatar previews locally with failure=$failure', (
       tester,
     ) async {
       final transport = _MeAvatarEditTransport();
+      final session = MemoryUserSessionStore();
+      final revision = ValueNotifier(0);
+      addTearDown(revision.dispose);
+      final avatarCache = ProfileAvatarCache(
+        sessionStore: session,
+        sessionRevision: revision,
+        namespace: 'me-avatar-edit-test',
+        cacheFile: () async => throw StateError('Disk cache disabled in test'),
+        download: (_) async => null,
+      );
       final services = await _testServices(
         transport: transport,
         useMock: false,
         initialUid: 'u_me',
         initialAuthToken: 'backend-token',
         billingService: _FakeBillingService(),
+        sessionStoreOverride: session,
+        profileAvatarCache: avatarCache,
         initialUserInfo: const {
           'uid': 'u_me',
           'name': 'My profile',
@@ -23686,8 +23787,8 @@ void main() {
       });
       await tester.pumpAndSettle();
       expect(find.byType(LocalImageCropPage), findsNothing);
-      final preview = tester.widget<Image>(avatar).image;
-      expect((preview as ResizeImage).imageProvider, isA<MemoryImage>());
+      final preview = tester.widget<Image>(avatar).image as ResizeImage;
+      expect(preview.imageProvider, isA<MemoryImage>());
       expect(transport.updateStarted.isCompleted, isFalse);
 
       final failed = TransportResponse(
@@ -23732,10 +23833,20 @@ void main() {
       if (failure == 'none') {
         expect(tester.widget<Image>(avatar).image, preview);
         expect(cached?['avatar'], _MeAvatarEditTransport.savedUrl);
+        await tester.runAsync(
+          () => pumpUntil(
+            () => avatarCache.bytesFor(_MeAvatarEditTransport.savedUrl) != null,
+          ),
+        );
+        expect(
+          avatarCache.bytesFor(_MeAvatarEditTransport.savedUrl),
+          (preview.imageProvider as MemoryImage).bytes,
+        );
         expect(cdnUrls, isEmpty);
       } else {
         expectPreviousAvatar();
         expect(cached?['avatar'], _MeAvatarEditTransport.previousUrl);
+        expect(avatarCache.bytesFor(_MeAvatarEditTransport.savedUrl), isNull);
       }
     });
   }

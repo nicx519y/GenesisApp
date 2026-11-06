@@ -12,6 +12,7 @@ class GenesisAvatar extends StatelessWidget {
     required this.name,
     this.url = '',
     this.localImage,
+    this.cachedImage,
     this.size = 48,
     this.width,
     this.height,
@@ -30,6 +31,7 @@ class GenesisAvatar extends StatelessWidget {
   final String name;
   final String url;
   final ImageProvider<Object>? localImage;
+  final ImageProvider<Object>? cachedImage;
   final double size;
   final double? width;
   final double? height;
@@ -73,6 +75,31 @@ class GenesisAvatar extends StatelessWidget {
       height: resolvedHeight,
     );
 
+    Widget networkPlaceholder(bool showInitials) {
+      final placeholder = showInitials ? fallback : hiddenPlaceholder;
+      final cached = cachedImage;
+      if (cached == null) {
+        _notifyAvatarVisibility(onVisibilityChanged, showInitials);
+        return placeholder;
+      }
+      return Image(
+        image: cached,
+        width: imageWidth,
+        height: imageHeight,
+        fit: fit,
+        alignment: alignment,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          final loaded = wasSynchronouslyLoaded || frame != null;
+          _notifyAvatarVisibility(onVisibilityChanged, loaded || showInitials);
+          return loaded ? child : placeholder;
+        },
+        errorBuilder: (context, error, stackTrace) {
+          _notifyAvatarVisibility(onVisibilityChanged, showInitials);
+          return placeholder;
+        },
+      );
+    }
+
     if (localImage == null && resolvedUrl.isEmpty) {
       _notifyAvatarVisibility(onVisibilityChanged, showFallbackWhenUnavailable);
       return showFallbackWhenUnavailable ? fallback : hiddenPlaceholder;
@@ -111,20 +138,9 @@ class GenesisAvatar extends StatelessWidget {
             onImageLoaded: () {
               _notifyAvatarVisibility(onVisibilityChanged, true);
             },
-            placeholder: (context) {
-              _notifyAvatarVisibility(
-                onVisibilityChanged,
-                showFallbackWhileLoading,
-              );
-              return showFallbackWhileLoading ? fallback : hiddenPlaceholder;
-            },
-            errorWidget: (context, error) {
-              _notifyAvatarVisibility(
-                onVisibilityChanged,
-                showFallbackWhenUnavailable,
-              );
-              return showFallbackWhenUnavailable ? fallback : hiddenPlaceholder;
-            },
+            placeholder: (_) => networkPlaceholder(showFallbackWhileLoading),
+            errorWidget: (_, _) =>
+                networkPlaceholder(showFallbackWhenUnavailable),
           );
 
     return ClipRRect(

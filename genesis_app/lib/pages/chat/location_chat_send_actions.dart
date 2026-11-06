@@ -238,7 +238,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             clientMsgId: clientMsgId,
             senderId: _mySenderId,
             senderName: _localSelfDisplayName(),
-            avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
+            avatarUrl: _resizedLocationChatAvatarUrl(_worldSelfAvatarUrl()),
             isPlayerControlledRole: _identityCandidatesArePlayerControlledRole([
               _myUserId,
               _mySenderId,
