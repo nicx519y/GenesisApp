@@ -7,7 +7,6 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/daily_check_in_dialog.dart';
 import '../../network/models/gem_task.dart';
 import '../../network/models/gem_task_action.dart';
-import '../../network/models/membership_order_product.dart';
 import '../../platform/session/user_session_store.dart';
 import '../bootstrap/app_services_scope.dart';
 import 'gem_task_analytics.dart';
@@ -110,14 +109,12 @@ Future<void> runDailyCheckInFlow(
   var status = _taskStatusForValue(task.status);
   if (status == _DailyTaskStatus.claimed) return;
   while (context.mounted) {
-    var memberships = const <MembershipType>[];
     final shouldAct = await showDailyCheckInDialog(
       context,
       status: DailyCheckInDialogStatus.checkIn,
       rewardGemsCent: task.rewardGemsCent,
       rewardGemsCentPremium: task.rewardGemsCentPremium,
       rewardGemsCentDeluxe: task.rewardGemsCentDeluxe,
-      onConfirmed: (tiers) => memberships = tiers,
     );
     if (!shouldAct || !context.mounted) return;
 
@@ -151,7 +148,6 @@ Future<void> runDailyCheckInFlow(
         final successDialog = showDailyCheckInSuccessDialog(
           context,
           rewardGemsCent: result.rewardGemsCent ?? task.rewardGemsCent,
-          memberships: memberships,
         );
         unawaited(refreshWallet());
         await successDialog;

@@ -33,7 +33,6 @@ import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../components/gems/gem_billing_purchase_dialog.dart';
 import '../../components/gems/daily_check_in_dialog.dart';
-import '../../network/models/membership_order_product.dart';
 import '../origin_editor/origin_generation_wait_content.dart';
 import '../../components/tilemap/tilemap_settings_button_visibility.dart';
 import '../../app/gems/gem_wallet_store.dart';

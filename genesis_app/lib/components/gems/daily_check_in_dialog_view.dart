@@ -4,13 +4,11 @@ class _DailyCheckInPanel extends StatelessWidget {
   const _DailyCheckInPanel({
     required this.title,
     required this.rewardGemsCent,
-    required this.memberships,
     this.actions = const [],
   });
 
   final String title;
   final int rewardGemsCent;
-  final List<MembershipType> memberships;
   final List<Widget> actions;
 
   @override
@@ -54,23 +52,6 @@ class _DailyCheckInPanel extends StatelessWidget {
                               showWholeReward: true,
                             ),
                           ),
-                          if (memberships.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              spacing: 4,
-                              children: [
-                                for (final tier in memberships)
-                                  _DailyCheckInMembershipName(
-                                    key: ValueKey(
-                                      'daily-check-in-active-${tier.name}',
-                                    ),
-                                    tier: tier,
-                                  ),
-                              ],
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -87,47 +68,6 @@ class _DailyCheckInPanel extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DailyCheckInMembershipName extends StatelessWidget {
-  const _DailyCheckInMembershipName({super.key, required this.tier});
-
-  final MembershipType tier;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      SvgPicture.asset(
-        tier.crownAsset,
-        width: 16,
-        height: 12,
-        excludeFromSemantics: true,
-      ),
-      const SizedBox(width: 6),
-      Flexible(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: AlignmentDirectional.centerStart,
-          child: ShaderMask(
-            shaderCallback: tier.foreground.createShader,
-            blendMode: BlendMode.srcIn,
-            child: Text(
-              tier.title(context),
-              maxLines: 1,
-              softWrap: false,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                height: 1.28,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ),
-      ),
-    ],
-  );
 }
 
 class _DailyCheckInOffer extends StatelessWidget {

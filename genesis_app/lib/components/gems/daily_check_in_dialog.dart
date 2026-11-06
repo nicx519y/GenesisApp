@@ -38,7 +38,6 @@ Future<bool> showDailyCheckInDialog(
   int? rewardGemsCentDeluxe,
   MembershipAccessStore? membershipAccess,
   MembershipPurchaseService? membershipPurchases,
-  ValueChanged<List<MembershipType>>? onConfirmed,
 }) async {
   final claimed = status == DailyCheckInDialogStatus.claimed;
   final services = AppServicesScope.maybeRead(context);
@@ -83,17 +82,12 @@ Future<bool> showDailyCheckInDialog(
       offers.add((_DailyCheckInAction.deluxe, rewardGemsCent + deluxe));
     }
   }
-  final memberships = [
-    if (activeTiers?.premium == true) MembershipType.premium,
-    if (activeTiers?.deluxe == true) MembershipType.deluxe,
-  ];
   final action = await showGenesisDialog<_DailyCheckInAction>(
     context: context,
     barrierColor: const Color(0x52000000),
     builder: (context) => _DailyCheckInPanel(
       title: context.l10n.meDailyCheck,
       rewardGemsCent: rewardGemsCent,
-      memberships: memberships,
       actions: [
         for (final (tier, amount) in offers)
           _DailyCheckInOffer(
@@ -134,16 +128,13 @@ Future<bool> showDailyCheckInDialog(
       initialMembershipType: tier,
     );
   }
-  final confirmed = action == _DailyCheckInAction.checkIn;
-  if (confirmed) onConfirmed?.call(memberships);
-  return confirmed;
+  return action == _DailyCheckInAction.checkIn;
 }
 
 Future<void> showDailyCheckInSuccessDialog(
   BuildContext context, {
   int rewardGemsCent = dailyCheckInPreviewRewardCent,
   Duration duration = dailyCheckInSuccessDuration,
-  List<MembershipType> memberships = const [],
 }) async {
   ModalRoute<void>? successRoute;
   final timer = Timer(duration, () {
@@ -165,7 +156,6 @@ Future<void> showDailyCheckInSuccessDialog(
         return _DailyCheckInPanel(
           title: context.l10n.meCheckSuccessful,
           rewardGemsCent: rewardGemsCent,
-          memberships: memberships,
         );
       },
     );

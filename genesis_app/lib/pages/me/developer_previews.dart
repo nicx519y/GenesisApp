@@ -333,22 +333,17 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
       await widget.onDismissBeforePreview?.call();
     }
     if (!navigator.mounted) return;
-    var memberships = const <MembershipType>[];
     final checkedIn = await showDailyCheckInDialog(
       navigator.context,
       status: _dailyCheckInPreviewClaimed
           ? DailyCheckInDialogStatus.claimed
           : DailyCheckInDialogStatus.checkIn,
-      onConfirmed: (tiers) => memberships = tiers,
     );
     if (!checkedIn || !navigator.mounted) return;
     if (mounted) {
       _updateState(() => _dailyCheckInPreviewClaimed = true);
     }
-    await showDailyCheckInSuccessDialog(
-      navigator.context,
-      memberships: memberships,
-    );
+    await showDailyCheckInSuccessDialog(navigator.context);
   }
 
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
