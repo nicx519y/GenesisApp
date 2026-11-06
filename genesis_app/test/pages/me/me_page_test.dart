@@ -233,6 +233,26 @@ void main() {
     expect(next.avatarUrl, '');
   });
 
+  test('Me detects a change to Deluxe membership alone', () {
+    const current = UserProfileData(
+      avatarUrl: '',
+      displayName: 'User',
+      uid: 'u_user',
+      followingCount: 0,
+      followerCount: 0,
+      origins: [],
+      worlds: [],
+    );
+
+    final subscribed = mergeRemoteUserInfoForRenderForTest(current, {
+      'membership_status': 0,
+      'membership_deluxe_status': 1,
+    });
+
+    expect(subscribed.membershipDeluxeStatus, 1);
+    expect(sameRenderedUserInfoForTest(current, subscribed), isFalse);
+  });
+
   test('deleted backend user renders deleted for name and uid', () {
     const current = UserProfileData(
       avatarUrl: 'https://cdn.example.com/old_avatar.webp',

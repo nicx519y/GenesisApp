@@ -120,7 +120,8 @@ bool _sameRenderedUserInfoExceptAvatarAndDisplayName(
       currentData.deleted == nextData.deleted &&
       currentData.gender == nextData.gender &&
       currentData.age == nextData.age &&
-      currentData.membershipStatus == nextData.membershipStatus;
+      currentData.membershipStatus == nextData.membershipStatus &&
+      currentData.membershipDeluxeStatus == nextData.membershipDeluxeStatus;
 }
 
 UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {
