@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/membership_order_product.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
@@ -131,6 +132,11 @@ void main() {
           ['deluxe', 'both'].contains(scenario) ? findsOneWidget : findsNothing,
         );
         if (!noOffers && !singleOffer) {
+          expect(find.byType(GenesisActionBoxDivider), findsNWidgets(3));
+          expect(
+            tester.widget<Text>(find.text('Get 150')).style?.color,
+            GenesisColors.redSecondary,
+          );
           expect(
             tester.getCenter(find.text('Get 150')).dy,
             lessThan(tester.getCenter(find.text('Get 300')).dy),
@@ -314,11 +320,21 @@ void main() {
         expect(find.text('+50'), findsOneWidget);
         expect(
           tester.widget<Text>(find.text('+50')).style?.color,
-          GenesisColors.darkTextPrimary,
+          GenesisColors.darkTextSecondary,
         );
         expect(
           find.byKey(const ValueKey<String>('gem-task-reward-icon')),
           findsOneWidget,
+        );
+        expect(
+          tester.getCenter(find.text('+50')).dx,
+          lessThan(
+            tester
+                .getCenter(
+                  find.byKey(const ValueKey<String>('gem-task-reward-icon')),
+                )
+                .dx,
+          ),
         );
         expect(find.text('Check in'), findsOneWidget);
         expect(find.text('Cancel'), findsNothing);
@@ -331,8 +347,9 @@ void main() {
         expect(find.text('+50'), findsOneWidget);
         expect(
           tester.widget<Text>(find.text('+50')).style?.color,
-          GenesisColors.darkTextPrimary,
+          GenesisColors.darkTextSecondary,
         );
+        expect(find.byType(GenesisActionBoxDivider), findsNothing);
 
         for (final tier in MembershipType.values) {
           expect(

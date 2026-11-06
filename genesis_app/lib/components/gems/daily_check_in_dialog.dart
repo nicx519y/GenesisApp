@@ -17,6 +17,7 @@ import 'gem_purchase_bottom_sheet.dart';
 import 'gem_task_reward.dart';
 import '../common/genesis_modal_routes.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/theme/genesis_dark_theme.dart';
 import 'memory_membership_style.dart';
 
 part 'daily_check_in_dialog_view.dart';
@@ -94,7 +95,7 @@ Future<bool> showDailyCheckInDialog(
       rewardGemsCent: rewardGemsCent,
       memberships: memberships,
       actions: [
-        for (final (tier, amount) in offers) ...[
+        for (final (tier, amount) in offers)
           _DailyCheckInOffer(
             tier: tier == _DailyCheckInAction.premium
                 ? MembershipType.premium
@@ -102,13 +103,18 @@ Future<bool> showDailyCheckInDialog(
             amount: amount,
             onPressed: () => Navigator.of(context).pop(tier),
           ),
-          const SizedBox(height: 8),
-        ],
-        if (offers.isNotEmpty) const SizedBox(height: 10),
         GenesisPrimaryButton(
           key: const ValueKey('daily-check-in-confirm'),
           label: claimed ? context.l10n.gemsClaimed : context.l10n.meCheck,
-          borderRadius: BorderRadius.circular(8),
+          height: GenesisActionBox.defaultRowHeight,
+          backgroundColor: Colors.transparent,
+          disabledBackgroundColor: Colors.transparent,
+          foregroundColor: GenesisColors.darkTextPrimary,
+          disabledForegroundColor: GenesisColors.darkTextTertiary,
+          borderRadius: BorderRadius.zero,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          shrinkLabelToFit: true,
           onPressed: claimed
               ? null
               : () => Navigator.of(context).pop(_DailyCheckInAction.checkIn),
