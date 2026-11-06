@@ -14,7 +14,6 @@ import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_purchase_service.dart';
 import '../../app/membership/membership_purchase_eligibility.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
-import '../../icons/custom_icon_assets.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_localized_rich_text.dart';
@@ -28,23 +27,17 @@ import 'gem_purchase_state.dart';
 import 'membership_purchase_presentation.dart';
 import '../common/genesis_center_toast.dart';
 import 'pro_colors.dart';
+import 'memory_membership_style.dart';
+import 'memory_membership_carousel.dart';
 import 'subscription_benefit_icon.dart';
 
 enum _ProPlan {
-  yearly('pro_yearly'),
-  monthly('pro_monthly');
-
-  const _ProPlan(this.code);
-  final String code;
+  yearly,
+  monthly;
 
   String get label => switch (this) {
     _ProPlan.yearly => GenesisL10n.current.yearlyPlan,
     _ProPlan.monthly => GenesisL10n.current.monthlyPlan,
-  };
-
-  String get period => switch (this) {
-    _ProPlan.yearly => 'year',
-    _ProPlan.monthly => 'month',
   };
 }
 
@@ -52,6 +45,8 @@ class ProSubscriptionContent extends StatefulWidget {
   const ProSubscriptionContent({
     super.key,
     this.productsLoader,
+    this.initialMembershipType,
+    this.onMembershipTypeChanged,
     this.catalog,
     this.purchaseHandler,
     this.purchaseService,
@@ -67,11 +62,14 @@ class ProSubscriptionContent extends StatefulWidget {
     this.headingSuffix,
     this.sheetScrollController,
     this.sheetExpandedContentHeight = 0,
+    this.loadingPlaceholder,
     this.includeBottomSafeArea = false,
     this.onBenefitsPullDown,
   });
 
   final MembershipCatalogLoader? productsLoader;
+  final MembershipType? initialMembershipType;
+  final ValueChanged<MembershipType>? onMembershipTypeChanged;
   final MembershipCatalog? catalog;
   final Future<void> Function(MembershipProduct)? purchaseHandler;
   final MembershipPurchaseService? purchaseService;
@@ -108,6 +106,7 @@ class ProSubscriptionContent extends StatefulWidget {
 
   /// Keeps the purchase area at the expanded sheet's bottom while it closes.
   final double sheetExpandedContentHeight;
+  final Widget? loadingPlaceholder;
 
   /// Adds the device's bottom inset below the legal links.
   final bool includeBottomSafeArea;
@@ -121,17 +120,18 @@ class ProSubscriptionContent extends StatefulWidget {
 
 class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     with WidgetsBindingObserver {
-  // Leaves room for the heading and purchase controls on short sheet hosts.
-  static const double _minimumSheetContentHeight = 430;
-
   _ProPlan _plan = _ProPlan.yearly;
+  MembershipType _type = MembershipType.premium;
+  bool _hasPurchased = false;
+  bool _pickedType = false;
+  final Map<MembershipType, _ProPlan> _plans = {};
   AppServices? _services;
   MembershipCatalog? _displayCatalog;
   List<MembershipOffer> _offers = [];
   MembershipAccessStore? _membership;
   bool _submitting = false;
-  bool _checkingCatalog = false;
   bool _benefitsDragCanMoveSheet = false;
+  bool _checkingCatalog = false;
   bool _hasFreshCatalog = false;
   MembershipCheckoutPreparation? _checkoutPreparation;
   bool _loading = false;
@@ -151,7 +151,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
 
   MembershipOffer? _offerFor(_ProPlan plan) {
     for (final offer in _offers) {
-      if (offer.product.planCode == plan.code) return offer;
+      if (offer.product.membershipType == _type &&
+          offer.product.isYearly == (plan == _ProPlan.yearly)) {
+        return offer;
+      }
     }
     return null;
   }
@@ -159,6 +162,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   @override
   void initState() {
     super.initState();
+    _type = widget.initialMembershipType ?? MembershipType.premium;
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -329,6 +333,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
 
   void _applyCatalog(MembershipCatalogData catalog) {
     _offers = catalog.offers;
+    _hasPurchased = catalog.hasPurchased;
+    if (!_pickedType && widget.initialMembershipType == null) {
+      _type = memoryMembershipInitialTier(hasPurchased: _hasPurchased);
+    }
     if (_offerFor(_plan) == null && _offers.isNotEmpty) {
       _plan = _ProPlan.values.firstWhere(
         (plan) => _offerFor(plan) != null,
@@ -439,6 +447,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       return;
     }
     final tracking = _tracking.click(
+      membershipType: _type,
       isYearly: offer.product.isYearly,
       storeProductId: offer.product.storeProductId,
       basePlanId: offer.product.provider == MembershipProvider.google
@@ -531,19 +540,19 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   Widget _buildExposure(BuildContext context) => SubscriptionExposure(
     key: ValueKey('subscription-exposure-${_tracking.pageId}'),
     onVisible: () {
-      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return false;
-      _tracking.show();
+      if (!mounted || _loading || ModalRoute.of(context)?.isCurrent == false) {
+        return false;
+      }
+      _tracking.show(_type);
       return true;
     },
     child: _buildContent(context),
   );
 
   Widget _buildContent(BuildContext context) {
-    final selectedProduct = _offerFor(_plan)?.product;
     if (_loading) {
-      // Match Buy Gems' initial loading indicator in the same tab content area.
       if (widget.sheetScrollController == null) {
-        return const GemPurchaseLoading();
+        return widget.loadingPlaceholder ?? const GemPurchaseLoading();
       }
       return ListView(
         controller: widget.sheetScrollController,
@@ -558,96 +567,57 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       );
     }
 
-    final rows = _buildBenefitRows(selectedProduct);
-    final footer = _buildPurchaseFooter(context, selectedProduct);
-    if (widget.sheetScrollController != null) {
-      final minimumHeight =
-          _minimumSheetContentHeight +
-          (widget.includeBottomSafeArea
-              ? MediaQuery.viewPaddingOf(context).bottom
-              : 0);
-      final expandedHeight = widget.sheetExpandedContentHeight < minimumHeight
-          ? minimumHeight
-          : widget.sheetExpandedContentHeight;
-      return ListView(
-        key: const PageStorageKey('pro-whole-content-scroll'),
-        controller: widget.sheetScrollController,
-        padding: EdgeInsets.zero,
-        children: [
-          SizedBox(
-            height: expandedHeight,
-            child: Column(
-              children: [
-                SizedBox(height: widget.topSpacing),
-                Expanded(
-                  child: KeyedSubtree(
-                    key: const ValueKey('pro-benefits-card'),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (widget.showHeading) _buildHeading(),
-                        Expanded(
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: _handleBenefitsScroll,
-                            child: ListView(
-                              key: const PageStorageKey('pro-benefits-scroll'),
-                              primary: false,
-                              physics: const ClampingScrollPhysics(
-                                parent: AlwaysScrollableScrollPhysics(),
-                              ),
-                              padding: EdgeInsets.fromLTRB(
-                                widget.horizontalInset,
-                                widget.showHeading ? 0 : 8,
-                                widget.horizontalInset,
-                                // The purchase footer already supplies the gap.
-                                0,
-                              ),
-                              children: rows,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                footer,
-              ],
-            ),
-          ),
-        ],
-      );
+    final state = _membership?.state.value ?? const MembershipAccessState();
+    final carousel = MemoryMembershipSubscriptionCarousel(
+      hasPurchased: _hasPurchased,
+      initialTier: _type,
+      // Sheet hosts already provide the carousel's outer horizontal spacing.
+      horizontalInset: widget.horizontalInset == 0 ? 0 : 16,
+      premiumActive: state.activeFor(MembershipType.premium),
+      deluxeActive: state.activeFor(MembershipType.deluxe),
+      premiumExpiry: state.membership?.expiresAt,
+      deluxeExpiry: state.membershipDeluxe?.expiresAt,
+      onTierChanged: (type) {
+        if (!mounted || _submitting) return;
+        widget.onMembershipTypeChanged?.call(type);
+        if (_type == type) return;
+        setState(() {
+          _plans[_type] = _plan;
+          _type = type;
+          _pickedType = true;
+          _plan = _plans[type] ?? _ProPlan.yearly;
+        });
+        _prepareSelectedCheckout();
+      },
+      onBenefitsScroll: _handleBenefitsScroll,
+      benefitsBuilder: (type) {
+        final matching = _offers.where(
+          (offer) =>
+              offer.product.membershipType == type &&
+              offer.product.isYearly ==
+                  ((_plans[type] ?? _plan) == _ProPlan.yearly),
+        );
+        return _buildBenefitRows(
+          matching.isEmpty ? null : matching.first.product,
+        );
+      },
+      footerBuilder: (progress) =>
+          _buildPurchaseFooter(context, _offerFor(_plan)?.product, progress),
+    );
+    if (widget.sheetScrollController == null) {
+      return AbsorbPointer(absorbing: _submitting, child: carousel);
     }
-
-    return Column(
+    final height = widget.sheetExpandedContentHeight < 600
+        ? 600.0
+        : widget.sheetExpandedContentHeight;
+    return ListView(
+      controller: widget.sheetScrollController,
+      padding: EdgeInsets.zero,
       children: [
-        SizedBox(height: widget.topSpacing),
-        Expanded(
-          child: KeyedSubtree(
-            key: const ValueKey('pro-benefits-card'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // The heading is fixed and only the benefits scroll in the
-                // standalone subscription view.
-                if (widget.showHeading) _buildHeading(),
-                Expanded(
-                  child: ListView(
-                    key: const PageStorageKey('pro-benefits-scroll'),
-                    padding: EdgeInsets.fromLTRB(
-                      widget.horizontalInset,
-                      widget.showHeading ? 0 : 8,
-                      widget.horizontalInset,
-                      // The purchase footer already supplies the gap.
-                      0,
-                    ),
-                    children: rows,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        SizedBox(
+          height: height,
+          child: AbsorbPointer(absorbing: _submitting, child: carousel),
         ),
-        footer,
       ],
     );
   }
@@ -683,60 +653,6 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     return true;
   }
 
-  Widget _buildHeading() => Padding(
-    padding: EdgeInsets.fromLTRB(
-      widget.horizontalInset,
-      widget.headingTopSpacing,
-      widget.horizontalInset,
-      22,
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          key: const ValueKey('pro-tier-title'),
-          children: [
-            SvgPicture.asset(proCrownGoldIconAsset, width: 26, height: 18),
-            const SizedBox(width: 5),
-            Flexible(
-              child: widget.headingSuffix == null
-                  ? const PremiumWordmark()
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        const Flexible(child: PremiumWordmark()),
-                        const SizedBox(width: 8),
-                        Text(
-                          widget.headingSuffix!,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            height: 1.4,
-                            fontWeight: FontWeight.w400,
-                            color: GenesisColors.darkTextPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          widget.tagline ?? GenesisL10n.current.proSubscriptionTagline,
-          key: const ValueKey('pro-tagline'),
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1.35,
-            fontWeight: FontWeight.w400,
-            color: GenesisColors.darkTextTertiary,
-          ),
-        ),
-      ],
-    ),
-  );
-
   List<Widget> _buildBenefitRows(MembershipProduct? selectedProduct) {
     final benefits = selectedProduct?.benefits ?? const <MembershipBenefit>[];
     // The gem grants read as one module: the first line heads it and the rest
@@ -770,6 +686,9 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
         _ProBenefit(
           key: ValueKey('pro-benefit-${benefit.code}'),
           benefit: benefit,
+          accent: selectedProduct?.membershipType == MembershipType.deluxe
+              ? MemoryMembershipTier.deluxe.accent
+              : premiumGold,
           grants: benefit.code == gemHeadCode
               ? gemGrants.skip(1).toList()
               : const <MembershipBenefit>[],
@@ -781,42 +700,33 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   Widget _buildPurchaseFooter(
     BuildContext context,
     MembershipProduct? selectedProduct,
+    double deluxeColorProgress,
   ) => Padding(
     padding: EdgeInsets.fromLTRB(
       widget.horizontalInset,
-      26,
+      12,
       widget.horizontalInset,
       0,
     ),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Equal height: the yearly card carries a billing line the
-        // monthly one does not, and the pair must still sit level.
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final plan in _ProPlan.values) ...[
-                if (plan != _ProPlan.values.first) const SizedBox(width: 12),
-                Expanded(
-                  child: _ProPlanCard(
-                    plan: plan,
-                    offer: _offerFor(plan),
-                    savings: _offerFor(plan) == null
-                        ? null
-                        : membershipYearlySavings(_offerFor(plan)!, _offers),
-                    selected: _plan == plan,
-                    onTap: () {
-                      if (_plan == plan) return;
-                      setState(() => _plan = plan);
-                      _prepareSelectedCheckout();
-                    },
-                  ),
-                ),
-              ],
-            ],
-          ),
+        MemoryMembershipPlanSelector(
+          tier: _type,
+          deluxeColorProgress: deluxeColorProgress,
+          savings: _offerFor(_ProPlan.yearly) == null
+              ? null
+              : membershipYearlySavings(_offerFor(_ProPlan.yearly)!, _offers),
+          yearly: _plan == _ProPlan.yearly,
+          yearlyPrice: _offerFor(_ProPlan.yearly)?.price?.formattedPrice,
+          monthlyPrice: _offerFor(_ProPlan.monthly)?.price?.formattedPrice,
+          onChanged: (yearly) {
+            setState(() {
+              _plan = yearly ? _ProPlan.yearly : _ProPlan.monthly;
+              _plans[_type] = _plan;
+            });
+            _prepareSelectedCheckout();
+          },
         ),
         SizedBox(
           height: 35,
@@ -831,7 +741,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
             ),
           ),
         ),
-        _buildSubscribeButton(selectedProduct),
+        _buildSubscribeButton(selectedProduct, deluxeColorProgress),
         const SizedBox(height: 24),
         _buildLegalRow(context),
         SizedBox(
@@ -846,38 +756,98 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     ),
   );
 
-  Widget _buildSubscribeButton(MembershipProduct? product) {
+  Widget _buildSubscribeButton(
+    MembershipProduct? product,
+    double deluxeColorProgress,
+  ) {
     final access = _membership?.state.value ?? const MembershipAccessState();
     final subscribed =
         product != null &&
         membershipIsSubscribedToSelectedPlan(product, access);
     final radius = BorderRadius.circular(13);
+    final premiumGradient = MembershipType.premium.buttonGradient;
+    final deluxeGradient = MembershipType.deluxe.buttonGradient;
+    final period = _plan.label;
+    final price = _offerFor(_plan)?.price?.formattedPrice;
+    final label = subscribed
+        ? GenesisL10n.current.premiumSubscribed
+        : '$period: ${price ?? GenesisL10n.current.premiumPurchaseUnavailable}';
+    final gradient = switch (deluxeColorProgress) {
+      0 => premiumGradient,
+      1 => deluxeGradient,
+      _ => LinearGradient.lerp(
+        premiumGradient,
+        deluxeGradient,
+        deluxeColorProgress,
+      )!,
+    };
+    Widget labelSide(String text, Alignment alignment, {Color? color}) =>
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: alignment,
+            child: Text(
+              text,
+              maxLines: 1,
+              softWrap: false,
+              style: color == null ? null : TextStyle(color: color),
+            ),
+          ),
+        );
     return DecoratedBox(
       key: const ValueKey('pro-subscribe-gold-surface'),
       decoration: BoxDecoration(
-        gradient: premiumCtaGradient,
+        gradient: subscribed ? gradient.scale(.5) : gradient,
         borderRadius: radius,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x3DF5B62E),
-            blurRadius: 18,
-            offset: Offset(0, 4),
-          ),
-        ],
+        boxShadow: subscribed
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x3DF5B62E),
+                  blurRadius: 18,
+                  offset: Offset(0, 4),
+                ),
+              ],
       ),
       child: GenesisPrimaryButton(
         key: const ValueKey('pro-subscribe-button'),
         shrinkLabelToFit: true,
         backgroundColor: Colors.transparent,
         foregroundColor: premiumInkOnGold,
-        label: subscribed
-            ? GenesisL10n.current.premiumSubscribed
-            : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? GenesisL10n.current.premiumPurchaseUnavailable}',
+        disabledBackgroundColor: subscribed ? Colors.transparent : null,
+        disabledForegroundColor: subscribed
+            ? GenesisColors.darkBackground
+            : null,
+        label: label,
+        labelContent: subscribed || price == null
+            ? null
+            : Semantics(
+                label: label,
+                excludeSemantics: true,
+                child: Row(
+                  textDirection: TextDirection.ltr,
+                  children: [
+                    labelSide(period, Alignment.centerRight),
+                    const SizedBox(width: 4),
+                    const Text(':'),
+                    const SizedBox(width: 4),
+                    labelSide(
+                      price,
+                      Alignment.centerLeft,
+                      color: Color.lerp(
+                        premiumInkOnGold,
+                        deluxeInkOnPearl,
+                        deluxeColorProgress,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
         height: 44,
         fontSize: 18,
         fontWeight: FontWeight.w600,
         borderRadius: radius,
-        onPressed: _onSubscribePressed,
+        onPressed: subscribed ? null : _onSubscribePressed,
         isLoading: _checkingCatalog,
       ),
     );
@@ -969,10 +939,12 @@ class _ProBenefit extends StatelessWidget {
   const _ProBenefit({
     super.key,
     required this.benefit,
+    this.accent = premiumGold,
     this.grants = const <MembershipBenefit>[],
   });
 
   final MembershipBenefit benefit;
+  final Color accent;
 
   /// Gem grants folded into this line, drawn as cards under the copy.
   final List<MembershipBenefit> grants;
@@ -998,7 +970,7 @@ class _ProBenefit extends StatelessWidget {
                   key: ValueKey('pro-benefit-icon-${benefit.code}'),
                   iconKey: benefit.iconKey,
                   size: 18,
-                  color: premiumGold,
+                  color: accent,
                 ),
               ),
             ),
@@ -1198,190 +1170,6 @@ class _GemGrantCardShell extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
-    );
-  }
-}
-
-class _ProPlanCard extends StatelessWidget {
-  const _ProPlanCard({
-    required this.plan,
-    required this.offer,
-    required this.savings,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final _ProPlan plan;
-  final MembershipOffer? offer;
-  final int? savings;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final price = offer?.price;
-    final monthlyPrice = price == null
-        ? GenesisL10n.current.premiumPurchaseUnavailable
-        : plan == _ProPlan.yearly
-        ? price.monthlyEquivalent(
-            Localizations.localeOf(context).toString(),
-            offer!.product.billingMonths,
-          )
-        : price.formattedPrice;
-    final note = plan == _ProPlan.yearly
-        ? (price == null
-              ? ''
-              : GenesisL10n.current.billedAnnually(price: price.formattedPrice))
-        : GenesisL10n.current.premiumBilledMonthly;
-    final showSavings =
-        plan == _ProPlan.yearly && savings != null && savings! > 0;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: context.l10n.subscriptionPlanAccessibility(
-        period: plan.period,
-        plan: plan.label,
-        price:
-            price?.formattedPrice ??
-            GenesisL10n.current.premiumPurchaseUnavailable,
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          GestureDetector(
-            key: ValueKey('pro-plan-${plan.name}'),
-            behavior: HitTestBehavior.opaque,
-            onTap: onTap,
-            child: Container(
-              width: double.infinity,
-              // Keep the border independent of content geometry.
-              padding: const EdgeInsets.fromLTRB(15.5, 19.5, 15.5, 15.5),
-              decoration: BoxDecoration(
-                color: selected
-                    ? premiumGoldTint
-                    : GenesisColors.darkPurchaseCardBackground,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              foregroundDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: selected
-                    ? Border.all(color: premiumGold, width: 1.5)
-                    : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    plan.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1,
-                      fontWeight: FontWeight.w600,
-                      color: GenesisColors.darkTextPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // A long currency shrinks rather than breaking the card.
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: GenesisLocalizedRichText(
-                      template: context.l10n.monthlyPrice(
-                        price: GenesisLocalizedRichText.placeholder(
-                          'monthlyPrice',
-                        ),
-                      ),
-                      placeholders: {
-                        'monthlyPrice': TextSpan(
-                          text: monthlyPrice,
-                          style: TextStyle(
-                            fontSize: 20,
-                            height: 1,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.2,
-                            color: selected
-                                ? premiumGoldLight
-                                : GenesisColors.darkTextPrimary,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      },
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1,
-                        fontWeight: FontWeight.w600,
-                        color: GenesisColors.darkTextTertiary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      note,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.25,
-                        fontWeight: FontWeight.w400,
-                        color: GenesisColors.darkTextTertiary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (showSavings)
-            Positioned(
-              left: 0,
-              top: -9,
-              child: IgnorePointer(
-                child: _SavingsTag(
-                  key: const ValueKey('pro-yearly-savings-badge'),
-                  savings: savings!,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SavingsTag extends StatelessWidget {
-  const _SavingsTag({super.key, required this.savings});
-
-  final int savings;
-
-  @override
-  Widget build(BuildContext context) {
-    // Padding rather than a height and an alignment: an aligned box with no
-    // width fills whatever it is given, which in a Wrap is the whole line.
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      decoration: BoxDecoration(
-        // Opaque: the tag rides the card's top edge, and a translucent fill
-        // would let the gold border read as a line struck through the words.
-        color: premiumGoldTagSolid,
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: premiumGoldTagRing),
-      ),
-      child: Text(
-        GenesisL10n.current.premiumSaveSavings(savings: (savings).toString()),
-        style: const TextStyle(
-          fontSize: 12,
-          height: 1,
-          fontWeight: FontWeight.w600,
-          color: premiumGold,
-        ),
-      ),
     );
   }
 }

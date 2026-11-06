@@ -21,7 +21,6 @@ import '../../platform/billing/membership_store_purchase.dart';
 import '../../platform/billing/membership_guest_claim_record.dart';
 import '../../platform/billing/membership_guest_claim_proof.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
-import '../telemetry/purchase_event_reporting.dart';
 import 'membership_purchase_eligibility.dart';
 import 'membership_access_store.dart';
 import 'membership_store_failure.dart';
@@ -94,11 +93,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     this.retryDelay = const Duration(seconds: 15),
     this.attemptTimeout = CheckoutPreparationBudget.timeout,
     this.guestRecoveryTimeout = const Duration(seconds: 15),
-    this.purchaseEventReporting,
   }) : analytics = analytics ?? SubscriptionAnalytics();
 
   final SubscriptionAnalytics analytics;
-  final PurchaseEventRecorder? purchaseEventReporting;
   final Map<String, SubscriptionTracking> _attemptTracking = {};
 
   final MembershipCheckoutPlatform platform;
@@ -154,6 +151,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   // This stays in memory across login and is not a report retry queue.
   final Map<String, MembershipPurchaseRequest> _guestPurchaseRequests = {};
   final ValueNotifier<String?> guestLoginRequestId = ValueNotifier(null);
+  MembershipType? get guestLoginMembershipType => _guestLoginMembershipType();
   final Set<String> _presentedAttempts = {};
   final Map<String, MembershipGuestClaimRecord> _guestClaims = {};
   final Set<String> _pendingGuestClaimWrites = {};
@@ -364,7 +362,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         final uid = results[2] as String?;
         final products = results[3] as MembershipProductList;
-        final matches = products.products.where(
+        final matches = products.allProducts.where(
           (p) =>
               p.provider == provider &&
               p.planCode == product.planCode &&
@@ -559,7 +557,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           if (!await canContinueForOwner(uid)) {
             throw const BillingPlatformException('checkout_aborted');
           }
-          final matching = fresh.products.where(
+          final matching = fresh.allProducts.where(
             (p) => p.provider == provider && p.planCode == product.planCode,
           );
           if (matching.length != 1 ||
@@ -591,7 +589,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         await recovery.run<void>(
           action: () async {
-            final matches = products.products.where(
+            final matches = products.allProducts.where(
               (p) => p.provider == provider && p.planCode == product.planCode,
             );
             if (matches.length != 1) {
@@ -654,7 +652,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
                 refresh: refreshProduct,
               );
             }(),
-            _prepareCheckoutIdentity(uid, products),
+            _prepareCheckoutIdentity(uid, products, product.membershipType),
           ], eagerError: true);
           if (!await canContinueForOwner(uid)) return;
           final prepared = results[0] as _PreparedMembershipProduct?;
@@ -1322,24 +1320,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     _attemptTracking[record.requestId] = tracking;
     record = record.copyWith(tracking: tracking);
     await _save(record);
-    final eventReporter = purchaseEventReporting;
-    if (eventReporter != null && matchesPurchaseIdentity) {
-      unawaited(
-        eventReporter.recordPurchase(
-          provider: provider.name,
-          productId: record.product.storeProductId,
-          kind: PurchaseEventKind.subscription,
-          purchaseIdentity: provider == MembershipProvider.google
-              ? record.purchaseToken
-              : record.transactionId,
-          transactionIdentity: record.transactionId.trim().isNotEmpty
-              ? record.transactionId
-              : record.purchaseToken,
-          priceAmountMicros: record.priceAmountMicros,
-          priceCurrencyCode: record.priceCurrencyCode,
-        ),
-      );
-    }
     await _prepareGuestClaimFromStore(record, purchase.purchaseTime);
     await _report(record);
     await _claimPendingGuests();

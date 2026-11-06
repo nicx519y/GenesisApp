@@ -14,6 +14,7 @@ class _NotificationItem {
     this.senderGender = '',
     this.senderAge = '',
     this.senderMembershipStatus = 0,
+    this.senderMembershipDeluxeStatus = 0,
     required this.bizId,
     this.worldDeleted = false,
     this.originDeleted = false,
@@ -113,6 +114,9 @@ class _NotificationItem {
       senderMembershipStatus: asUserMembershipStatus(
         actor?['membership_status'],
       ),
+      senderMembershipDeluxeStatus: asUserMembershipStatus(
+        actor?['membership_deluxe_status'],
+      ),
       senderDeleted: entityDeleted(
         sender?['deleted'],
         fallback:
@@ -192,6 +196,7 @@ class _NotificationItem {
   final String senderGender;
   final String senderAge;
   final int senderMembershipStatus;
+  final int senderMembershipDeluxeStatus;
   final String bizId;
   final bool worldDeleted;
   final bool originDeleted;
@@ -224,6 +229,7 @@ class _NotificationItem {
       senderGender: senderGender,
       senderAge: senderAge,
       senderMembershipStatus: senderMembershipStatus,
+      senderMembershipDeluxeStatus: senderMembershipDeluxeStatus,
       bizId: bizId,
       worldDeleted: worldDeleted ?? this.worldDeleted,
       originDeleted: originDeleted,
@@ -540,6 +546,7 @@ class _NotificationItem {
       authorGender: senderGender,
       authorAge: senderAge,
       authorMembershipStatus: senderMembershipStatus,
+      authorMembershipDeluxeStatus: senderMembershipDeluxeStatus,
       authorName: senderDisplayName,
       avatar: senderAvatar,
       content: commentText,

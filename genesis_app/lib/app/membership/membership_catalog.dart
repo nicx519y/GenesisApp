@@ -108,7 +108,11 @@ class MembershipDisplayPrice {
 }
 
 class MembershipCatalogData {
-  const MembershipCatalogData({this.offers = const []});
+  const MembershipCatalogData({
+    this.offers = const [],
+    this.hasPurchased = false,
+  });
+  final bool hasPurchased;
   final List<MembershipOffer> offers;
 }
 
@@ -264,7 +268,7 @@ class MembershipCatalog {
     try {
       final platform = provider!;
       final storeRevision = StoreProductAccess.revision;
-      final prices = await loadStorePrices!(response.products);
+      final prices = await loadStorePrices!(response.allProducts);
       final result = _catalog(response, platform, prices);
       if (session != _session || generation != _loadGeneration) {
         throw StateError('membership_catalog_session_changed');
@@ -335,7 +339,7 @@ class MembershipCatalog {
     if (loadStorePrices != null) {
       try {
         prices = await StoreProductAccess.refresh(
-          () => loadStorePrices!(response.products),
+          () => loadStorePrices!(response.allProducts),
         );
       } catch (error) {
         debugPrint(
@@ -343,7 +347,7 @@ class MembershipCatalog {
         );
       }
     }
-    for (final product in response.products) {
+    for (final product in response.allProducts) {
       if (prices.containsKey(product.planCode)) continue;
       final old = (_cached?.offers ?? const <MembershipOffer>[]).where(
         (o) =>
@@ -362,6 +366,9 @@ class MembershipCatalog {
         lastAccountUuid: response.lastAccountUuid,
         hasSubscriptionOrder: response.hasSubscriptionOrder,
         products: List.unmodifiable(response.products),
+        deluxeProducts: List.unmodifiable(response.deluxeProducts),
+        lastAccountUuidDeluxe: response.lastAccountUuidDeluxe,
+        hasPurchased: response.hasPurchased,
       );
       _checkoutOwner = owner;
       // Cache display fields without the last purchase UUID.
@@ -392,7 +399,7 @@ class MembershipCatalog {
     MembershipProvider platform, [
     Map<String, MembershipStorePrice> prices = const {},
   ]) {
-    final products = response.products.toList();
+    final products = response.allProducts.toList();
     if (products.any((product) => product.provider != platform) ||
         products.map((product) => product.planCode).toSet().length !=
             products.length) {
@@ -400,6 +407,7 @@ class MembershipCatalog {
     }
     products.sort((a, b) => b.billingMonths.compareTo(a.billingMonths));
     return MembershipCatalogData(
+      hasPurchased: response.hasPurchased,
       offers: List.unmodifiable([
         for (final product in products)
           MembershipOffer(
@@ -422,6 +430,7 @@ int? membershipYearlySavings(
   for (final monthly in offers) {
     if (monthly.price == null ||
         monthly.product.isYearly ||
+        monthly.product.membershipType != yearly.product.membershipType ||
         monthly.price!.currencyCode != yearly.price!.currencyCode ||
         monthly.product.monthlyGemsCent != yearly.product.monthlyGemsCent) {
       continue;

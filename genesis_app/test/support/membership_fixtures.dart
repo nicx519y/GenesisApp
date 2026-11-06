@@ -1,8 +1,20 @@
+import 'package:flutter/foundation.dart' show ValueKey;
+import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_benefit.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
+
+Finder findSubscriptionLabel(String label) => find.byWidgetPredicate(
+  (widget) =>
+      widget is GenesisPrimaryButton &&
+      widget.key == const ValueKey('pro-subscribe-button') &&
+      (!widget.isLoading || !widget.showLoadingIndicator) &&
+      widget.label == label,
+  description: 'subscription button with label "$label"',
+);
 
 // Synthetic test inputs, not a production product catalog.
 MembershipProduct membershipProduct({

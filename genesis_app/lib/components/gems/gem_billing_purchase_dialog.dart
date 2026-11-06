@@ -50,25 +50,22 @@ class GemBillingPurchaseDialogState {
 class GemBillingPurchaseDialog extends StatelessWidget {
   factory GemBillingPurchaseDialog.membership({
     Key? key,
+    bool deluxe = false,
     required ValueListenable<GemBillingPurchaseDialogState> state,
     required VoidCallback onConfirm,
   }) => GemBillingPurchaseDialog(
     key: key,
     state: state,
     onConfirm: onConfirm,
-    processingLabel: GenesisL10n
-        .current
-        .mePurchasingPremium,
-    successTitle: GenesisL10n
-        .current
-        .mePurchaseSuccessful,
-    successMessage: GenesisL10n
-        .current
-        .meWorldoPremiumSubscription,
-    successIconAsset: proCrownGoldIconAsset,
-    confirmLabel: GenesisL10n
-        .current
-        .createOpeningContinue,
+    processingLabel: deluxe
+        ? GenesisL10n.current.mePurchasingDeluxe
+        : GenesisL10n.current.mePurchasingPremium,
+    successTitle: GenesisL10n.current.mePurchaseSuccessful,
+    successMessage: deluxe
+        ? GenesisL10n.current.meWorldoDeluxeSubscription
+        : GenesisL10n.current.meWorldoPremiumSubscription,
+    successIconAsset: deluxe ? proCrownDeluxeIconAsset : proCrownGoldIconAsset,
+    confirmLabel: GenesisL10n.current.createOpeningContinue,
   );
 
   const GemBillingPurchaseDialog({

@@ -23,6 +23,9 @@ class _SearchResultTile extends StatelessWidget {
         children: [
           ProUserName(
             membershipStatus: isUser ? item.userV2!.membershipStatus : 0,
+            membershipDeluxeStatus: isUser
+                ? item.userV2!.membershipDeluxeStatus
+                : 0,
             deleted: isUser && item.userV2!.deleted,
             fontSize: 14,
             child: Text.rich(
@@ -168,6 +171,7 @@ class _OriginSearchMetadata extends StatelessWidget {
         ),
       ProUserName(
         membershipStatus: origin.owner.membershipStatus,
+        membershipDeluxeStatus: origin.owner.membershipDeluxeStatus,
         deleted: origin.owner.deleted,
         fontSize: 12,
         child: Text(
@@ -229,6 +233,7 @@ class _WorldSearchMetadata extends StatelessWidget {
         const SizedBox(height: 4),
         ProUserName(
           membershipStatus: world.owner.membershipStatus,
+          membershipDeluxeStatus: world.owner.membershipDeluxeStatus,
           deleted: world.owner.deleted,
           fontSize: 12,
           child: Text(

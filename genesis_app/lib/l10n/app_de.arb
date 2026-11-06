@@ -3382,9 +3382,15 @@
   "@meDailyCheck": {
     "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
   },
-  "gemsDailyCheckInReward": "100 erhalten",
+  "gemsDailyCheckInReward": "{amount} erhalten",
   "@gemsDailyCheckInReward": {
-    "description": "首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗"
+    "description": "Daily Check-in dialog: button showing the Gem reward associated with a subscription offer. Opens the relevant subscription tier.",
+    "placeholders": {
+      "amount": {
+        "type": "String",
+        "example": "100"
+      }
+    }
   },
   "meCheck": "Einchecken",
   "@meCheck": {
@@ -5173,5 +5179,134 @@
   "cameraRequestConflict": "Diese Anfrage steht im Konflikt mit einer früheren Übermittlung. Ihre Angaben können nicht geändert werden.",
   "@cameraRequestConflict": {
     "description": "MiniPhone Camera: an idempotency conflict (2062) prevents retrying the same operation with a new request ID."
+  },
+  "memoryMembershipDeluxe": "Worldo Deluxe",
+  "@memoryMembershipDeluxe": {
+    "description": "Shared membership cards: independent Worldo Deluxe subscription name. Preserve Worldo and Deluxe as product names; Deluxe does not include Premium."
+  },
+  "memoryMembershipMonthlyGems": "Bis zu {amount} Gems pro Monat",
+  "@memoryMembershipMonthlyGems": {
+    "description": "Subscription sliding membership card: compact maximum monthly Gems allowance heading above the Pink/Red Gems breakdown, from Subscribe design. amount is a preformatted allowance. Deluxe draft amounts remain restricted to explicit Developer previews; this label does not confirm a production entitlement.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipPeriod": "{period, select, year{/ Jahr} other{/ Monat}}",
+  "@memoryMembershipPeriod": {
+    "description": "Subscription and locked-memory upsell plan cards: short billing period suffix beside a displayed catalog price. period is year for an annual plan, otherwise monthly. Keep both ICU select branches. Developer draft prices remain preview-only; the suffix does not define a SKU or enable billing.",
+    "placeholders": {
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipBilledAnnually": "Jährliche Abrechnung",
+  "@memoryMembershipBilledAnnually": {
+    "description": "Subscription and locked-memory upsell Yearly plan card: billing cadence note below the annual price, without repeating the amount. Used for catalog-backed plans or explicit Developer draft previews; does not confirm availability or enable Deluxe billing."
+  },
+  "memoryMembershipDeluxeProfileOffer": "Bis zu {amount} Gems pro Monat und ein sich automatisch aktualisierendes Gedächtnis.",
+  "@memoryMembershipDeluxeProfileOffer": {
+    "description": "Me compact Deluxe membership card from MeMember design: maximum monthly Gems and self-updating memory teaser. amount is a preformatted allowance.",
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipPremiumOffer": "Erhalte einen vollständigen Rückblick auf jede Wendung, Entscheidung und Figur, der beim Spielen fortlaufend neu geschrieben wird, sowie bis zu 3.500 Gems pro Monat.",
+  "@memoryMembershipPremiumOffer": {
+    "description": "Premium locked-memory upsell card from Caps design: full evolving story recap covering twists, choices and characters, plus maximum monthly Gems including conditional daily claims. This describes the independent Premium Summary benefit, not Deluxe ownership; actual purchase uses the existing store-backed flow."
+  },
+  "memoryMembershipDeluxeOffer": "Erhalte Zeitleiste, Figuren und Beziehungen – ein Gedächtnis, das sich beim Spielen aktualisiert und an dessen Inhalte sich die Figuren erinnern – sowie bis zu 18.000 Gems pro Monat.",
+  "@memoryMembershipDeluxeOffer": {
+    "description": "Deluxe locked-memory upsell card from Caps design: Timeline, Cast and Bonds form evolving memory that characters remember, plus a maximum monthly Gems allowance. Shown wherever those sections are locked."
+  },
+  "memoryMembershipDeluxeTagline": "Ein Gedächtnis, das sich beim Spielen von selbst aktualisiert.",
+  "@memoryMembershipDeluxeTagline": {
+    "description": "Deluxe subscription design-preview card tagline; proposed memory benefit, displayed with not-yet-available notice."
+  },
+  "memoryMembershipDeluxeUnavailable": "Deluxe ist noch nicht verfügbar.",
+  "@memoryMembershipDeluxeUnavailable": {
+    "description": "Production Deluxe card and subscribe feedback: no Deluxe checkout or SKU exists; proposed prices and benefits are unconfirmed. Must not imply a purchase or active membership."
+  },
+  "memoryMembershipPremiumCheckout": "Sieh dir die aktuellen Premium-Tarife und Preise an, um ein Abo abzuschließen.",
+  "@memoryMembershipPremiumCheckout": {
+    "description": "Premium offer and subscription cards: action opens original store-backed checkout where actual plans and prices are confirmed. The local Yearly/Monthly selector alone does not place an order."
+  },
+  "memoryMembershipDraftPreview": "Designvorschau · Preise und Vorteile stehen noch nicht fest",
+  "@memoryMembershipDraftPreview": {
+    "description": "Explicit Developer-only membership preview notice above draft prices. Never use draft prices to charge or infer actual membership."
+  },
+  "memoryMembershipDetails": "Details zu {membership} ansehen",
+  "@memoryMembershipDetails": {
+    "description": "Accessible label for a membership card chevron opening the matching Subscription slide.",
+    "placeholders": {
+      "membership": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipTimelineBenefit": "Zeitleiste, Figuren und Beziehungen: wichtige Ereignisse, Profile und die Gefühle aller Figuren",
+  "@memoryMembershipTimelineBenefit": {
+    "description": "Deluxe design card benefit: structured story memory with events, character profiles and relationships. Proposed benefit shown with availability disclaimer."
+  },
+  "memoryMembershipBenefitTimeline": "Zeitleiste: jedes wichtige Ereignis der Reihe nach",
+  "@memoryMembershipBenefitTimeline": {
+    "description": "Deluxe subscription card, benefit row: Timeline is the Recap view listing the story's key events in the order they happened."
+  },
+  "memoryMembershipBenefitCast": "Figuren: ein lebendiges Profil von allen",
+  "@memoryMembershipBenefitCast": {
+    "description": "Deluxe subscription card, benefit row: Cast is the section with a self-updating profile for each character in the story."
+  },
+  "memoryMembershipBenefitBonds": "Beziehungen: was alle füreinander empfinden",
+  "@memoryMembershipBenefitBonds": {
+    "description": "Deluxe subscription card, benefit row: Bonds is the section showing how characters feel about the player and about one another."
+  },
+  "memoryMembershipRememberBenefit": "Die Figuren erinnern sich an alles",
+  "@memoryMembershipRememberBenefit": {
+    "description": "Deluxe design card benefit: the structured memory is intended to inform characters. Proposed benefit shown with availability disclaimer."
+  },
+  "memoryMembershipSummaryBenefit": "Geschichtenrückblick, an den sich die AI über das Gedächtnis hinaus erinnert",
+  "@memoryMembershipSummaryBenefit": {
+    "description": "Premium subscription card benefit title from approved design: existing persistent story Summary, independent of Deluxe."
+  },
+  "memoryMembershipInspirationsBenefit": "Unbegrenzte Inspiration",
+  "@memoryMembershipInspirationsBenefit": {
+    "description": "Subscription design card benefit title for unlimited Inspiration usage. Deluxe remains unavailable."
+  },
+  "memoryMembershipEditingBenefit": "Unbegrenzte Bearbeitung",
+  "@memoryMembershipEditingBenefit": {
+    "description": "Subscription design card benefit title for unlimited editing. Deluxe remains unavailable."
+  },
+  "memoryMembershipBadgeBenefit": "Exklusives Abzeichen für {membership}",
+  "@memoryMembershipBadgeBenefit": {
+    "description": "Subscription design card badge benefit, membership is Premium or Deluxe; this text does not grant a badge or entitlement.",
+    "placeholders": {
+      "membership": {
+        "type": "String"
+      }
+    }
+  },
+  "memoryMembershipRechargeBenefit": "Gems aufladen",
+  "@memoryMembershipRechargeBenefit": {
+    "description": "Premium subscription card benefit title from approved design. Do not show for Deluxe, whose inclusion is unconfirmed."
+  },
+  "mePurchasingDeluxe": "Deluxe wird gekauft…",
+  "@mePurchasingDeluxe": {
+    "description": "Deluxe subscription purchase dialog: processing label while opening the store and confirming the purchase."
+  },
+  "meWorldoDeluxeSubscription": "Dein Worldo Deluxe-Abo ist jetzt aktiv.",
+  "@meWorldoDeluxeSubscription": {
+    "description": "Deluxe subscription purchase success dialog: confirmation shown only after the server confirms the purchase."
+  },
+  "meSignUpClaimDeluxe": "Registriere dich, um Deluxe zu erhalten",
+  "@meSignUpClaimDeluxe": {
+    "description": "Login sheet title after a guest buys Deluxe, prompting them to sign up to link the purchased subscription to their account. Deluxe is the membership name."
+  },
+  "membershipExpiry": "Mitgliedschaft bis",
+  "@membershipExpiry": {
+    "description": "Label above the expiry date on an active membership card on the Me page."
   }
 }

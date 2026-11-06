@@ -788,7 +788,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
       expect(calls, 2);
       await tester.tap(find.byKey(buttonKey));
       await tester.tap(find.byKey(buttonKey));
@@ -804,7 +804,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
       expect(purchases, 1);
       purchaseFinished.complete();
       await tester.pump(const Duration(seconds: 3));
@@ -825,6 +825,10 @@ void main() {
       _testWidgets(
         '$provider membership plan=$raw autoRenew=$autoRenew blocks only the subscribed plan',
         (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
           var purchases = 0;
           final catalog = MembershipCatalogData(
             offers: [
@@ -852,12 +856,16 @@ void main() {
                 autoRenew && raw == (yearly ? 'pro_yearly' : 'pro_monthly');
             await tester.tap(
               find.byKey(
-                ValueKey(yearly ? 'pro-plan-yearly' : 'pro-plan-monthly'),
+                ValueKey('membership-premium-${yearly ? 'yearly' : 'monthly'}'),
               ),
             );
             await tester.pumpAndSettle();
+            final button = tester.widget<GenesisPrimaryButton>(
+              find.byKey(buttonKey),
+            );
+            expect(button.onPressed, subscribed ? isNull : isNotNull);
             expect(
-              tester.widget<GenesisPrimaryButton>(find.byKey(buttonKey)).label,
+              button.label,
               subscribed
                   ? 'Subscribed'
                   : yearly
@@ -865,13 +873,13 @@ void main() {
                   : r'Monthly: $9.99',
             );
             final previous = purchases;
-            await tester.tap(find.byKey(buttonKey));
+            await tester.tap(find.byKey(buttonKey), warnIfMissed: !subscribed);
             await tester.pump(const Duration(milliseconds: 300));
             expect(purchases, previous + (subscribed ? 0 : 1));
             expect(find.text('Notification'), findsNothing);
             expect(
               find.textContaining('You’re already subscribed to Premium'),
-              subscribed ? findsOneWidget : findsNothing,
+              findsNothing,
             );
             await tester.pump(const Duration(seconds: 3));
           }
@@ -898,7 +906,7 @@ void main() {
     await tester.pumpWidget(page(null, catalog: catalog));
     await tester.pumpAndSettle();
     expect(calls, 2);
-    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
@@ -923,7 +931,7 @@ void main() {
     await tester.pumpWidget(page(null, catalog: catalog));
     await tester.pumpAndSettle();
     expect(find.text('Worldo Premium'), findsOneWidget);
-    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     response.complete(
       MembershipProductList(
@@ -932,7 +940,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Subscribed'), findsNothing);
-    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
   });
 
   testWidgets('unsupported cached plan does not crash before fresh catalog', (
@@ -966,7 +974,7 @@ void main() {
       MembershipProductList(products: [membershipProduct(yearly: true)]),
     );
     await tester.pumpAndSettle();
-    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
   });
 
   testWidgets('cache read failure does not escape the background load', (
@@ -984,7 +992,7 @@ void main() {
       MembershipProductList(products: [membershipProduct(yearly: true)]),
     );
     await tester.pumpAndSettle();
-    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {
     testWidgets('$provider purchase completion refreshes recent catalog', (
@@ -1021,7 +1029,7 @@ void main() {
         );
         await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
-        expect(find.text(r'Yearly: $119.99'), findsOneWidget);
+        expect(findSubscriptionLabel(r'Yearly: $119.99'), findsOneWidget);
         expect(calls, 2);
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
@@ -1257,13 +1265,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
     expect(find.textContaining(r'$8.33', findRichText: true), findsWidgets);
     expect(find.text('Save 17%'), findsOneWidget);
     expect(find.textContaining('₩', findRichText: true), findsNothing);
     await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
     await tester.pump();
-    expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
   });
 
   testWidgets('a single unpriced monthly product supplies its own display', (
@@ -1286,7 +1294,7 @@ void main() {
     expect(find.text('Monthly bonus Gems'), findsOneWidget);
     expect(find.text('Pro'), findsNothing);
     expect(
-      find.text('Monthly: Premium purchase is currently unavailable.'),
+      findSubscriptionLabel('Monthly: Premium purchase is currently unavailable.'),
       findsOneWidget,
     );
   });
@@ -1294,6 +1302,10 @@ void main() {
   _testWidgets(
     'renewal cancellation restores the price while preserving styling and checkout',
     (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       var purchases = 0;
       var autoRenew = true;
       final access = accessFor(
@@ -1316,10 +1328,10 @@ void main() {
           .widget<FilledButton>(filledButton)
           .style;
       final originalButtonRect = tester.getRect(find.byKey(buttonKey));
-      await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+      await tester.tap(find.byKey(const ValueKey('membership-premium-monthly')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('pro-plan-yearly')));
+      await tester.tap(find.byKey(const ValueKey('membership-premium-yearly')));
       await tester.pumpAndSettle();
       await tester.pumpWidget(
         page(
@@ -1337,26 +1349,29 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Subscribed'), findsOneWidget);
+      expect(tester.widget<FilledButton>(filledButton).onPressed, isNull);
+      final subscribedSurface = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('pro-subscribe-gold-surface')),
+      ).decoration as BoxDecoration;
+      expect(subscribedSurface.boxShadow, isNull);
       expect(
-        tester.widget<FilledButton>(filledButton).style,
-        originalButtonStyle,
+        (subscribedSurface.gradient! as LinearGradient).colors.first.a,
+        closeTo(.5, .01),
       );
       expect(tester.getRect(find.byKey(buttonKey)), originalButtonRect);
-      expectOriginalContent(tester);
-      await tester.tap(find.byKey(buttonKey));
+      await tester.tap(find.byKey(buttonKey), warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         find.textContaining('You’re already subscribed to Premium'),
-        findsOneWidget,
+        findsNothing,
       );
       expect(purchases, 0);
-      await tester.pump(const Duration(seconds: 3));
       autoRenew = false;
       await access.refresh();
       await tester.pumpAndSettle();
       expect(access.state.value.isVip, isTrue);
       expect(find.text('Subscribed'), findsNothing);
-      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
       expect(
         tester.widget<FilledButton>(filledButton).style,
         originalButtonStyle,
@@ -1365,9 +1380,9 @@ void main() {
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(purchases, 1);
-      await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+      await tester.tap(find.byKey(const ValueKey('membership-premium-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
       expect(
         tester.widget<FilledButton>(filledButton).style,
         originalButtonStyle,
@@ -1414,7 +1429,7 @@ void main() {
         await tester.pump();
         expect(loads, 2);
         expectOriginalContent(tester);
-        expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+        expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
         refresh.complete(
           MembershipCatalogData(
             offers: [
@@ -1429,7 +1444,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text(r'Yearly: $120'), findsOneWidget);
+        expect(findSubscriptionLabel(r'Yearly: $120'), findsOneWidget);
         expect(h.restoreQueries, 0);
         await tester.pumpWidget(const SizedBox.shrink());
         h.service.dispose();
@@ -1515,7 +1530,7 @@ void main() {
       expect(find.text(benefit.title), findsNothing);
     }
     expect(find.text('Monthly bonus Gems'), findsNothing);
-    expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
   });
 
   testWidgets(
@@ -1537,14 +1552,14 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text(r'$10/mo', findRichText: true), findsOneWidget);
-      expect(find.text(r'Yearly: $120'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Yearly: $120'), findsOneWidget);
       expect(find.text('Save 50%'), findsOneWidget);
       await tester.tap(find.byKey(buttonKey));
       await tester.pumpAndSettle();
       expect(selected.single.priceAmount, 12000);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text(r'Monthly: $20'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Monthly: $20'), findsOneWidget);
       expect(find.text(r'$20/mo', findRichText: true), findsOneWidget);
     },
   );
@@ -1556,18 +1571,18 @@ void main() {
       await tester.pumpWidget(page(() => completer.future));
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.byKey(buttonKey), findsNothing);
-      expect(find.text(r'Yearly: $99.99'), findsNothing);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsNothing);
       expect(find.text('Monthly bonus Gems'), findsNothing);
       expect(find.text('Pro'), findsNothing);
       completer.complete(await loadTestMembershipOffers());
       await tester.pumpAndSettle();
       expectOriginalContent(tester);
-      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
       expect(find.text(r'$8.33/mo', findRichText: true), findsOneWidget);
       expect(find.text('Save 17%'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pump();
-      expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Monthly: $9.99'), findsOneWidget);
       expect(find.text('Monthly bonus Gems'), findsOneWidget);
     },
   );
@@ -1589,7 +1604,7 @@ void main() {
     await tester.tap(find.byKey(buttonKey));
     await tester.pumpAndSettle();
     expect(calls, 2);
-    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+    expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
   });
 
   for (final provider in MembershipProvider.values) {
@@ -1710,7 +1725,7 @@ void main() {
       await tester.pumpAndSettle();
       expectOriginalContent(tester);
       expect(find.text('No subscriptions available right now.'), findsNothing);
-      expect(find.text(r'Yearly: $99.99'), findsNothing);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsNothing);
       expect(find.text('Pro'), findsNothing);
       await tester.pumpWidget(page(() async => throw StateError('offline')));
       await tester.pumpAndSettle();
@@ -1740,11 +1755,11 @@ void main() {
       await tester.pumpAndSettle();
       expectOriginalContent(tester);
       expect(find.text('Price unavailable'), findsNothing);
-      expect(find.text(r'Yearly: $99.99'), findsNothing);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsNothing);
       await tester.tap(find.byKey(buttonKey));
       await tester.pumpAndSettle();
       expect(calls, 2);
-      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+      expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
       expect(find.text('Pro subscriptions are coming soon.'), findsNothing);
     },
   );
@@ -1796,7 +1811,7 @@ void main() {
     old.complete(await loadTestMembershipOffers());
     await tester.pumpAndSettle();
     expectOriginalContent(tester);
-    expect(find.text(r'Yearly: $99.99'), findsNothing);
+    expect(findSubscriptionLabel(r'Yearly: $99.99'), findsNothing);
     expect(find.text('Save 17%'), findsNothing);
     expect(find.text('Monthly bonus Gems'), findsNothing);
     expect(find.text('Pro'), findsNothing);

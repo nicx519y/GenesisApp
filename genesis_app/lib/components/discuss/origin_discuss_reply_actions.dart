@@ -16,19 +16,16 @@ Future<bool> showOriginDiscussReplyComposer({
 
   return showDiscussPostComposer(
     context: context,
-    title: GenesisL10n
-        .current
-        .worldoReply,
-    placeholder:
-        placeholder ??
-        GenesisL10n
-            .current
-            .worldoWriteReply,
+    title: GenesisL10n.current.worldoReply,
+    placeholder: placeholder ?? GenesisL10n.current.worldoWriteReply,
     placeholderWidget:
         placeholder != null && replyToUid?.trim().isNotEmpty == true
         ? ProUserName(
             membershipStatus: asUserMembershipStatus(
               replyToUser?['membership_status'],
+            ),
+            membershipDeluxeStatus: asUserMembershipStatus(
+              replyToUser?['membership_deluxe_status'],
             ),
             deleted: entityDeleted(replyToUser?['deleted']),
             fontSize: 14,
@@ -103,6 +100,7 @@ Future<void> submitOriginDiscussReply({
                   'gender': item.authorGender,
                   'age': item.authorAge,
                   'membership_status': item.authorMembershipStatus,
+                  'membership_deluxe_status': item.authorMembershipDeluxeStatus,
                   'deleted': item.authorDeleted,
                 }
               : null),
@@ -145,6 +143,9 @@ Map<String, dynamic> _localReplyJson({
       'gender': asString(userMap['gender']),
       'age': asString(userMap['age']),
       'membership_status': asUserMembershipStatus(userMap['membership_status']),
+      'membership_deluxe_status': asUserMembershipStatus(
+        userMap['membership_deluxe_status'],
+      ),
       'deleted': entityDeleted(userMap['deleted']),
       'avatar': asImageUrl(userMap['avatar'] ?? userMap['avatar_url']),
     },

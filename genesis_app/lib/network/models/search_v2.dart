@@ -210,6 +210,7 @@ class SearchV2UserItem {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     this.deleted = false,
     required this.name,
     required this.avatar,
@@ -221,6 +222,9 @@ class SearchV2UserItem {
       gender: asString(json['gender']),
       age: asString(json['age']),
       membershipStatus: asUserMembershipStatus(json['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        json['membership_deluxe_status'],
+      ),
       deleted: entityDeleted(json['deleted']),
       uid: _rawString(json['uid']),
       name: _rawString(json['name']),
@@ -233,6 +237,7 @@ class SearchV2UserItem {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final bool deleted;
   final String name;
   final GenesisImageResource avatar;
@@ -246,6 +251,7 @@ class SearchV2Owner {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     this.deleted = false,
     required this.name,
     required this.avatar,
@@ -256,6 +262,9 @@ class SearchV2Owner {
       gender: asString(json['gender']),
       age: asString(json['age']),
       membershipStatus: asUserMembershipStatus(json['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        json['membership_deluxe_status'],
+      ),
       deleted: entityDeleted(json['deleted']),
       uid: _rawString(json['uid']),
       name: _rawString(json['name']),
@@ -267,6 +276,7 @@ class SearchV2Owner {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final bool deleted;
   final String name;
   final GenesisImageResource avatar;

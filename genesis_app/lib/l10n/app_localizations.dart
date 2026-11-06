@@ -4210,11 +4210,11 @@ abstract class AppLocalizations {
   /// **'Daily Check-in'**
   String get meDailyCheck;
 
-  /// 首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗
+  /// Daily Check-in dialog: button showing the Gem reward associated with a subscription offer. Opens the relevant subscription tier.
   ///
   /// In en, this message translates to:
-  /// **'Get 100'**
-  String get gemsDailyCheckInReward;
+  /// **'Get {amount}'**
+  String gemsDailyCheckInReward({required String amount});
 
   /// 首页 - Me → 每日签到弹窗，Daily Check-in 签到弹窗
   ///
@@ -6483,6 +6483,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This request conflicts with an earlier submission. Its details cannot be changed.'**
   String get cameraRequestConflict;
+
+  /// Label above the expiry date on an active membership card on the Me page.
+  ///
+  /// In en, this message translates to:
+  /// **'Membership Expiry'**
+  String get membershipExpiry;
+
+  /// Login sheet title after a guest buys Deluxe, prompting them to sign up to link the purchased subscription to their account. Deluxe is the membership name.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up to claim Deluxe'**
+  String get meSignUpClaimDeluxe;
+
+  /// Shared membership cards: independent Worldo Deluxe subscription name. Preserve Worldo and Deluxe as product names; Deluxe does not include Premium.
+  ///
+  /// In en, this message translates to:
+  /// **'Worldo Deluxe'**
+  String get memoryMembershipDeluxe;
+
+  /// Subscription sliding membership card: compact maximum monthly Gems allowance heading above the Pink/Red Gems breakdown, from Subscribe design. amount is a preformatted allowance. Deluxe draft amounts remain restricted to explicit Developer previews; this label does not confirm a production entitlement.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {amount} Gems Monthly'**
+  String memoryMembershipMonthlyGems({required String amount});
+
+  /// Subscription and locked-memory upsell plan cards: short billing period suffix beside a displayed catalog price. period is year for an annual plan, otherwise monthly. Keep both ICU select branches. Developer draft prices remain preview-only; the suffix does not define a SKU or enable billing.
+  ///
+  /// In en, this message translates to:
+  /// **'{period, select, year{/ year} other{/ month}}'**
+  String memoryMembershipPeriod({required String period});
+
+  /// Subscription and locked-memory upsell Yearly plan card: billing cadence note below the annual price, without repeating the amount. Used for catalog-backed plans or explicit Developer draft previews; does not confirm availability or enable Deluxe billing.
+  ///
+  /// In en, this message translates to:
+  /// **'Billed annually'**
+  String get memoryMembershipBilledAnnually;
+
+  /// Me compact Deluxe membership card from MeMember design: maximum monthly Gems and self-updating memory teaser. amount is a preformatted allowance.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {amount} Gems monthly, plus self-updating memory.'**
+  String memoryMembershipDeluxeProfileOffer({required String amount});
+
+  /// Premium locked-memory upsell card from Caps design: full evolving story recap covering twists, choices and characters, plus maximum monthly Gems including conditional daily claims. This describes the independent Premium Summary benefit, not Deluxe ownership; actual purchase uses the existing store-backed flow.
+  ///
+  /// In en, this message translates to:
+  /// **'Get a full recap of every twist, choice and character, rewritten as you play, plus up to 3,500 Gems every month.'**
+  String get memoryMembershipPremiumOffer;
+
+  /// Deluxe locked-memory upsell card from Caps design: Timeline, Cast and Bonds form evolving memory that characters remember, plus a maximum monthly Gems allowance. Shown wherever those sections are locked.
+  ///
+  /// In en, this message translates to:
+  /// **'Get Timeline, Cast and Bonds, a memory that updates as you play and that characters remember, plus up to 18,000 Gems every month.'**
+  String get memoryMembershipDeluxeOffer;
+
+  /// Deluxe subscription design-preview card tagline; proposed memory benefit, displayed with not-yet-available notice.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory that updates itself as you play.'**
+  String get memoryMembershipDeluxeTagline;
+
+  /// Production Deluxe card and subscribe feedback: no Deluxe checkout or SKU exists; proposed prices and benefits are unconfirmed. Must not imply a purchase or active membership.
+  ///
+  /// In en, this message translates to:
+  /// **'Deluxe is not available yet.'**
+  String get memoryMembershipDeluxeUnavailable;
+
+  /// Premium offer and subscription cards: action opens original store-backed checkout where actual plans and prices are confirmed. The local Yearly/Monthly selector alone does not place an order.
+  ///
+  /// In en, this message translates to:
+  /// **'View current Premium plans and prices to subscribe.'**
+  String get memoryMembershipPremiumCheckout;
+
+  /// Explicit Developer-only membership preview notice above draft prices. Never use draft prices to charge or infer actual membership.
+  ///
+  /// In en, this message translates to:
+  /// **'Design preview · prices and benefits are not confirmed'**
+  String get memoryMembershipDraftPreview;
+
+  /// Accessible label for a membership card chevron opening the matching Subscription slide.
+  ///
+  /// In en, this message translates to:
+  /// **'View {membership} details'**
+  String memoryMembershipDetails({required String membership});
+
+  /// Deluxe design card benefit: structured story memory with events, character profiles and relationships. Proposed benefit shown with availability disclaimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline, Cast and Bonds: key events, profiles, how everyone feels'**
+  String get memoryMembershipTimelineBenefit;
+
+  /// Deluxe subscription card, benefit row: Timeline is the Recap view listing the story's key events in the order they happened.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline: every key event, in order'**
+  String get memoryMembershipBenefitTimeline;
+
+  /// Deluxe subscription card, benefit row: Cast is the section with a self-updating profile for each character in the story.
+  ///
+  /// In en, this message translates to:
+  /// **'Cast: a living profile of everyone'**
+  String get memoryMembershipBenefitCast;
+
+  /// Deluxe subscription card, benefit row: Bonds is the section showing how characters feel about the player and about one another.
+  ///
+  /// In en, this message translates to:
+  /// **'Bonds: how everyone feels about each other'**
+  String get memoryMembershipBenefitBonds;
+
+  /// Deluxe design card benefit: the structured memory is intended to inform characters. Proposed benefit shown with availability disclaimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Characters remember all of it'**
+  String get memoryMembershipRememberBenefit;
+
+  /// Premium subscription card benefit title from approved design: existing persistent story Summary, independent of Deluxe.
+  ///
+  /// In en, this message translates to:
+  /// **'Story Recap the AI Remembers beyond Memory'**
+  String get memoryMembershipSummaryBenefit;
+
+  /// Subscription design card benefit title for unlimited Inspiration usage. Deluxe remains unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited Inspirations'**
+  String get memoryMembershipInspirationsBenefit;
+
+  /// Subscription design card benefit title for unlimited editing. Deluxe remains unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited Editing'**
+  String get memoryMembershipEditingBenefit;
+
+  /// Subscription design card badge benefit, membership is Premium or Deluxe; this text does not grant a badge or entitlement.
+  ///
+  /// In en, this message translates to:
+  /// **'Exclusive {membership} Badge'**
+  String memoryMembershipBadgeBenefit({required String membership});
+
+  /// Premium subscription card benefit title from approved design. Do not show for Deluxe, whose inclusion is unconfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Gem Recharge'**
+  String get memoryMembershipRechargeBenefit;
+
+  /// Deluxe subscription purchase dialog: processing label while opening the store and confirming the purchase.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchasing Deluxe...'**
+  String get mePurchasingDeluxe;
+
+  /// Deluxe subscription purchase success dialog: confirmation shown only after the server confirms the purchase.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Worldo Deluxe subscription is now active.'**
+  String get meWorldoDeluxeSubscription;
 }
 
 class _AppLocalizationsDelegate

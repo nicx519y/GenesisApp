@@ -53,6 +53,9 @@ UserProfileData _mergeRemoteUserInfoForRender(
     gender: asString(remoteUser['gender']),
     age: asString(remoteUser['age']),
     membershipStatus: asUserMembershipStatus(remoteUser['membership_status']),
+    membershipDeluxeStatus: asUserMembershipStatus(
+      remoteUser['membership_deluxe_status'],
+    ),
     displayName: resolvedDisplayName,
     uid: resolvedUid,
     followingCount:

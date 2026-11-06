@@ -182,11 +182,15 @@ extension _GemWalletDataActions on _GemWalletPageState {
     final taskCode = task.taskCode.trim();
     if (!_beginTaskAction(taskCode)) return;
     bool confirmed;
+    var memberships = const <MembershipType>[];
     try {
       confirmed = await showDailyCheckInDialog(
         context,
         status: DailyCheckInDialogStatus.checkIn,
         rewardGemsCent: task.rewardGemsCent,
+        rewardGemsCentPremium: task.rewardGemsCentPremium,
+        rewardGemsCentDeluxe: task.rewardGemsCentDeluxe,
+        onConfirmed: (tiers) => memberships = tiers,
       );
     } finally {
       _endTaskAction(taskCode);
@@ -195,9 +199,17 @@ extension _GemWalletDataActions on _GemWalletPageState {
     // Read current status after the dialog; opening it must not claim a reward.
     switch (_taskStatus(task)) {
       case 'claimable':
-        await _claimTaskReward(taskCode, rewardGemsCent: task.rewardGemsCent);
+        await _claimTaskReward(
+          taskCode,
+          rewardGemsCent: task.rewardGemsCent,
+          memberships: memberships,
+        );
       case 'in_progress':
-        await _reportTaskAction(taskCode, rewardGemsCent: task.rewardGemsCent);
+        await _reportTaskAction(
+          taskCode,
+          rewardGemsCent: task.rewardGemsCent,
+          memberships: memberships,
+        );
     }
   }
 
@@ -245,6 +257,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
   Future<void> _reportTaskAction(
     String taskCode, {
     int rewardGemsCent = dailyCheckInPreviewRewardCent,
+    List<MembershipType> memberships = const [],
   }) async {
     if (!_beginTaskAction(taskCode)) return;
     final isDailyCheckIn = taskCode == dailyCheckInTaskCode;
@@ -273,7 +286,8 @@ extension _GemWalletDataActions on _GemWalletPageState {
       if (isDailyCheckIn && mounted) {
         final successDialog = showDailyCheckInSuccessDialog(
           context,
-          rewardGemsCent: rewardGemsCent,
+          rewardGemsCent: result.rewardGemsCent ?? rewardGemsCent,
+          memberships: memberships,
         );
         unawaited(_refreshTasksAndWallet());
         await successDialog;
@@ -299,6 +313,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
   Future<void> _claimTaskReward(
     String taskCode, {
     int rewardGemsCent = dailyCheckInPreviewRewardCent,
+    List<MembershipType> memberships = const [],
   }) async {
     if (!_beginTaskAction(taskCode)) return;
     try {
@@ -313,7 +328,8 @@ extension _GemWalletDataActions on _GemWalletPageState {
       final successDialog = taskCode == dailyCheckInTaskCode
           ? showDailyCheckInSuccessDialog(
               context,
-              rewardGemsCent: rewardGemsCent,
+              rewardGemsCent: result.rewardGemsCent ?? rewardGemsCent,
+              memberships: memberships,
             )
           : showGemTaskSuccessDialog(
               context,

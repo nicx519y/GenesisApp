@@ -7,16 +7,22 @@
 | 场景 | JSON 字段 | Dart 字段 |
 |---|---|---|
 | 钱包 | `wallet.balance_cent` | `GemWallet.balanceCent` |
+| Premium 粉钻 | `membership.blue_gems_cent` | `membership.blueGemsCent` |
+| Deluxe 粉钻 | `membership_deluxe.blue_gems_cent` | `membershipDeluxe.blueGemsCent` |
+| Me 粉钻合计 | 上述两项 cent 相加后格式化 | `GemWalletState.blueGemsCent` |
 | 流水普通宝石（红钻） | `list[].regular_amount_cent` | `GemRecordItem.regularAmountCent` |
 | 流水会员宝石（粉钻） | `list[].membership_amount_cent` | `GemRecordItem.membershipAmountCent` |
 | 商品 | `base_gems_cent`、`bonus_gems_cent` | `baseGemsCent`、`bonusGemsCent` |
 | 购买完成 | `granted_gems_cent` | `GemPurchaseReport.grantedGemsCent` |
 | 任务 | `reward_gems_cent` | `GemTask.rewardGemsCent` |
+| 每日签到的订阅按钮 | `reward_gems_cent_premium`、`reward_gems_cent_deluxe` | `GemTask.rewardGemsCentPremium`、`GemTask.rewardGemsCentDeluxe` |
 | 模型预估 | `estimated_next_message_gems_cent`、`estimated_next_tick_gems_cent` | `estimatedNextMessageGemsCent`、`estimatedNextTickGemsCent` |
 | 模型消息区间 | `min_gems_cent`、`max_gems_cent` | `minGemsCent`、`maxGemsCent` |
 | WebSocket 低余额 | `balance_cent` | `ChatroomBalanceLow.balanceCent` |
 
 流水两个金额字段必返，允许 `null` 表示历史来源未知，不能转为 0；其他上述 cent 字段必须是 JSON 整数。字段缺失，或值为浮点数、字符串等其他类型时，客户端按协议错误处理，不使用其他字段回退。购买结果只有 `status=completed` 时要求并解析 `granted_gems_cent`；其他状态不承载发放金额。
+
+每日签到的两个订阅按钮字段是可选的非负整数 cent。缺失或格式错误时视为无可用金额。
 
 ## 展示规则
 
@@ -40,6 +46,8 @@
 
 ## 边界
 
+- 已打开过 Buy Gems 任务列表时，消耗品或订阅购买经服务端确认完成后静默刷新 `GET /api/v1/gem/tasks`。购买弹层覆盖完整页时也适用，刷新期间或失败时继续显示已有任务。
+
 - Gems 完整页进入、绑定购买服务或商品加载完成时，不主动查询商店历史／未完成交易，不由入页恢复发起购买 report。正常购买监听及其交易上报不变。
 
 - 完整支付页和购买 Sheet 切回已访问的 Gems／Subscription Tab，同样触发该 Tab 的商品刷新；取消的半途滑动不算进入。保留选中套餐、滚动位置及原购买状态，不重复触发钱包／任务加载、购买服务启动或页面曝光。
@@ -50,7 +58,7 @@
 
 - `price_amount` 是法币最小单位，继续使用现有法币格式化和支付逻辑，不属于 Gems cent 展示转换。
 - 支付请求、任务请求、订单恢复和订单持久化不修改金额语义。
-- 任务领取成功后继续刷新钱包；不从领取响应建立第二条本地余额更新链路。
+- 每日签到成功弹窗优先展示领取响应的 `reward_gems_cent`，兼容旧响应缺少金额时沿用任务列表的预览值。任务领取成功后继续从钱包接口刷新余额。
 
 ## Gem Records 分项金额（2026-09-16）
 

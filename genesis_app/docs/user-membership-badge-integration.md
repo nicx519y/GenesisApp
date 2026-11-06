@@ -1,6 +1,6 @@
 # 用户名会员图标接入
 
-当前方案：接口用户模型直接驱动，不为图标单独发请求。
+当前方案：接口用户模型直接驱动，不为图标单独发请求。下表每处同时读取所属用户的 `membership_status`（Premium）和 `membership_deluxe_status`（Deluxe）。
 
 | 用户名位置 | 状态来源 |
 | --- | --- |
@@ -15,9 +15,9 @@
 | Playing Owner | owner_user.membership_status |
 | 回复目标 / Reply to 提示 | 已有目标用户数据；只有 UID/名字时隐藏 |
 
-所有用户模型补齐 gender、age、membershipStatus（JSON 为 membership_status），映射与复制保留这些字段。未知、缺失、非法会员状态不显示，已删除用户不显示；只有整数 1 显示。性别和年龄仅透传，不新增 UI。
+所有用户模型补齐 gender、age、membershipStatus（JSON 为 membership_status），映射与复制保留这些字段。未知、缺失、非法会员状态不显示，已删除用户不显示；两种状态各自只有整数 1 显示对应图标；同时有效按 Deluxe、Premium 显示两个本地 SVG 皇冠，不按商品购买历史排列图标。性别和年龄仅透传，不新增 UI。
 
-复用 ProUserName、ProUserBadge.span、GenesisInlineMetaLabel.membershipStatus 与唯一皇冠组件 ProMembershipBadge，保留文字样式、省略、点击行为、图标比例及系统文字缩放；Me 名字间距 6px，其他 4px。
+复用 ProUserName、ProUserBadge.span、GenesisInlineMetaLabel.membershipStatus 与皇冠组件 ProMembershipBadge（按会员种类选本地资源），保留文字样式、省略、点击行为、图标比例及系统文字缩放；Me 名字间距 6px，其他 4px。
 
 World / Chat / Location Chat 页面不显示用户名皇冠。图标组件不查询接口、没有 UID 状态缓存及轮询；状态随所属列表/资料接口刷新。现有会员购买、钱包、权益判断保持各自的业务链路。
 

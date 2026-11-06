@@ -11,12 +11,32 @@ class MembershipProductList {
     required this.products,
     this.lastAccountUuid,
     this.hasSubscriptionOrder = false,
+    this.deluxeProducts = const [],
+    this.lastAccountUuidDeluxe,
+    this.hasPurchased = false,
   });
 
   factory MembershipProductList.fromJson(Map<String, dynamic> json) {
     final list = json['list'];
     if (list is! List || list.any((item) => item is! Map)) {
       throw const FormatException('Invalid membership product list');
+    }
+    final rawDeluxe = json['list_deluxe'] ?? const [];
+    if (rawDeluxe is! List || rawDeluxe.any((item) => item is! Map)) {
+      throw const FormatException('Invalid Deluxe product list');
+    }
+    final rawDeluxeUuid = json['last_account_uuid_deluxe'];
+    if (rawDeluxeUuid != null && rawDeluxeUuid is! String) {
+      throw const FormatException('Invalid Deluxe UUID');
+    }
+    final deluxeUuid = (rawDeluxeUuid as String?)?.trim().toLowerCase();
+    if (deluxeUuid != null &&
+        deluxeUuid.isNotEmpty &&
+        !isMembershipAccountUuid(deluxeUuid)) {
+      throw const FormatException('Invalid Deluxe UUID');
+    }
+    if (json['has_purchased'] != null && json['has_purchased'] is! bool) {
+      throw const FormatException('Invalid purchase history flag');
     }
     final rawUuid = json['last_account_uuid'];
     if (rawUuid != null && rawUuid is! String) {
@@ -32,6 +52,13 @@ class MembershipProductList {
     }
     return MembershipProductList(
       lastAccountUuid: uuid == null || uuid.isEmpty ? null : uuid,
+      lastAccountUuidDeluxe: deluxeUuid == null || deluxeUuid.isEmpty
+          ? null
+          : deluxeUuid,
+      hasPurchased: json['has_purchased'] == true,
+      deluxeProducts: List.unmodifiable(
+        rawDeluxe.map((item) => MembershipProduct.fromJson(asJsonMap(item))),
+      ),
       hasSubscriptionOrder: hasSubscriptionOrder == true,
       products: List.unmodifiable(
         list.map((item) => MembershipProduct.fromJson(asJsonMap(item))),
@@ -40,6 +67,12 @@ class MembershipProductList {
   }
 
   final List<MembershipProduct> products;
+  final List<MembershipProduct> deluxeProducts;
+  final String? lastAccountUuidDeluxe;
+  final bool hasPurchased;
+  List<MembershipProduct> get allProducts => [...products, ...deluxeProducts];
+  String? accountUuidFor(MembershipType type) =>
+      type == MembershipType.deluxe ? lastAccountUuidDeluxe : lastAccountUuid;
 
   /// Store identity from the current response, shared by all plans.
   final String? lastAccountUuid;
@@ -50,6 +83,9 @@ class MembershipProductList {
   /// Display cache only. Checkout fields must come from a live catalog load.
   Map<String, Object?> toJson() => {
     'list': [for (final product in products) product.toJson()],
+    if (deluxeProducts.isNotEmpty)
+      'list_deluxe': [for (final product in deluxeProducts) product.toJson()],
+    if (hasPurchased) 'has_purchased': true,
   };
 }
 
@@ -106,8 +142,10 @@ class MembershipProduct extends MembershipOrderProduct {
         (currency.isEmpty != (amount == null))) {
       throw const FormatException('Invalid membership display price');
     }
-    if (!((planCode == 'pro_monthly' && months == 1) ||
-            (planCode == 'pro_yearly' && months == 12)) ||
+    if (!((const ['pro_monthly', 'deluxe_monthly'].contains(planCode) &&
+                months == 1) ||
+            (const ['pro_yearly', 'deluxe_yearly'].contains(planCode) &&
+                months == 12)) ||
         months is! int ||
         storeId.isEmpty ||
         (provider == MembershipProvider.google && basePlan.isEmpty) ||

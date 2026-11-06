@@ -11,6 +11,7 @@ class GenesisPrimaryButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
+    this.labelContent,
     this.onDisabledPressed,
     this.backgroundColor,
     this.foregroundColor,
@@ -50,6 +51,7 @@ class GenesisPrimaryButton extends StatelessWidget {
   static const Color defaultDisabledForegroundColor = Colors.white;
 
   final String label;
+  final Widget? labelContent;
   final bool shrinkLabelToFit;
   final VoidCallback? onPressed;
   final VoidCallback? onDisabledPressed;
@@ -145,12 +147,13 @@ class GenesisPrimaryButton extends StatelessWidget {
                     color: resolvedDisabledForeground,
                   ),
                 )
-              : _PrimaryButtonLabel(
-                  label: label,
-                  leadingIcon: leadingIcon,
-                  iconGap: iconGap,
-                  shrinkToFit: shrinkLabelToFit,
-                ),
+              : labelContent ??
+                    _PrimaryButtonLabel(
+                      label: label,
+                      leadingIcon: leadingIcon,
+                      iconGap: iconGap,
+                      shrinkToFit: shrinkLabelToFit,
+                    ),
         ),
       ),
     );

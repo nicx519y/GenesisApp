@@ -15,6 +15,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
     super.key,
     required this.uid,
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     required this.displayName,
     required this.avatarUrl,
     this.deleted = false,
@@ -32,6 +33,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
 
   final String uid;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final String displayName;
   final String avatarUrl;
   final bool deleted;
@@ -83,6 +85,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                 children: [
                   ProUserName(
                     membershipStatus: membershipStatus,
+                    membershipDeluxeStatus: membershipDeluxeStatus,
                     fontSize: 14,
                     deleted: deleted,
                     child: Text(

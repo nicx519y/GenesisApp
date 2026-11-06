@@ -2698,7 +2698,7 @@ World：
 - `report=completed` 后登录用户刷新 wallet，游客保留待绑定证明；`report=rejected` 提示失败。购买 report 只接受这两种业务状态且不再补报；claim 独立处理，完成后刷新 wallet，不重新触发 report。
 - 商品权益仍由服务端返回并按当前套餐展示；title 保持现有固定页面标题行为，价格及权益不补本地数据。`enhanced/locked/included`、图标映射和加载表现保持现有样式。未登录仍隐藏 Buy Gems 和购买历史入口。
 - 普通 Gems 使用 `wallet.balance_cent`，会员 Blue Gems 使用 `membership.blue_gems_cent`，互不替换；原 Gems 购买、签到、补报逻辑不变。
-- 签到确认弹窗通过全局 `checkVip(callback)` 区分会员：有效会员把原 `Get 100` 按钮替换为 `Cancel`（去掉宝石图标），点击只关闭弹窗；`Check in` 保持原来的第二行位置、样式和签到行为，不展示订阅入口；明确非会员（含过期会员）的未签到弹窗保留 `Get 100` / `Check in`。签到入口（登录后自动弹出与 Buy Gems 手动入口共用）先等待当前账号的游客 claim 本轮处理及其完成后的 wallet 刷新，再调用全局 checkVip；不能用登录后、绑定前返回的非会员缓存提前选定弹窗按钮。claim 被 rejected、请求失败或等待超时，以及绑定后 wallet 刷新失败时，都按会员状态暂不可确认处理。会员信息暂不可用时保留普通签到和取消，不引导重复订阅。会员待领奖按钮也使用 `Check in` 文案，底层仍按任务状态调用原 report/claim；已领取的禁用状态和奖励展示不变。登录后自动签到和 Buy Gems 签到入口共用此处理。
+- 签到确认弹窗和成功弹窗的顶部奖励均取 `GET /api/v1/gem/tasks` 中 `daily_checkin.reward_gems_cent`。签到确认弹窗在游客订单绑定及钱包刷新后检查两个会员的有效状态。按 Premium、Deluxe 的顺序为当前无有效会员的组显示 Get 按钮，金额分别为 `reward_gems_cent + reward_gems_cent_premium` 和 `reward_gems_cent + reward_gems_cent_deluxe`，先按整数 cent 相加再换算展示。仅一种会员有效时只显示另一组按钮。两种都有效或状态无法确认时不显示订阅按钮，保留 Check in。两个新字段与原奖励字段并列，旧响应缺字段时隐藏对应按钮。按钮打开订阅弹层并定位相应会员，签到和领取继续按任务状态调用原接口。
 - 2026-09-18 登录后的自动签到先等待当前账号游客 claim 及绑定后的 wallet 刷新完成，再请求 `gem/tasks` 获取签到金额与任务状态；不能提前保存绑定前的 `reward_gems_cent` 后仅刷新会员按钮。金额完全使用任务接口返回值，不在客户端按会员身份翻倍或写死 100。绑定仍未确认、等待超时或请求失败时跳过本次自动提示，避免显示未确认奖励及主 Tab 立即重复调度；切换账号、离开可展示页面后忽略迟到结果。
 - 本地 mock 返回 `{data: {list: [], last_account_uuid: "", has_subscription_order: false}}`，不伪造商品、标题、价格和权益。
 - 仅 Debug 包在 Subscription 购买按钮上方原有间距内显示 `debug 订单 id：…`。读取当前会话最近一次主动购买回调的 `transactionId`（Google 商店订单号／Apple 交易 ID），取得前显示 `暂无`；不使用本地 request_id、report_id、商品 ID 或 purchase_token 代替。新购买及切换账号清空显示，旧订单的后台补报不覆盖新购买。只观察现有购买状态，不增加网络或商店查询，Profile/Release 不显示该行且保留原布局。
@@ -2726,12 +2726,11 @@ World：
 
 ## Adjust S2S 事件上报（2026-09-23 核对）
 
-- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、`occurred_at`、字符串 map `params` 和顶层布尔值 `reportFirebase`；下列 12 个购买事件另传 `transaction_id`，且 `reportFirebase: true`；下列 4 个首次登录／消息事件也为 `true`，其他事件默认 `false`。`occurred_at` 是事件触发时采集的 UTC Unix 秒时间戳；持久化重试保留原值，`reportFirebase` 在发送时计算，包括已入队的旧事件。客户端不直接向 Firebase 上报这 16 个事件，由后端根据该字段转发；普通 `login`、`message_sent` 的客户端 Firebase 上报保留。
-- 登录、消息事件：`login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`，客户端仅入队上报本接口并传 `reportFirebase: true`，由服务端转发 Firebase。购买事件仅由商店 `purchased` 回调进入本接口，不通过客户端直接发送至 Firebase Analytics：`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`。不包含 `subscription_renew`。
-- 登录事件参数为 `method/device_id`；消息事件参数为 `world_id/location_id/device_id`。S2S 保留原 Firebase 事件的参数名和值，值按接口要求转为字符串；这四个事件不传 `transaction_id`。
-- 购买事件参数为 `provider/product_id/device_id`，商店价格与三位货币码有效时再传 `value/currency`。`transaction_id` 来自当前商店交易凭据；普通事件按商店购买凭据去重（Google purchase token、Apple transaction ID），`_first` 事件按设备及上报环境只发送一次。Day0 以首次 Gateway 服务端时间同步为锚点，按 UTC+8 自然日判断；旧版事件的一次性标记继续生效，避免升级后重复上报。
-- 设备唯一事件先检查现有 Firebase 本地一次性标记：已标记为上报的老用户不向 Firebase 或 S2S 补报；未标记时，这四个首次事件仅进入持久化 S2S 队列，入队成功后记录原一次性标记。入队失败不记标记；网络失败由队列重试。`reportFirebase` 仍在发送时计算，旧待发送记录也遵循当前规则，不增加队列迁移。
-- 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。已在旧版 SQLite v5 升级时清除的积压购买事件无法恢复；当前允许列表中的购买事件及其未送达队列可正常发送。S2S 环境实时跟随 Firebase 当前策略：Firebase `app_environment=production` 时使用 `production`，Firebase `app_environment=test`（包括 Debug、Internal Release 或非正式域名调试开启）时使用接口要求的 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
+- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。客户端通过此接口发送 `login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`，传 `event`、`environment`、`occurred_at`、字符串 map `params` 和顶层 `reportFirebase: true`，由服务端转发 Firebase。普通 `login`、`message_sent` 的客户端 Firebase 上报保留。
+- 登录事件参数为 `method/device_id`，消息事件参数为 `world_id/location_id/device_id`。这四个事件不传 `transaction_id`。发送前检查现有 Firebase 设备一次性标记，已标记的老用户不补报。入队成功后才记标记。持久化重试保留触发时采集的 UTC Unix 秒。
+- 已停报 `purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`、`subscription_first_day0`、`subscription_renew`。升级时清除旧归因队列中的对应记录。用于验单和发放权益的购买 report 及 Collect 支付监控继续走各自的链路。
+- 事件在 HTTP 前持久化。业务成功或服务端判重后标记为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，启动完成设备注册、回前台和会话变化时也会再次尝试发送。明确的参数或业务拒绝记为终态，继续处理后续事件。
+- S2S 环境跟随 Firebase 当前策略。Firebase `app_environment=production` 时使用 `production`，Firebase `app_environment=test` 时使用 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制。
 
 ## Pro 会员购买与上报（2026-09-16 更新）
 
@@ -2975,3 +2974,14 @@ Gems 与会员的 Apple／Google 商品详情统一由原生支付插件缓存�
 ### 2026-11-05 候选卡生图增量
 
 聊天 photo/create 增加 conversation_round_id（十进制字符串）和可选 card_id（int64 数字）；候选受理不含正式消息游标。cards.messages 包含 live_photo，图片任务状态独立于文字 generation_state。2073 表示同卡图片生成中，2072 表示正式来源变化需刷新。接口、选卡联动与通知字段见 [候选卡生图契约](2026-11-05-card-photo-client-changes.md)。小手机 Camera 接口不变。
+
+## Deluxe 独立会员扩展（2026-11-04）
+
+- `/api/v1/membership/products` 保留 Premium `list`，新增同结构 `list_deluxe`；固定 Premium 在前、Deluxe 在后；`has_purchased=true` 时默认定位第二张 Deluxe，否则定位第一张 Premium。该标志包括会员与 Gems 的成功购买历史，不能用于判断当前会员权益。
+- Premium 使用 `last_account_uuid`，Deluxe 使用 `last_account_uuid_deluxe`，禁止跨组回退购买身份；两项均不持久化到展示缓存。
+- `plan_code` 新增 `deluxe_monthly`、`deluxe_yearly`；两组商品统一查询平台，商店价格与币种白名单沿用现有实现。
+- `/api/v1/gem/wallet` 新增 `membership_deluxe`，结构与原 `membership` 一致。Me 粉钻为两项 `blue_gems_cent` 相加；不通过状态或余额推断另一组会员。
+- 公开用户资料增加 `membership_deluxe_status`，解析、映射、复制和已有资料缓存透传；仅各自整数 1 显示对应本地徽章。
+- 购买报告、认领、恢复继续使用原接口和已验证平台凭据；订单模型支持新套餐，不新增另一套购买服务或支付事件名称。
+
+详细接入说明见 [Deluxe 会员接入](deluxe-membership-integration.md)。

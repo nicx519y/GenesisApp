@@ -1,3 +1,7 @@
+import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_indicator.dart';
+import 'package:genesis_flutter_android/components/gems/memory_membership_style.dart';
+import 'package:genesis_flutter_android/network/models/membership_product.dart';
+import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'dart:async';
 import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
 import 'package:genesis_flutter_android/components/gems/subscription_tracking_scope.dart';
@@ -8,6 +12,7 @@ import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_p
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_dark_close_button.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_bottom_sheet.dart';
+import 'package:genesis_flutter_android/components/gems/gem_purchase_state.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
@@ -22,6 +27,179 @@ import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import '../support/membership_fixtures.dart';
 
 void main() {
+  testWidgets(
+    'membership indicator follows Deluxe and interpolates in the sheet',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final wallet = GemWalletStore(
+        readUid: () async => 'u_test',
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
+      );
+      final billing = _SheetBillingService();
+      addTearDown(wallet.dispose);
+      addTearDown(billing.state.dispose);
+      final offers = [
+        for (final deluxe in [false, true])
+          for (final yearly in [false, true])
+            MembershipOffer(
+              product: MembershipProduct.fromJson({
+                ...membershipProduct(yearly: yearly).toJson(),
+                if (deluxe)
+                  'plan_code': yearly ? 'deluxe_yearly' : 'deluxe_monthly',
+                if (deluxe) 'store_product_id': 'test_deluxe',
+              }),
+            ),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.dark(),
+          home: Scaffold(
+            body: PurchaseOptionsSheet(
+              initialTab: PurchaseSheetTab.subscription,
+              membershipProductsLoader: () async =>
+                  MembershipCatalogData(offers: offers, hasPurchased: true),
+              gemsBuilder: (_) => GemPurchaseBottomSheet(
+                productsLoader: () async => [],
+                walletStore: wallet,
+                billingService: billing,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Color color() =>
+          (tester.widget<TabBar>(find.byType(TabBar)).indicator!
+                  as GenesisFixedUnderlineIndicator)
+              .color;
+      expect(color(), MemoryMembershipTier.deluxe.accent);
+      final cards = find.byKey(const ValueKey('membership-subscription-pages'));
+      final subscriptionTop = tester.getTopLeft(cards).dy;
+      await tester.drag(cards, const Offset(200, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(color(), isNot(MemoryMembershipTier.deluxe.accent));
+      expect(color(), isNot(MemoryMembershipTier.premium.accent));
+      await tester.pumpAndSettle();
+      expect(color(), MemoryMembershipTier.premium.accent);
+      final page = find.byKey(const ValueKey('purchase-sheet-pages'));
+      final premiumCard = find.descendant(
+        of: cards,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is MemoryMembershipSurface &&
+              widget.tier == MemoryMembershipTier.premium,
+        ),
+      );
+      final cardLeft = tester.getTopLeft(premiumCard).dx;
+      final button = find.byKey(const ValueKey('pro-subscribe-button'));
+      final pageRect = tester.getRect(page);
+      final trackRect = tester.getRect(cards);
+      expect(trackRect.left, closeTo(pageRect.left, .01));
+      expect(trackRect.right, closeTo(pageRect.right, .01));
+      expect(cardLeft - tester.getTopLeft(page).dx, closeTo(16, .01));
+      expect(cardLeft, closeTo(tester.getTopLeft(button).dx, .01));
+      await tester.drag(cards, const Offset(-200, 0));
+      await tester.pumpAndSettle();
+      expect(color(), MemoryMembershipTier.deluxe.accent);
+      final controller = tester
+          .widget<WalletPurchaseTabs>(find.byType(WalletPurchaseTabs))
+          .controller;
+      controller.animateTo(1);
+      await tester.pumpAndSettle();
+      controller.animateTo(0, duration: const Duration(milliseconds: 300));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        color(),
+        Color.lerp(
+          MemoryMembershipTier.deluxe.accent,
+          GenesisColors.redPrimary,
+          controller.animation!.value,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(color(), MemoryMembershipTier.deluxe.accent);
+      final swipe = await tester.startGesture(tester.getCenter(cards));
+      await swipe.moveBy(const Offset(-40, 0));
+      await swipe.moveBy(const Offset(8, 0));
+      await tester.pump();
+      expect(controller.animation!.value, 0);
+      await swipe.moveBy(
+        const Offset(-85, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump();
+      expect(controller.offset, inExclusiveRange(0, .5));
+      await swipe.up(timeStamp: const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(controller.index, 1);
+      expect(
+        tester.getTopLeft(find.text('My Balance')).dy,
+        closeTo(subscriptionTop, .01),
+      );
+
+      final returnSwipe = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('purchase-sheet-pages'))),
+      );
+      await returnSwipe.moveBy(const Offset(40, 0));
+      await returnSwipe.moveBy(
+        const Offset(75, 0),
+        timeStamp: const Duration(milliseconds: 600),
+      );
+      await tester.pump();
+      expect(controller.offset, inExclusiveRange(-.5, 0));
+      await returnSwipe.up(timeStamp: const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+      expect(controller.index, 0);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('first swipe previews Subscription before mounting it', (
+    tester,
+  ) async {
+    var subscriptionBuilds = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PurchaseOptionsSheet(
+            initialTab: PurchaseSheetTab.buyGems,
+            gemsBuilder: (_) => const SizedBox.expand(),
+            subscriptionBuilder: (_) {
+              subscriptionBuilds++;
+              return const Text('Subscription content');
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pages = find.byKey(const ValueKey('purchase-sheet-pages'));
+    final peek = await tester.startGesture(tester.getCenter(pages));
+    await peek.moveBy(const Offset(40, 0));
+    await peek.moveBy(
+      const Offset(28, 0),
+      timeStamp: const Duration(milliseconds: 600),
+    );
+    await tester.pump();
+    expect(find.byType(GemPurchaseTabPlaceholder), findsOneWidget);
+    expect(subscriptionBuilds, 0);
+    await peek.cancel();
+    await tester.pumpAndSettle();
+    expect(subscriptionBuilds, 0);
+
+    await tester.tap(find.byKey(const ValueKey('wallet-subscription-tab')));
+    await tester.pumpAndSettle();
+    expect(find.text('Subscription content'), findsOneWidget);
+    expect(subscriptionBuilds, greaterThan(0));
+  });
+
   for (final initial in PurchaseSheetTab.values) {
     testWidgets('tab round trips preserve original source for $initial', (
       tester,
@@ -480,7 +658,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('wallet-subscription-tab')));
     await tester.pumpAndSettle();
-    expect(find.text('Monthly: \$9.99'), findsOneWidget);
+    expect(findSubscriptionLabel('Monthly: \$9.99'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
     await tester.pumpAndSettle();
     expect(find.text('Preserved'), findsOneWidget);

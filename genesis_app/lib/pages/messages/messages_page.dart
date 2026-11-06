@@ -515,6 +515,8 @@ class _ConversationTile extends StatelessWidget {
                         Expanded(
                           child: ProUserName(
                             membershipStatus: item.peerMembershipStatus,
+                            membershipDeluxeStatus:
+                                item.peerMembershipDeluxeStatus,
                             deleted: item.peerDeleted,
                             fontSize: 14,
                             child: Text(

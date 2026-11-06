@@ -59,8 +59,7 @@ class GemBalancePanel extends StatelessWidget {
   final int balanceCent;
   final Key balanceKey;
 
-  /// Purchase sheets omit Wallet's 10px top inset; both retain the same
-  /// bottom spacing before the product cards.
+  /// Omit the panel's internal top inset when the host provides spacing.
   final bool compact;
 
   @override
@@ -74,7 +73,6 @@ class GemBalancePanel extends StatelessWidget {
       child: Align(
         alignment: Alignment.topLeft,
         child: Padding(
-          // Wallet adds 10 above the panel; title starts 20 below its header.
           padding: EdgeInsets.only(top: compact ? 0 : 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,

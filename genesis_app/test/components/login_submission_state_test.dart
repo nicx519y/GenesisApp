@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
+import 'package:genesis_flutter_android/components/gems/pro_membership_badge.dart';
 import 'package:genesis_flutter_android/components/login_provider_button.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/onboarding/personalization_sheet.dart';
+import 'package:genesis_flutter_android/network/models/membership_order_product.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_cancelled_exception.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/login_submission_controller.dart';
@@ -15,6 +17,29 @@ import 'package:genesis_flutter_android/pages/me/developer_forced_login_preview.
 import 'package:genesis_flutter_android/pages/me/force_login_page.dart';
 
 void main() {
+  testWidgets('guest Deluxe claim login shows the Deluxe title and crown', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LoginSheet(
+            linkPurchasedMembership: true,
+            purchasedMembershipType: MembershipType.deluxe,
+            useSharedLoginSubmission: false,
+            onLogin: (_) async => false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Sign up to claim Deluxe'), findsOneWidget);
+    expect(
+      tester.widget<ProMembershipBadge>(find.byType(ProMembershipBadge)).deluxe,
+      isTrue,
+    );
+  });
+
   for (final covered in [false, true]) {
     testWidgets('shared login closes forced login, covered=$covered', (
       tester,

@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:uuid/uuid.dart';
 
+import '../../network/models/membership_order_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../telemetry/genesis_telemetry.dart';
 
@@ -182,12 +183,13 @@ class SubscriptionAnalytics {
     String pageId,
     SubscriptionSurface surface,
     SubscriptionSource source,
+    MembershipType membershipType,
   ) {
     if (!_once.add('page:$pageId')) return;
     _emit(
       SubscriptionAnalyticsEvent(
         'subscription_page_show',
-        '',
+        membershipType == MembershipType.deluxe ? 'Deluxe' : 'Premium',
         surface.value,
         object1: source.value,
       ),

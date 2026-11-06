@@ -21,6 +21,9 @@ Future<Map<String, dynamic>?> cacheCurrentUserInfoResponse({
     'gender': asString(rawUser['gender']),
     'age': asString(rawUser['age']),
     'membership_status': asUserMembershipStatus(rawUser['membership_status']),
+    'membership_deluxe_status': asUserMembershipStatus(
+      rawUser['membership_deluxe_status'],
+    ),
   };
   if (_stringValue(merged['uid']).isEmpty && fallbackUid.trim().isNotEmpty) {
     merged['uid'] = fallbackUid.trim();

@@ -220,6 +220,7 @@ class WorldChatroomEntity {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     required this.name,
     required this.avatarUrl,
     required this.type,
@@ -231,6 +232,7 @@ class WorldChatroomEntity {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final String name;
   final String avatarUrl;
   final WorldChatroomEntityType type;

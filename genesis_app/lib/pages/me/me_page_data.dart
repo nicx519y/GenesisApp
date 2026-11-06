@@ -78,6 +78,9 @@ extension _MePageData on _MePageState {
       membershipStatus: asUserMembershipStatus(
         cachedUser?['membership_status'],
       ),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        cachedUser?['membership_deluxe_status'],
+      ),
       displayName: resolvedDisplayName,
       uid: uid.isEmpty ? GenesisL10n.current.meUnknown : uid,
       followingCount: resolvedFollowingCount,

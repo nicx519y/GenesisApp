@@ -684,6 +684,7 @@ class _BlockedUserItem {
     this.gender = '',
     this.age = '',
     this.membershipStatus = 0,
+    this.membershipDeluxeStatus = 0,
     this.deleted = false,
     required this.isBlocked,
   });
@@ -700,6 +701,9 @@ class _BlockedUserItem {
       gender: asString(user['gender']),
       age: asString(user['age']),
       membershipStatus: asUserMembershipStatus(user['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        user['membership_deluxe_status'],
+      ),
       deleted: entityDeleted(user['deleted']),
       uid: uid,
       displayName: name.isEmpty
@@ -716,6 +720,7 @@ class _BlockedUserItem {
   final String gender;
   final String age;
   final int membershipStatus;
+  final int membershipDeluxeStatus;
   final bool deleted;
   bool isBlocked;
 }
@@ -762,6 +767,7 @@ class _BlockedUserTile extends StatelessWidget {
                 children: [
                   ProUserName(
                     membershipStatus: item.membershipStatus,
+                    membershipDeluxeStatus: item.membershipDeluxeStatus,
                     deleted: item.deleted,
                     fontSize: 16,
                     child: Text(

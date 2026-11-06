@@ -14,6 +14,7 @@ import '../../app/gems/gem_wallet_store.dart';
 import '../../app/gems/gem_store_catalog.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/models/gem_product.dart';
+import '../../network/models/membership_order_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
@@ -24,6 +25,7 @@ import 'gem_billing_purchase_dialog.dart';
 import 'gem_purchase_state.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import 'gem_purchase_catalog.dart';
+import 'memory_membership_style.dart' show purchaseTabContentTopSpacing;
 import 'purchase_options_sheet.dart';
 import 'purchase_session_builder.dart';
 
@@ -91,6 +93,7 @@ Future<void> showGemPurchaseBottomSheet(
 Future<void> showSubscriptionPurchaseBottomSheet(
   BuildContext context, {
   SubscriptionSource source = SubscriptionSource.unknown,
+  MembershipType? initialMembershipType,
 }) async {
   final services = AppServicesScope.maybeRead(context);
   final billingService = services?.billing;
@@ -114,6 +117,7 @@ Future<void> showSubscriptionPurchaseBottomSheet(
         builder: (_, showBuyGems) => PurchaseOptionsSheet(
           showBuyGems: showBuyGems,
           initialTab: PurchaseSheetTab.subscription,
+          initialMembershipType: initialMembershipType,
           analyticsPageId: analyticsPageId,
           subscriptionSource: source,
           subscriptionTracking: subscriptionTracking,
@@ -528,7 +532,10 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet>
   Widget _buildPurchaseContent(BuildContext context) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(
+        top: purchaseTabContentTopSpacing,
+        bottom: 14,
+      ),
       child: ValueListenableBuilder<GemWalletState>(
         valueListenable: widget.walletStore.state,
         builder: (context, walletState, _) => GemPurchaseCatalogSection(

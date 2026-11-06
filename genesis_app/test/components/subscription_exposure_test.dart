@@ -8,6 +8,7 @@ import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
 import 'package:genesis_flutter_android/components/gems/subscription_tracking_scope.dart';
+import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 
 import '../support/membership_fixtures.dart';
 
@@ -27,7 +28,7 @@ void main() {
   tearDown(GenesisTelemetry.resetForTesting);
 
   testWidgets(
-    'hidden constructed content does not expose; first loading paint does',
+    'the initial Deluxe card is reported only after it becomes visible',
     (tester) async {
       final events = <SubscriptionAnalyticsEvent>[];
       final page = SubscriptionPageTracking(
@@ -57,10 +58,13 @@ void main() {
       expect(events, isEmpty);
       hidden.value = false;
       await tester.pump();
+      expect(events, isEmpty);
+      catalog.complete(const MembershipCatalogData(hasPurchased: true));
+      await tester.pumpAndSettle();
       expect(events.single.action, 'subscription_page_show');
       expect(events.single.object1, 'from_onboarding');
+      expect(events.single.object2, 'Deluxe');
       expect(events.single.object3, 'subscription_sheet');
-      expect(catalog.isCompleted, isFalse);
       hidden.value = true;
       await tester.pump();
       hidden.value = false;
@@ -109,13 +113,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
     await tester.pump();
     expect(calls, 1);
-    expect(events.first.object2, isEmpty);
-    expect(events.last.object2, isEmpty);
+    expect(events.first.object2, 'Premium');
+    expect(events.last.object2, 'test-annual');
     expect(events.last.object1, 'from_home_membership');
     expect(events.last.object3, 'yearly');
     final eventCount = events.length;
-    await tester.ensureVisible(find.byKey(const ValueKey('pro-plan-monthly')));
-    await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+    final monthly = find.byKey(const ValueKey('membership-premium-monthly'));
+    await tester.ensureVisible(monthly);
+    await tester.tap(monthly);
     await tester.pumpAndSettle();
     expect(events, hasLength(eventCount));
     await tester.ensureVisible(
@@ -127,7 +132,7 @@ void main() {
     expect(events, hasLength(eventCount + 1));
     expect(events.last.action, 'subscription_purchase_click');
     expect(events.last.object1, 'from_home_membership');
-    expect(events.last.object2, isEmpty);
+    expect(events.last.object2, 'test-month');
     expect(events.last.object3, 'monthly');
     await tester.pumpWidget(const SizedBox());
   });
@@ -141,6 +146,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: PurchaseOptionsSheet(
+              gemsSource: BillingPurchaseSource.meGems,
               membershipProductsLoader: loadTestMembershipOffers,
               gemsBuilder: (_) => const Text('gems'),
             ),
@@ -157,7 +163,7 @@ void main() {
       var exposure = sink.events
           .where((e) => e.name == 'subscription_page_show')
           .single;
-      expect(exposure.data['object1'], 'from_buy_gems_tab');
+      expect(exposure.data['object1'], 'from_buy_gems_tab[from_me_gems]');
       expect(exposure.data['object3'], 'subscription_sheet');
       await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
       await tester.pumpAndSettle();
@@ -176,7 +182,11 @@ void main() {
     (tester) async {
       final events = <SubscriptionAnalyticsEvent>[];
       final analytics = SubscriptionAnalytics(sink: events.add);
-      final page = SubscriptionPageTracking(analytics: analytics);
+      SubscriptionPageTracking newPage() => SubscriptionPageTracking(
+        analytics: analytics,
+        source: SubscriptionSource.homeMembership,
+      );
+      final page = newPage();
       Future<void> show(
         SubscriptionPageTracking tracking,
         String account,
@@ -205,13 +215,13 @@ void main() {
         events.where((e) => e.action == 'subscription_page_show'),
         hasLength(1),
       );
-      await show(SubscriptionPageTracking(analytics: analytics), 'reopened');
+      await show(newPage(), 'reopened');
       expect(
         events.where((e) => e.action == 'subscription_page_show'),
         hasLength(2),
       );
-      expect(events.first.object2, isEmpty);
-      expect(events.last.object2, isEmpty);
+      expect(events.first.object2, 'Premium');
+      expect(events.last.object2, 'Premium');
       await tester.pumpWidget(const SizedBox());
     },
   );

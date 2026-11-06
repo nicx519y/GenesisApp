@@ -1,3 +1,4 @@
+import '../../network/models/membership_order_product.dart';
 import '../../l10n/genesis_l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -27,8 +28,9 @@ import '../../utils/stat_count_formatter.dart';
 import '../gems/gem_assets.dart';
 import '../gems/gem_balance_text.dart';
 import '../gems/pro_colors.dart';
-import '../gems/pro_membership_badge.dart';
-import '../gems/profile_membership_card.dart';
+import '../gems/memory_membership_carousel.dart';
+import '../gems/memory_membership_style.dart';
+import '../gems/pro_user_name.dart';
 import 'profile_collection_list.dart';
 
 part 'user_profile_shell.dart';

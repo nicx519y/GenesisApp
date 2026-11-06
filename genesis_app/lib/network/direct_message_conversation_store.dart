@@ -23,6 +23,7 @@ class DirectMessageConversationRecord {
     this.peerGender = '',
     this.peerAge = '',
     this.peerMembershipStatus = 0,
+    this.peerMembershipDeluxeStatus = 0,
     this.peerDeleted = false,
     required this.lastMessage,
     required this.lastMessageAt,
@@ -40,6 +41,9 @@ class DirectMessageConversationRecord {
       peerGender: asString(peer['gender']),
       peerAge: asString(peer['age']),
       peerMembershipStatus: asUserMembershipStatus(peer['membership_status']),
+      peerMembershipDeluxeStatus: asUserMembershipStatus(
+        peer['membership_deluxe_status'],
+      ),
       conversationId: asString(json['conv_id']),
       peerUid: asString(peer['uid']),
       lastMessageId: asString(json['last_message_id']),
@@ -66,6 +70,7 @@ class DirectMessageConversationRecord {
   final String peerGender;
   final String peerAge;
   final int peerMembershipStatus;
+  final int peerMembershipDeluxeStatus;
   final bool peerDeleted;
   final String lastMessage;
   final String lastMessageAt;

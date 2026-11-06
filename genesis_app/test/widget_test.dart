@@ -5123,7 +5123,7 @@ void main() {
           expect(calls, 2);
           if (!preloadReady) completeProducts();
           await tester.pumpAndSettle();
-          expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+          expect(findSubscriptionLabel(r'Yearly: $99.99'), findsOneWidget);
           expect(calls, 2);
         } finally {
           if (!response.isCompleted) completeProducts();

@@ -476,6 +476,8 @@ class _PostReplyRow extends StatelessWidget {
                     Expanded(
                       child: ProUserName(
                         membershipStatus: data.authorMembershipStatus,
+                        membershipDeluxeStatus:
+                            data.authorMembershipDeluxeStatus,
                         fontSize: _postDetailNameStyle.fontSize!,
                         deleted: data.authorDeleted,
                         child: Text(
@@ -752,6 +754,7 @@ class _ReplyViewData {
     this.authorGender = '',
     this.authorAge = '',
     this.authorMembershipStatus = 0,
+    this.authorMembershipDeluxeStatus = 0,
     required this.authorName,
     required this.avatar,
     required this.content,
@@ -783,6 +786,9 @@ class _ReplyViewData {
       authorMembershipStatus: asUserMembershipStatus(
         author?['membership_status'],
       ),
+      authorMembershipDeluxeStatus: asUserMembershipStatus(
+        author?['membership_deluxe_status'],
+      ),
       discussId: asString(json['discuss_id']),
       authorUid: uid,
       authorDeleted: entityDeleted(author?['deleted']),
@@ -812,6 +818,7 @@ class _ReplyViewData {
   final String authorGender;
   final String authorAge;
   final int authorMembershipStatus;
+  final int authorMembershipDeluxeStatus;
   final String authorName;
   final String avatar;
   final String content;
@@ -847,6 +854,9 @@ TextSpan _replyDisplayContentSpan(Map<String, dynamic> json) {
       ProUserBadge.span(
         membershipStatus: asUserMembershipStatus(
           asOptionalJsonMap(json['reply_to_user'])['membership_status'],
+        ),
+        membershipDeluxeStatus: asUserMembershipStatus(
+          asOptionalJsonMap(json['reply_to_user'])['membership_deluxe_status'],
         ),
         deleted: entityDeleted(
           asOptionalJsonMap(json['reply_to_user'])['deleted'],

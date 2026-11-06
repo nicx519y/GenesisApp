@@ -402,8 +402,6 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
     BillingPurchase purchase, {
     required String productId,
     required String attemptId,
-    int? priceAmountMicros,
-    String priceCurrencyCode = '',
   }) {
     if (purchase.status != BillingPurchaseStatus.purchased) return;
     final receipt = purchase.provider == BillingProvider.googlePlay
@@ -436,22 +434,6 @@ extension _GooglePlayBillingTracking on GooglePlayBillingService {
         ),
       },
     );
-    final reporter = purchaseEventReporting;
-    if (reporter != null) {
-      unawaited(
-        reporter.recordPurchase(
-          provider: purchase.provider.apiValue,
-          productId: purchase.productId,
-          kind: PurchaseEventKind.gems,
-          purchaseIdentity: purchase.purchaseToken,
-          transactionIdentity: purchase.transactionId.trim().isNotEmpty
-              ? purchase.transactionId.trim()
-              : purchase.purchaseToken.trim(),
-          priceAmountMicros: priceAmountMicros,
-          priceCurrencyCode: priceCurrencyCode,
-        ),
-      );
-    }
   }
 
   void _trackTimeoutById({

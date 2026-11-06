@@ -2415,7 +2415,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get meDailyCheck => '매일 체크인';
 
   @override
-  String get gemsDailyCheckInReward => '100 받기';
+  String gemsDailyCheckInReward({required String amount}) {
+    return '$amount 받기';
+  }
 
   @override
   String get meCheck => '체크인';
@@ -3753,4 +3755,100 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get cameraRequestConflict =>
       '이 요청은 이전 전송 내용과 충돌합니다. 요청 내용을 변경할 수 없습니다.';
+
+  @override
+  String get membershipExpiry => '멤버십 만료일';
+
+  @override
+  String get meSignUpClaimDeluxe => '가입하고 Deluxe 받기';
+
+  @override
+  String get memoryMembershipDeluxe => 'Worldo Deluxe';
+
+  @override
+  String memoryMembershipMonthlyGems({required String amount}) {
+    return '매월 최대 $amount개의 젬';
+  }
+
+  @override
+  String memoryMembershipPeriod({required String period}) {
+    String _temp0 = intl.Intl.selectLogic(period, {
+      'year': '/ 년',
+      'other': '/ 월',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get memoryMembershipBilledAnnually => '연간 청구';
+
+  @override
+  String memoryMembershipDeluxeProfileOffer({required String amount}) {
+    return '매월 최대 $amount개의 젬과 자동으로 업데이트되는 기억.';
+  }
+
+  @override
+  String get memoryMembershipPremiumOffer =>
+      '모든 반전, 선택, 등장인물을 담고 플레이에 따라 다시 작성되는 전체 이야기 요약과 함께 매월 최대 3,500개의 젬을 받아 보세요.';
+
+  @override
+  String get memoryMembershipDeluxeOffer =>
+      '플레이에 따라 업데이트되고 캐릭터들이 기억하는 타임라인, 등장인물, 관계로 구성된 기억과 함께 매월 최대 18,000개의 젬을 받아 보세요.';
+
+  @override
+  String get memoryMembershipDeluxeTagline => '플레이에 따라 자동으로 업데이트되는 기억.';
+
+  @override
+  String get memoryMembershipDeluxeUnavailable => 'Deluxe는 아직 이용할 수 없어요.';
+
+  @override
+  String get memoryMembershipPremiumCheckout =>
+      '현재 Premium 요금제와 가격을 확인하고 구독하세요.';
+
+  @override
+  String get memoryMembershipDraftPreview => '디자인 미리보기 · 가격과 혜택은 확정되지 않았어요';
+
+  @override
+  String memoryMembershipDetails({required String membership}) {
+    return '$membership 상세 정보 보기';
+  }
+
+  @override
+  String get memoryMembershipTimelineBenefit =>
+      '타임라인, 등장인물, 관계: 주요 사건, 프로필, 각 인물의 감정';
+
+  @override
+  String get memoryMembershipBenefitTimeline => '타임라인: 주요 사건을 순서대로';
+
+  @override
+  String get memoryMembershipBenefitCast => '등장인물: 계속 업데이트되는 모두의 프로필';
+
+  @override
+  String get memoryMembershipBenefitBonds => '관계: 서로를 어떻게 생각하는지';
+
+  @override
+  String get memoryMembershipRememberBenefit => '캐릭터들이 모든 내용을 기억해요';
+
+  @override
+  String get memoryMembershipSummaryBenefit => '기억 범위를 넘어 AI가 기억하는 이야기 되돌아보기';
+
+  @override
+  String get memoryMembershipInspirationsBenefit => '무제한 영감';
+
+  @override
+  String get memoryMembershipEditingBenefit => '무제한 편집';
+
+  @override
+  String memoryMembershipBadgeBenefit({required String membership}) {
+    return '$membership 전용 배지';
+  }
+
+  @override
+  String get memoryMembershipRechargeBenefit => '젬 충전';
+
+  @override
+  String get mePurchasingDeluxe => 'Deluxe 구매 중…';
+
+  @override
+  String get meWorldoDeluxeSubscription => 'Worldo Deluxe 구독이 활성화되었습니다.';
 }

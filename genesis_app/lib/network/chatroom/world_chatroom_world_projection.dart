@@ -29,6 +29,9 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
         membershipStatus: user.containsKey('membership_status')
             ? entity.membershipStatus
             : (existing?.membershipStatus ?? 0),
+        membershipDeluxeStatus: user.containsKey('membership_deluxe_status')
+            ? entity.membershipDeluxeStatus
+            : (existing?.membershipDeluxeStatus ?? 0),
         name: _firstNonEmpty([existing?.name, entity.name]),
         avatarUrl: _firstNonEmpty([entity.avatarUrl, existing?.avatarUrl]),
         type: WorldChatroomEntityType.player,
@@ -90,6 +93,9 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
       membershipStatus: isPlayer
           ? asUserMembershipStatus(user['membership_status'])
           : 0,
+      membershipDeluxeStatus: isPlayer
+          ? asUserMembershipStatus(user['membership_deluxe_status'])
+          : 0,
       id: id,
       name: name,
       avatarUrl: _firstImageUrl(character, const ['avatar', 'avatar_url']),
@@ -110,6 +116,9 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
       gender: asString(user['gender']),
       age: asString(user['age']),
       membershipStatus: asUserMembershipStatus(user['membership_status']),
+      membershipDeluxeStatus: asUserMembershipStatus(
+        user['membership_deluxe_status'],
+      ),
       id: id,
       name: _firstString(user, const [
         'role_nickname',

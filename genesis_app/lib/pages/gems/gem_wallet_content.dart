@@ -55,13 +55,19 @@ class _GemWalletContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 32),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        purchaseTabContentTopSpacing,
+        16,
+        32,
+      ),
       children: [
         ValueListenableBuilder<GemWalletState>(
           valueListenable: walletStateListenable,
           builder: (context, walletState, _) {
             return GemPurchaseCatalogSection(
               balanceCent: walletState.balanceCent ?? 0,
+              compactBalance: true,
               catalog: products == null
                   ? productsLoading || productsError == null
                         ? const GemProductGridSkeleton()

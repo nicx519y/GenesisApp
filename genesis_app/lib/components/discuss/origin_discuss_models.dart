@@ -102,6 +102,7 @@ class OriginDiscussListItem {
     this.authorGender = '',
     this.authorAge = '',
     this.authorMembershipStatus = 0,
+    this.authorMembershipDeluxeStatus = 0,
     required this.authorName,
     required this.avatar,
     required this.content,
@@ -155,6 +156,9 @@ class OriginDiscussListItem {
       authorMembershipStatus: asUserMembershipStatus(
         author?['membership_status'],
       ),
+      authorMembershipDeluxeStatus: asUserMembershipStatus(
+        author?['membership_deluxe_status'],
+      ),
       discussId: asString(json['discuss_id']),
       rootDiscussId: asString(json['root_discuss_id']),
       bizId: asString(json['biz_id']),
@@ -197,6 +201,7 @@ class OriginDiscussListItem {
   final String authorGender;
   final String authorAge;
   final int authorMembershipStatus;
+  final int authorMembershipDeluxeStatus;
   final String authorName;
   final String avatar;
   final String content;
@@ -234,6 +239,7 @@ class OriginDiscussListItem {
       authorGender: authorGender,
       authorAge: authorAge,
       authorMembershipStatus: authorMembershipStatus,
+      authorMembershipDeluxeStatus: authorMembershipDeluxeStatus,
       authorName: authorName,
       avatar: avatar,
       content: content,

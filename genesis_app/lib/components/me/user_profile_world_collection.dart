@@ -106,6 +106,10 @@ class _WorldProfileCollectionListState
                   item.deleted || hideOwner || item.ownerUser.deleted
                   ? 0
                   : item.ownerUser.membershipStatus,
+              ownerMembershipDeluxeStatus:
+                  item.deleted || hideOwner || item.ownerUser.deleted
+                  ? 0
+                  : item.ownerUser.membershipDeluxeStatus,
               statsText: formatWorldStatsLabel(
                 tickNo: item.progressCount,
                 subTickNo: item.subTickNo,
