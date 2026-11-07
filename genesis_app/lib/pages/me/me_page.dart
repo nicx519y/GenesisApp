@@ -74,7 +74,7 @@ class _MePageState extends State<MePage>
     with RouteAware, LanguageDataRefresh<MePage>, LoginSubmissionState<MePage> {
   @override
   Future<void> refreshLanguageData() async {
-    await _refreshAfterPending();
+    if (_signedIn == true) await _refreshAfterPending();
   }
 
   @override
@@ -82,7 +82,8 @@ class _MePageState extends State<MePage>
 
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
 
-  late Future<_MePageContent> _future;
+  late Future<void> _future;
+  bool? _signedIn;
   final ValueNotifier<bool> _isUpdatingProfile = ValueNotifier<bool>(false);
   final ValueNotifier<String> _avatarUrl = ValueNotifier<String>('');
   final ValueNotifier<Uint8List?> _avatarPreviewBytes = ValueNotifier(null);
@@ -95,6 +96,7 @@ class _MePageState extends State<MePage>
   late final MeCollectionController<UserProfileOriginItem> _originsState;
   late final MeCollectionController<UserProfileWorldItem> _worldsState;
   int _loadGeneration = 0;
+  int _lastAppliedSessionRead = 0;
   Future<void>? _pageRefresh;
   int _selectedCollectionTabIndex = 0;
   ValueListenable<int>? _sessionRevisionListenable;
@@ -109,7 +111,13 @@ class _MePageState extends State<MePage>
   void initState() {
     super.initState();
     _tabActivatedListener = _handleTabActivated;
-    _sessionChangedListener = _handleSessionChanged;
+    _sessionChangedListener = () {
+      final interactiveLogin = AppServicesScope.read(
+        context,
+      ).isInteractiveLoginRevision;
+      if (interactiveLogin) markLanguageDataCurrent();
+      _handleSessionChanged(refreshUserInfo: !interactiveLogin);
+    };
     _originsState = MeCollectionController(
       itemId: (item) => item.oid,
       loadPage: (offset) async {
@@ -220,19 +228,11 @@ class _MePageState extends State<MePage>
     return GenesisDarkTheme(
       child: ColoredBox(
         color: GenesisColors.darkBackground,
-        child: FutureBuilder<_MePageContent>(
+        child: FutureBuilder<void>(
           future: _future,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
-              return const Center(
-                child: GenesisLoadingIndicator(
-                  key: ValueKey<String>('me-page-initial-loading'),
-                  strokeWidth: 4,
-                ),
-              );
-            }
-            if (snapshot.hasError) {
+            final data = _profileData.value;
+            if (snapshot.hasError && data == null) {
               return Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -251,11 +251,17 @@ class _MePageState extends State<MePage>
               );
             }
 
-            final content = snapshot.data;
-            if (content == null) {
-              return const SizedBox.shrink();
+            if (_signedIn == null || (_signedIn == true && data == null)) {
+              return Center(
+                child: GenesisLoadingIndicator(
+                  key: _signedIn == null
+                      ? const ValueKey<String>('me-page-initial-loading')
+                      : const ValueKey<String>('me-page-profile-loading'),
+                  strokeWidth: 4,
+                ),
+              );
             }
-            if (!content.isSignedIn) {
+            if (_signedIn == false) {
               return Stack(
                 children: [
                   SignedOutMeView(
@@ -275,7 +281,6 @@ class _MePageState extends State<MePage>
                 ],
               );
             }
-            final data = content.data!;
             final services = AppServicesScope.of(context);
 
             return GenesisTopSafeArea(
@@ -340,7 +345,7 @@ class _MePageState extends State<MePage>
                     child: ValueListenableBuilder<UserProfileData?>(
                       valueListenable: _profileData,
                       builder: (context, currentData, _) {
-                        final visibleData = currentData ?? data;
+                        final visibleData = currentData ?? data!;
                         return UserProfileContent(
                           data: visibleData,
                           originsListenable: _originsState,

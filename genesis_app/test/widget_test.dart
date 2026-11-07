@@ -170,6 +170,7 @@ import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
+import 'package:genesis_flutter_android/l10n/app_language_controller.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
 import 'package:genesis_flutter_android/platform/app/app_metadata_service.dart';
 import 'package:genesis_flutter_android/platform/app/app_version_override_store.dart';
@@ -355,8 +356,14 @@ void _mockEnvironmentSwitchPlatformChannels(WidgetTester tester) {
   });
 }
 
-class _DeferredOriginProfileSessionStore extends MemoryUserSessionStore {
+class _DeferredProfileSessionStore extends MemoryUserSessionStore {
   Completer<Map<String, dynamic>?>? heldProfileRead;
+  final heldUidReads = <Completer<String?>>[];
+
+  @override
+  Future<String?> readUid() => heldUidReads.isEmpty
+      ? super.readUid()
+      : heldUidReads.removeAt(0).future;
 
   @override
   Future<Map<String, dynamic>?> readUserInfo() =>
@@ -908,6 +915,15 @@ class _RecordingV1ListTransport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
+    if (request.uri.path.endsWith('/user/oauth/google')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'data': {
+          'token': 'backend-token',
+          'user': {'uid': 'identity_uid', 'name': 'Login User'},
+        },
+      });
+    }
     if (request.uri.path.endsWith(
       '/device/personalization/update_origin_feed_gender',
     )) {
@@ -7554,22 +7570,43 @@ void main() {
       appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
     );
     final sessionStore = MemoryUserSessionStore();
-    final backendAuth = _FakeBackendAuthCoordinator(
-      authenticated: false,
+    const identityAuth = _FakeIdentityAuthService(
+      signInSession: AuthSession(
+        provider: IdentityProvider.google,
+        providerIdToken: 'id-token',
+        displayName: 'Login User',
+        photoUrl: '',
+      ),
+    );
+    final userInfo = Completer<TransportResponse>();
+    final worldList = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      userInfoCompleter: userInfo,
+      worldListCompleter: worldList,
+    );
+    SharedPreferences.setMockInitialValues({});
+    await appLanguageController.load();
+    addTearDown(() async {
+      SharedPreferences.setMockInitialValues({});
+      await appLanguageController.load();
+    });
+    final backendAuth = GenesisBackendAuthCoordinator(
+      api: GenesisApi(
+        transport: transport,
+        useMock: false,
+        sessionStore: sessionStore,
+        deviceIdService: const _FakeDeviceIdService(),
+        appHeaderProvider: () async => const <String, String>{},
+        languageController: appLanguageController,
+      ),
+      identityAuth: identityAuth,
       sessionStore: sessionStore,
     );
     final services = await _testServices(
       backendAuth: backendAuth,
       sessionStoreOverride: sessionStore,
-      identityAuth: const _FakeIdentityAuthService(
-        signInSession: AuthSession(
-          provider: IdentityProvider.google,
-          providerIdToken: 'id-token',
-          displayName: 'Login User',
-          photoUrl: '',
-        ),
-      ),
-      transport: _RecordingV1ListTransport(),
+      identityAuth: identityAuth,
+      transport: transport,
       useMock: false,
       initialUid: null,
     );
@@ -7584,29 +7621,113 @@ void main() {
     await tester.pumpAndSettle();
 
     final meStateBeforeLogin = tester.state(find.byType(MePage));
+    final activation = tester
+        .widget<MePage>(find.byType(MePage))
+        .activationListenable!;
+    final activationBeforeLogin = activation.value;
     await tester.tap(find.text('Continue with Google'));
-    for (
-      var i = 0;
-      i < 20 && find.text('Continue with Google').evaluate().isNotEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(
-        find.byKey(const ValueKey<String>('me-page-initial-loading')),
-        findsNothing,
-      );
-    }
+    await tester.pump();
+    expect(transport.requestsFor('/api/v1/user/oauth/google'), hasLength(1));
+    expect(transport.requestsFor('/api/v1/user/info'), hasLength(1));
 
+    userInfo.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'data': {
+          'user': {
+            'uid': 'identity_uid',
+            'name': 'Remote User',
+            'language': 'zh-TW',
+          },
+          'relation': {'is_self': true},
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(backendAuth.loginCount, 1);
-    expect(find.text('Continue with Google'), findsNothing);
+    expect(activation.value, activationBeforeLogin);
     expect(tester.state(find.byType(MePage)), same(meStateBeforeLogin));
+    expect(appLanguageController.settingLanguage, 'zh-TW');
+    expect(find.text('Remote User'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.text('Continue with Apple'), findsNothing);
+    expect(transport.requestsFor('/api/v1/user/info'), hasLength(1));
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    expect(worldList.isCompleted, isFalse);
+    worldList.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'data': {'list': [], 'total': 0},
+      }),
+    );
+    await tester.pumpAndSettle();
+    final refreshIndicator = find.descendant(
+      of: find.byKey(const ValueKey('profile-page-refresh')),
+      matching: find.byType(RefreshIndicator),
+    );
+    final refresh = tester.widget<RefreshIndicator>(refreshIndicator).onRefresh();
+    await tester.pumpAndSettle();
+    await refresh;
+    expect(transport.requestsFor('/api/v1/user/info'), hasLength(2));
     void listener() {}
     expect(
       () => services.gemWallet.state.addListener(listener),
       returnsNormally,
     );
     services.gemWallet.state.removeListener(listener);
+  });
+
+  testWidgets('Me hides login while overlapping profile loads are pending', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = _DeferredProfileSessionStore();
+    final services = await _testServices(
+      transport: _RecordingV1ListTransport(),
+      sessionStoreOverride: sessionStore,
+      useMock: false,
+      initialUid: null,
+    );
+    final activation = ValueNotifier<int>(0);
+    addTearDown(activation.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: Scaffold(body: MePage(activationListenable: activation)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Continue with Google'), findsOneWidget);
+
+    await sessionStore.saveUid('u_cached');
+    await sessionStore.saveAuthToken('backend-token');
+    final profile = Completer<Map<String, dynamic>?>();
+    sessionStore.heldProfileRead = profile;
+    final sessionRead = Completer<String?>();
+    final activationRead = Completer<String?>();
+    sessionStore.heldUidReads.addAll([sessionRead, activationRead]);
+    services.notifySessionChanged();
+    activation.value += 1;
+    expect(sessionStore.heldUidReads, isEmpty);
+
+    sessionRead.complete('u_cached');
+    await tester.pump();
+    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.text('Continue with Apple'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('me-page-profile-loading')),
+      findsOneWidget,
+    );
+
+    activationRead.complete('u_cached');
+    await tester.pump();
+    expect(find.text('Continue with Google'), findsNothing);
+
+    profile.complete({'uid': 'u_cached', 'name': 'Cached User'});
+    await tester.pumpAndSettle();
+    expect(find.byType(UserProfileContent), findsOneWidget);
+    expect(find.text('Continue with Google'), findsNothing);
   });
 
   testWidgets('Me session refresh stays local and logout keeps page state', (
@@ -14315,7 +14436,7 @@ void main() {
         ],
       );
       final delayedSession = scenario == 'personalized-late'
-          ? _DeferredOriginProfileSessionStore()
+          ? _DeferredProfileSessionStore()
           : null;
       final services = await _testServices(
         transport: transport,
@@ -14493,7 +14614,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.reset);
-      final session = _DeferredOriginProfileSessionStore();
+      final session = _DeferredProfileSessionStore();
       final transport = _RecordingV1ListTransport(
         originCharacters: const [
           {
@@ -14748,7 +14869,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(390, 844);
         addTearDown(tester.view.reset);
-        final session = _DeferredOriginProfileSessionStore();
+        final session = _DeferredProfileSessionStore();
         final transport = _RecordingV1ListTransport(
           originPrecharacter: const {
             'name': '{{user}}',
@@ -16712,7 +16833,7 @@ void main() {
         addTearDown(tester.view.reset);
         final profileUrl =
             'https://cdn.example.com/cached-role-profile-$inLocation.webp';
-        final session = _DeferredOriginProfileSessionStore();
+        final session = _DeferredProfileSessionStore();
         final revision = ValueNotifier(0);
         addTearDown(revision.dispose);
         final pendingPortrait = Completer<void>();
@@ -21331,7 +21452,7 @@ void main() {
               'Personality 1\nPersonality 2\nPersonality 3\nPersonality 4';
           const setting = 'Setting 1\nSetting 2\nSetting 3\nSetting 4';
           const goal = 'Goal 1\nGoal 2\nGoal 3\nGoal 4';
-          final session = _DeferredOriginProfileSessionStore();
+          final session = _DeferredProfileSessionStore();
           final transport = _RecordingV1ListTransport(
             originPrecharacter: const {
               'name': 'Player',
@@ -23720,6 +23841,11 @@ void main() {
   testWidgets('switching back to signed-in Me refreshes all profile data', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    AppStartupCoordinator.configure(
+      appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+    );
     final transport = _RecordingV1ListTransport();
     var catalogRequests = 0;
     final catalog = MembershipCatalog(
@@ -23791,6 +23917,11 @@ void main() {
   testWidgets('switching back to signed-out Me does not request user info', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    AppStartupCoordinator.configure(
+      appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+    );
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       GenesisApp(

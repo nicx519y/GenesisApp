@@ -921,9 +921,6 @@ class _AppShellPageState extends State<AppShellPage>
     if (_selectedIndex == 3) {
       unawaited(_messagesPoller.runNow());
     }
-    if (_selectedIndex == 4) {
-      _notifyActiveTabActivated();
-    }
   }
 
   void _startInitialBillingRecoveryIfReady() {

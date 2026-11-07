@@ -297,7 +297,17 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
     checkCurrent();
     if (_languageController != null) {
       try {
-        await v1.user.info();
+        final profile = await v1.user.info();
+        checkCurrent();
+        await cacheCurrentUserInfoResponse(
+          sessionStore: _sessionStore,
+          response: profile,
+          fallbackUid: uid,
+          canSave: () {
+            checkCurrent();
+            return true;
+          },
+        );
       } catch (error) {
         debugPrint('[Language] Could not load signed-in user language: $error');
       }

@@ -1,14 +1,5 @@
 part of 'me_page.dart';
 
-class _MePageContent {
-  const _MePageContent.signedOut() : data = null;
-  const _MePageContent.signedIn(this.data);
-
-  final UserProfileData? data;
-
-  bool get isSignedIn => data != null;
-}
-
 @visibleForTesting
 UserProfileData mergeRemoteUserInfoForRenderForTest(
   UserProfileData currentData,

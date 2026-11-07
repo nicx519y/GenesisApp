@@ -16,6 +16,11 @@ mixin LanguageDataRefresh<T extends StatefulWidget> on State<T> {
       _loadedLanguageRevision != appLanguageController.dataRevision;
   FutureOr<void> refreshLanguageData();
 
+  @protected
+  void markLanguageDataCurrent() {
+    _loadedLanguageRevision = appLanguageController.dataRevision;
+  }
+
   late int _loadedLanguageRevision;
   bool _languageRefreshScheduled = false;
   bool _languageRefreshRunning = false;

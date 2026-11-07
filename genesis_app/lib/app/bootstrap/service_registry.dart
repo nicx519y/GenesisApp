@@ -225,6 +225,10 @@ class AppServices {
   final MembershipCatalog membershipCatalog;
   final AppGlobalConfigStore appGlobalConfig;
   final ValueNotifier<int> sessionRevision;
+  int? _interactiveLoginRevision;
+
+  bool get isInteractiveLoginRevision =>
+      _interactiveLoginRevision == sessionRevision.value;
   final ProfileAvatarCache? profileAvatarCache;
   final AdjustDeviceRegistration? adjustDeviceRegistration;
   final AppEventReporting? eventReporting;
@@ -316,11 +320,13 @@ class AppServices {
     api.cancelPendingAuthentication();
   }
 
-  void notifySessionChanged() {
+  void notifySessionChanged({bool interactiveLogin = false}) {
     pendingLoginCheckInUid.value = null;
     gemWallet.reset();
     billing?.resetForSession();
-    sessionRevision.value += 1;
+    final nextRevision = sessionRevision.value + 1;
+    _interactiveLoginRevision = interactiveLogin ? nextRevision : null;
+    sessionRevision.value = nextRevision;
   }
 
   /// Both initial bootstrap and config replacement must subscribe before checkout.

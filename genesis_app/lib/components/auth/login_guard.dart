@@ -80,23 +80,19 @@ Future<bool> loginGenesisWithProvider(
   final cachedUserInfo = await services.sessionStore.readUserInfo();
   checkCurrent();
   final loginUserInfo = <String, dynamic>{
-    if (cachedUserInfo != null) ...cachedUserInfo,
     'uid': user.uid,
     'gender': user.gender,
     'age': user.age,
     'membership_status': user.membershipStatus,
     'membership_deluxe_status': user.membershipDeluxeStatus,
+    if (user.nickname.trim().isNotEmpty) 'name': user.nickname,
+    if (user.avatar.trim().isNotEmpty) 'avatar': user.avatar,
+    if (cachedUserInfo?['uid'] == user.uid) ...cachedUserInfo!,
     'login_provider': provider.name,
   };
-  if (user.nickname.trim().isNotEmpty) {
-    loginUserInfo['name'] = user.nickname;
-  }
-  if (user.avatar.trim().isNotEmpty) {
-    loginUserInfo['avatar'] = user.avatar;
-  }
   await services.sessionStore.saveUserInfo(loginUserInfo);
   checkCurrent();
-  services.notifySessionChanged();
+  services.notifySessionChanged(interactiveLogin: true);
   services.loginSubmission.markSucceeded();
   return true;
 }

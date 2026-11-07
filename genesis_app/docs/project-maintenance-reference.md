@@ -150,6 +150,7 @@ WebSocket 当前协议规则：
 - `EditOriginPage`：编辑已有 Origin。先拉详情并转换成 `MemoryOriginDraftRepository`，复用 origin editor 页和 create flow 外壳，保存走 update 接口。
 - `SearchPage`：全局搜索，结果按 origin/world/user 分流，历史记录在 `SearchHistoryStore`。点击搜索历史标签会填入关键词并触发搜索，不自动聚焦搜索框。
 - `MePage/UserInfoPage/FollowsPage`：当前用户、他人资料、关注/粉丝。Me 优先使用本地 session/cache，避免入口被网络阻塞。
+- Me 收到会话变化后，以当前本地登录状态切换界面。确认已登录即收起登录按钮，资料和列表随后加载。底栏处理会话变化时不额外触发 Me 激活刷新，实际切回 Me 时仍正常刷新。过期加载不得修改登录状态。
 - `SettingsPage/DeveloperPage`：设置和开发维护入口。开发页包含 direct message cache 清理、Gateway host 覆盖、清空 Gateway auth、本地签名诊断等调试功能；Gateway 细节见 `docs/gateway-auth.md`。
 
 <a id="images"></a>

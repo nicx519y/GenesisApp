@@ -35,6 +35,7 @@ import '../platform/auth/provider_identity_auth_service.dart';
 import '../platform/device/device_id_service.dart';
 import '../platform/device/method_channel_device_id_service.dart';
 import '../platform/session/method_channel_user_session_store.dart';
+import '../platform/session/user_info_cache.dart';
 import '../platform/session/user_session_store.dart';
 import '../utils/entity_deleted.dart';
 import '../utils/genesis_image_resource.dart';
