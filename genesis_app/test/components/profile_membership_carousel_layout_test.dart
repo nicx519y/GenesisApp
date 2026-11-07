@@ -52,51 +52,52 @@ void main() {
     expect(deluxeSubscribe, findsOneWidget);
   });
 
-  testWidgets('Me prioritizes active memberships before purchase history', (
-    tester,
-  ) async {
-    Future<void> show({
-      required bool premium,
-      required bool deluxe,
-      required bool history,
-    }) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: GenesisTheme.dark(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 390,
-              child: MemoryMembershipProfileCarousel(
-                hasPurchased: history,
-                premiumActive: premium,
-                deluxeActive: deluxe,
-                onPremiumSubscribe: () {},
-                onDeluxeSubscribe: () {},
+  testWidgets(
+    'Me starts at Premium and does not reposition on membership changes',
+    (tester) async {
+      Future<void> show({
+        required bool premium,
+        required bool deluxe,
+        required bool history,
+      }) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GenesisTheme.dark(),
+            home: Scaffold(
+              body: SizedBox(
+                width: 390,
+                child: MemoryMembershipProfileCarousel(
+                  hasPurchased: history,
+                  premiumActive: premium,
+                  deluxeActive: deluxe,
+                  onPremiumSubscribe: () {},
+                  onDeluxeSubscribe: () {},
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
+        await tester.pumpAndSettle();
+      }
+
+      final cards = find.byKey(const ValueKey('membership-profile-pages'));
+      await show(premium: false, deluxe: false, history: true);
+      final scroll = tester.widget<SingleChildScrollView>(cards).controller!;
+      expect(scroll.offset, 0);
+      await show(premium: true, deluxe: false, history: true);
+      expect(scroll.offset, 0);
+      await show(premium: false, deluxe: true, history: false);
+      expect(scroll.offset, 0);
+      await show(premium: true, deluxe: true, history: false);
+      expect(scroll.offset, 0);
+
+      await tester.drag(cards, const Offset(-500, 0));
       await tester.pumpAndSettle();
-    }
-
-    final cards = find.byKey(const ValueKey('membership-profile-pages'));
-    await show(premium: false, deluxe: false, history: true);
-    final scroll = tester.widget<SingleChildScrollView>(cards).controller!;
-    expect(scroll.offset, scroll.position.maxScrollExtent);
-    await show(premium: true, deluxe: false, history: true);
-    expect(scroll.offset, 0);
-    await show(premium: false, deluxe: true, history: false);
-    expect(scroll.offset, scroll.position.maxScrollExtent);
-    await show(premium: true, deluxe: true, history: false);
-    expect(scroll.offset, scroll.position.maxScrollExtent);
-
-    await tester.drag(cards, const Offset(500, 0));
-    await tester.pumpAndSettle();
-    await show(premium: true, deluxe: false, history: true);
-    await show(premium: false, deluxe: true, history: true);
-    expect(scroll.offset, 0);
-  });
+      await show(premium: true, deluxe: false, history: true);
+      await show(premium: false, deluxe: true, history: true);
+      expect(scroll.offset, scroll.position.maxScrollExtent);
+    },
+  );
 
   for (final history in [false, true]) {
     testWidgets(
@@ -121,20 +122,20 @@ void main() {
         await tester.pumpAndSettle();
         final cards = find.byKey(const ValueKey('membership-profile-pages'));
         final scroll = tester.widget<SingleChildScrollView>(cards).controller!;
-        expect(scroll.offset, history ? scroll.position.maxScrollExtent : 0);
+        expect(scroll.offset, 0);
         // A short slow drag should complete the move without requiring the
         // previous 24px of actual movement (in addition to touch slop).
         await tester.timedDrag(
           cards,
-          Offset(history ? 35 : -35, 0),
+          const Offset(-35, 0),
           const Duration(milliseconds: 500),
         );
         await tester.pumpAndSettle();
-        final destination = history ? 0.0 : scroll.position.maxScrollExtent;
+        final destination = scroll.position.maxScrollExtent;
         expect(scroll.offset, closeTo(destination, .01));
         await tester.timedDrag(
           cards,
-          Offset(history ? -25 : 25, 0),
+          const Offset(25, 0),
           const Duration(milliseconds: 500),
         );
         await tester.pumpAndSettle();
@@ -171,15 +172,12 @@ void main() {
         // Shorter than the distance threshold after touch slop is consumed.
         await tester.fling(
           cards,
-          Offset(history ? 30 : -30, 0),
+          const Offset(-30, 0),
           250,
           frameInterval: const Duration(milliseconds: 4),
         );
         await tester.pumpAndSettle();
-        expect(
-          scroll.offset,
-          closeTo(history ? 0 : scroll.position.maxScrollExtent, .01),
-        );
+        expect(scroll.offset, closeTo(scroll.position.maxScrollExtent, .01));
         expect(taps, 0);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
@@ -237,7 +235,7 @@ void main() {
       final premium = find.byKey(const ValueKey('membership-profile-premium'));
       final deluxe = find.byKey(const ValueKey('membership-profile-deluxe'));
       final cards = find.byKey(const ValueKey('membership-profile-pages'));
-      expect(tester.getRect(deluxe).right, closeTo(width - 16, .01));
+      expect(tester.getRect(premium).left, 16);
       await tester.drag(cards, const Offset(500, 0));
       await tester.pumpAndSettle();
       final premiumRect = tester.getRect(premium);

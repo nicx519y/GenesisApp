@@ -563,27 +563,7 @@ class MemoryMembershipProfileCarousel extends StatefulWidget {
 class _MemoryMembershipProfileCarouselState
     extends State<MemoryMembershipProfileCarousel> {
   final _scroll = ScrollController();
-  bool? _positionedAtDeluxe;
-  bool _userScrolled = false;
   double _dragOrigin = 0;
-
-  bool get _defaultsToDeluxe =>
-      widget.deluxeActive || (!widget.premiumActive && widget.hasPurchased);
-
-  void _positionDefault() {
-    final deluxe = _defaultsToDeluxe;
-    if (_userScrolled || _positionedAtDeluxe == deluxe) return;
-    _positionedAtDeluxe = deluxe;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          _userScrolled ||
-          _defaultsToDeluxe != deluxe ||
-          !_scroll.hasClients) {
-        return;
-      }
-      _scroll.jumpTo(deluxe ? _scroll.position.maxScrollExtent : 0);
-    });
-  }
 
   @override
   void dispose() {
@@ -594,14 +574,12 @@ class _MemoryMembershipProfileCarouselState
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      _positionDefault();
       final tiers = memoryMembershipOrder();
       final width = memoryMembershipProfileCardWidth(constraints.maxWidth);
       return NotificationListener<ScrollStartNotification>(
         onNotification: (event) {
           if (event.dragDetails != null &&
               event.metrics.axis == Axis.horizontal) {
-            _userScrolled = true;
             _dragOrigin = _scroll.offset;
           }
           return false;
