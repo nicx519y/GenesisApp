@@ -16,6 +16,40 @@ import '../../support/personalization_fixtures.dart';
 
 void main() {
   test(
+    'signed-in startup retains account language through device config',
+    () async {
+      SharedPreferences.setMockInitialValues({'app_language': 'zh-TW'});
+      final languages = AppLanguageController();
+      await languages.load(useDeviceCache: false, accountLanguage: 'en');
+      final config = AppGlobalConfigStore(
+        loadConfig: ({String? uid}) async => {'language': 'zh-TW'},
+      );
+      addTearDown(config.dispose);
+      var notifications = 0;
+      languages.addListener(() => notifications++);
+      await loadStartupAppConfig(
+        store: config,
+        uidResolution: Future.value(
+          const StartupUidResolution(uid: 'account', status: 'signed_in'),
+        ),
+        collectReady: Future.value(),
+        languageController: languages,
+      );
+      languages.applyUserLanguage(
+        'en',
+        requestRevision: languages.revision,
+        persistToDeviceCache: false,
+      );
+      expect(languages.settingLanguage, 'en');
+      expect(notifications, 0);
+      expect(
+        (await SharedPreferences.getInstance()).getString('app_language'),
+        'zh-TW',
+      );
+    },
+  );
+
+  test(
     'restart restores Traditional Chinese from agreed server setting',
     () async {
       SharedPreferences.setMockInitialValues({});

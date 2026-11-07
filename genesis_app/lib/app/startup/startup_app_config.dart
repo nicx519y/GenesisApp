@@ -35,10 +35,13 @@ Future<void> loadStartupAppConfig({
         return (await uidResolution).uid;
       },
     );
-    languages.applyConfigLanguage(
-      store.value.language,
-      requestRevision: requestRevision,
-    );
+    final identity = await uidResolution;
+    if (identity.status == 'signed_out') {
+      languages.applyConfigLanguage(
+        store.value.language,
+        requestRevision: requestRevision,
+      );
+    }
     ApiRequestTraceSampling.configureForLaunch(
       store.value.apiTraceSamplingRate,
     );

@@ -5,6 +5,8 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../l10n/app_language_controller.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../network/api_exception.dart';
+import '../../platform/session/user_session_store.dart';
+import '../../platform/session/user_language_cache.dart';
 import '../../l10n/genesis_localizations.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -38,11 +40,26 @@ class _LanguagePageState extends State<LanguagePage> {
           widget.saveLanguage ??
           (String language) async {
             final services = AppServicesScope.read(context);
+            final session = await services.sessionStore.readCompleteSession();
             final deviceId = await services.deviceId.getDeviceId();
             await services.api.v1.device.setLanguage(
               deviceId: deviceId,
               language: language,
             );
+            if (session != null) {
+              try {
+                await cacheUserLanguage(
+                  store: services.sessionStore,
+                  session: session,
+                  language: language,
+                  canSave: () => true,
+                );
+              } catch (error) {
+                debugPrint(
+                  '[Language] Could not cache account language: $error',
+                );
+              }
+            }
           };
       await appLanguageController.select(locale, saveLanguage: saveLanguage);
       if (mounted) {

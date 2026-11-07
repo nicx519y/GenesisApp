@@ -28,6 +28,7 @@ import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
 import 'network/websocket_capture.dart';
 import 'platform/session/user_session_store.dart';
+import 'platform/session/user_language_cache.dart';
 import 'ui/system/genesis_system_ui.dart';
 
 export 'app/genesis_app.dart';
@@ -39,7 +40,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final privacyLoad = privacyConsent.initialize();
   final appConfigLoad = loadStartupEndpointConfig();
-  await appLanguageController.load();
   final systemUiInitialization = waitForStartupDependency(
     GenesisSystemUi.initialize(),
     timeout: _startupSystemUiTimeout,
@@ -170,6 +170,15 @@ Future<void> main() async {
         }),
   );
   final startupUidResolution = _resolveStartupUid(services.sessionStore);
+  final identity = await startupUidResolution;
+  final accountLanguage = identity.uid == null
+      ? null
+      : await _readStartupAccountLanguage(services.sessionStore, identity.uid!);
+  await appLanguageController.load(
+    useDeviceCache: identity.status == 'signed_out',
+    accountLanguage: accountLanguage,
+  );
+
   final initialLandingPageFuture = resolveInitialLandingPage(
     uidReadAlreadyBounded: true,
     loadUid: () async {
@@ -195,7 +204,27 @@ Future<void> main() async {
           final resolution = await startupUidResolution;
           if (resolution.uid == null || resolution.uid!.isEmpty) return;
           try {
-            await services.api.v1.user.info();
+            final session = await services.sessionStore.readCompleteSession();
+            if (session == null || session.uid != resolution.uid) return;
+            final revision = appLanguageController.revision;
+            final response = await services.api.v1.user.info(
+              persistLanguageToDeviceCache: false,
+            );
+            final user = response['user'];
+            final language = user is Map ? user['language'] : null;
+            if (language is! String) return;
+            final code = language.trim();
+            if (!AppLanguageController.languageCodes.contains(code) ||
+                await services.sessionStore.readCompleteSession() != session ||
+                appLanguageController.revision != revision) {
+              return;
+            }
+            await cacheUserLanguage(
+              store: services.sessionStore,
+              session: session,
+              language: code,
+              canSave: () => appLanguageController.revision == revision,
+            );
           } catch (error) {
             debugPrint(
               '[Language] Could not load startup user language: $error',
@@ -229,6 +258,19 @@ Future<void> main() async {
   runApp(
     GenesisApp(services: services, initialIndex: initialLandingPage.index),
   );
+}
+
+Future<String?> _readStartupAccountLanguage(
+  UserSessionStore store,
+  String uid,
+) async {
+  try {
+    final user = await store.readUserInfo().timeout(const Duration(seconds: 2));
+    final language = user?['language'];
+    return user?['uid'] == uid && language is String ? language.trim() : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 Future<StartupUidResolution> _resolveStartupUid(UserSessionStore sessionStore) {

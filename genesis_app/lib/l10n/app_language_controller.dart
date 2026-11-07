@@ -66,7 +66,10 @@ class AppLanguageController extends ChangeNotifier {
   }
 
   // Restore a saved setting before runApp; server settings remain authoritative.
-  Future<void> load() async {
+  Future<void> load({
+    bool useDeviceCache = true,
+    String? accountLanguage,
+  }) async {
     _locale = null;
     if (_settingLanguage != null) _dataRevision++;
     _settingLanguage = null;
@@ -81,7 +84,9 @@ class AppLanguageController extends ChangeNotifier {
           _userLanguageApplied) {
         return;
       }
-      final cached = preferences.getString(preferenceKey);
+      final cached = useDeviceCache
+          ? preferences.getString(preferenceKey)
+          : accountLanguage?.trim();
       if (cached != null && languageCodes.contains(cached)) {
         _apply(cached);
         return;
@@ -97,16 +102,23 @@ class AppLanguageController extends ChangeNotifier {
     _applyServerLanguage(language);
   }
 
-  void applyUserLanguage(String? language, {required int requestRevision}) {
+  void applyUserLanguage(
+    String? language, {
+    required int requestRevision,
+    bool persistToDeviceCache = true,
+  }) {
     if (_saving || requestRevision != _revision) return;
-    if (_applyServerLanguage(language)) _userLanguageApplied = true;
+    if (_applyServerLanguage(language, persist: persistToDeviceCache)) {
+      _userLanguageApplied = true;
+    }
   }
 
-  bool _applyServerLanguage(String? language) {
+  bool _applyServerLanguage(String? language, {bool persist = true}) {
     final code = language?.trim() ?? '';
     if (!languageCodes.contains(code)) return false;
+    final changed = _settingLanguage != code;
     _apply(code);
-    unawaited(_persistLanguage(code));
+    if (changed && persist) unawaited(_persistLanguage(code));
     return true;
   }
 

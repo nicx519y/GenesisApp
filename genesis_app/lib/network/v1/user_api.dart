@@ -125,7 +125,10 @@ class UserV1Api extends V1ApiResource {
   ///
   /// For the current account, UUID and selected model code are siblings of
   /// `user` in this result.
-  Future<Map<String, dynamic>> info({String? uid}) async {
+  Future<Map<String, dynamic>> info({
+    String? uid,
+    bool persistLanguageToDeviceCache = true,
+  }) async {
     final resolvedUid = uid?.trim() ?? '';
     if (resolvedUid.isNotEmpty) {
       return getMapWithHeaders(
@@ -152,6 +155,7 @@ class UserV1Api extends V1ApiResource {
         _languageController?.applyUserLanguage(
           asString(asJsonMap(response['user'])['language']),
           requestRevision: languageRevision,
+          persistToDeviceCache: persistLanguageToDeviceCache,
         );
       }
     }
